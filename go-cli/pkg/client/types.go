@@ -3,7 +3,7 @@ package client
 import "errors"
 
 const (
-	BaseURL            = "https://gptcodex.top"
+	BaseURL            = "" // 不再内置默认上游;调用方必须显式提供 Options.BaseURL
 	TextModel          = "gpt-5.5"
 	ImageModel         = "gpt-image-2"
 	DefaultSize        = "1024x1024"

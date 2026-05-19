@@ -66,7 +66,7 @@ func TestRequestAndExtractWithRetries_HappyPath(t *testing.T) {
 
 	res, rawPath, err := RequestAndExtractWithRetries(
 		ctx, transport,
-		Options{APIKey: "sk-test", Prompt: "hello", Size: "1024x1024", Quality: "auto"},
+		Options{APIKey: "sk-test", Prompt: "hello", Size: "1024x1024", Quality: "auto", BaseURL: "https://test.local"},
 		dir, "20260518-200000",
 		nil, nil,
 	)
@@ -132,7 +132,7 @@ func TestRequestAndExtractWithRetries_RetryOn524(t *testing.T) {
 	defer cancel()
 	res, _, err := RequestAndExtractWithRetries(
 		ctx, transport,
-		Options{APIKey: "sk-test", Prompt: "p", Size: "1024x1024", Quality: "auto"},
+		Options{APIKey: "sk-test", Prompt: "p", Size: "1024x1024", Quality: "auto", BaseURL: "https://test.local"},
 		dir, "20260518-200001",
 		nil, nil,
 	)

@@ -13,13 +13,11 @@ export function FAQModal({ open, onClose }: { open: boolean; onClose: () => void
             <code> image_generation </code> 工具触发的。
           </p>
           <p>
-            所以在 GPTCODEX 中转站后台,你的 key 需要绑定到
-            <strong>「拥有 gpt-5.5 模型的分组」</strong>:
+            所以在你使用的中转站后台,key 需要绑定到
+            <strong>「拥有 gpt-5.5(或同等具备 image_generation 工具的)模型的分组」</strong>。
+            如果中转站区分「文本分组」「image API 分组」,要选包含 gpt-5.5 的那个,
+            <strong>不是</strong>纯 image API 那个。
           </p>
-          <ul>
-            <li>✅ 推荐选 <strong>「余额分组」</strong> 或 <strong>「套餐分组」</strong></li>
-            <li>❌ <strong>不要</strong>选「image-2 分组」 — 那是直接 image API 的分组,不包含 gpt-5.5</li>
-          </ul>
           <p>
             如果 key 没有 gpt-5.5 权限,接口会返回 401/403 或者 "model not found" 错误。
           </p>
@@ -28,8 +26,9 @@ export function FAQModal({ open, onClose }: { open: boolean; onClose: () => void
         <details>
           <summary>支持哪些上游中转站?</summary>
           <p>
-            默认 <code>https://gptcodex.top</code>。任何兼容 OpenAI <strong>Responses API</strong> 形态 + 提供
-            <code> image_generation </code> 工具的中转站理论上都行。在「设置 → BASE_URL」可以切换。
+            <strong>不内置任何默认上游</strong>,首次使用需到「设置 → 上游 BASE_URL」中填入你自己的地址。
+            任何兼容 OpenAI <strong>Responses API</strong> 形态 + 提供
+            <code> image_generation </code> 工具的中转站理论上都行。
           </p>
           <p>
             注意:OpenAI 官方 <code>/v1/chat/completions</code> 接口的中转站

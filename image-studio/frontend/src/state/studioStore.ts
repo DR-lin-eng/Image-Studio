@@ -366,6 +366,10 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       set({ errorMessage: "请填写提示词" });
       return;
     }
+    if (!s.baseURL.trim()) {
+      set({ errorMessage: "请在「设置 → 上游 BASE_URL」中填入你的中转站地址(必须兼容 OpenAI Responses API + image_generation 工具)" });
+      return;
+    }
     let editSourcePaths: string[] = [];
     if (s.mode === "edit") {
       editSourcePaths = s.sources.map((src) => src.path).filter(Boolean);
@@ -506,7 +510,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   saveCurrentImageAs: async () => {
     const cur = get().currentImage;
     if (!cur) return;
-    const suggested = `gptcodex-${cur.mode}-${cur.id.slice(0, 8)}.png`;
+    const suggested = `image-${cur.mode}-${cur.id.slice(0, 8)}.png`;
     try {
       const saved = await SaveImageAs(cur.imageB64, suggested);
       if (saved) get().pushToast(`已保存:${saved.split(/[\\/]/).pop()}`, "success");
@@ -807,6 +811,10 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     const s = get();
     if (!s.apiKey.trim()) {
       s.pushToast("先填入 API Key", "warn");
+      return;
+    }
+    if (!s.baseURL.trim()) {
+      s.pushToast("先在「设置 → 上游 BASE_URL」中填入中转站地址", "warn", 5000);
       return;
     }
     if (s.isTestingKey) return;

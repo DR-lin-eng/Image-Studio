@@ -31,6 +31,9 @@ func RequestAndExtract(
 	if baseURL == "" {
 		baseURL = BaseURL
 	}
+	if baseURL == "" {
+		return ImageResult{}, errors.New("未配置上游 BASE_URL,请在「设置 → 上游 BASE_URL」中填入兼容 Responses API 的中转站地址")
+	}
 	req := Request{
 		URL:     baseURL + "/v1/responses",
 		APIKey:  opts.APIKey,
@@ -99,7 +102,7 @@ loop:
 
 // RequestAndExtractWithRetries wraps RequestAndExtract with the same retry
 // policy as the Python script. It writes one raw-response file per attempt
-// (gptcodex-response-{timestamp}-attempt{N}.txt) under outputDir.
+// (sse-response-{timestamp}-attempt{N}.txt) under outputDir.
 //
 // Returns the final ImageResult and the path of the last raw-response file
 // (handy for the CLI to print).
@@ -124,7 +127,7 @@ func RequestAndExtractWithRetries(
 	var lastPath string
 
 	for attempt := 1; attempt <= MaxAttempts; attempt++ {
-		rawPath := filepath.Join(outputDir, fmt.Sprintf("gptcodex-response-%s-attempt%d.txt", timestamp, attempt))
+		rawPath := filepath.Join(outputDir, fmt.Sprintf("sse-response-%s-attempt%d.txt", timestamp, attempt))
 		lastPath = rawPath
 		onLog(fmt.Sprintf("第 %d/%d 次请求...", attempt, MaxAttempts))
 

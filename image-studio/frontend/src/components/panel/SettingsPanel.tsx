@@ -98,12 +98,12 @@ export function SettingsPanel() {
           </div>
 
           <div className="settings-row">
-            <label className="head">上游 BASE_URL(留空=默认 gptcodex.top)</label>
+            <label className="head">上游 BASE_URL(必填,兼容 OpenAI Responses API + image_generation 工具)</label>
             <input
               className="input"
               type="text"
               value={baseURL}
-              placeholder="https://gptcodex.top"
+              placeholder="https://your-relay.example.com"
               onChange={(e) => setField("baseURL", e.target.value)}
               spellCheck={false}
             />
@@ -221,7 +221,7 @@ export function SettingsPanel() {
           </div>
         </div>
         <p style={{ marginTop: 0, lineHeight: 1.6 }}>
-          一个开源的 GPTCODEX 图片生成 / 编辑桌面客户端,基于 Wails(Go + React/TS)。
+          一个开源的图片生成 / 编辑桌面客户端,基于 Wails(Go + React/TS)。
           所有数据(API Key、历史记录、生成图)都保存在本地机器,不上传任何服务器。
         </p>
         <div style={{ marginTop: 14, fontSize: 12, color: "var(--text-muted)", lineHeight: 1.8 }}>
@@ -230,8 +230,8 @@ export function SettingsPanel() {
           <div>· 前端:React 18 + TypeScript / zustand / react-konva</div>
           <div>· 打包:Wails v2 / WebView2</div>
           <div style={{ marginTop: 6 }}><strong style={{ color: "var(--text)" }}>支持的上游:</strong></div>
-          <div>· 默认 https://gptcodex.top(可在设置里切换)</div>
-          <div>· 兼容 OpenAI Responses API 形态的中转站</div>
+          <div>· 任何兼容 OpenAI <strong>Responses API</strong> 形态的中转站</div>
+          <div>· 需在「设置 → 上游 BASE_URL」中由你自行填入</div>
         </div>
         <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
           <button

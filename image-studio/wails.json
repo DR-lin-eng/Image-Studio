@@ -15,6 +15,6 @@
     "productName": "Image Studio",
     "productVersion": "0.1.0",
     "copyright": "Copyright © 2026",
-    "comments": "GPTCODEX image generation/editing GUI built with Wails (Go + React/TS)"
+    "comments": "Open-source image generation/editing GUI built with Wails (Go + React/TS)"
   }
 }

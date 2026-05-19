@@ -21,7 +21,7 @@ const ASPECT_OPTIONS: { value: SizeValue; label: string; w: number; h: number }[
 ];
 
 // Quality tiers re-labelled by perceived resolution class. The underlying
-// gptcodex-image quality knob is `low / medium / high`; we just relabel:
+// image-generation quality knob is `low / medium / high`; we just relabel:
 //   1K = low    (fast / cheap / less detail)
 //   2K = medium (balanced — the default)
 //   4K = high   (slow / expensive / best detail)

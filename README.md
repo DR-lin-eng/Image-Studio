@@ -22,7 +22,7 @@
 
 ## 为什么写这个
 
-大多数 OpenAI/GPTCODEX 中转站把图像生成接口架在 Cloudflare 后面,而 image-2 这种模型推理需要 30~120 秒。一旦超过 CF 的 100s 默认网关超时,连接被切断 → 客户端收到 524/504 → 整张图作废。
+大多数 OpenAI 兼容中转站把图像生成接口架在 Cloudflare 后面,而 image-2 这种模型推理需要 30~120 秒。一旦超过 CF 的 100s 默认网关超时,连接被切断 → 客户端收到 524/504 → 整张图作废。
 
 常见后果:你点了「生成」,等 100 秒,然后看到 `Cloudflare Error code 524 · A timeout occurred`,再等几分钟再试,大概率重复。
 
@@ -84,11 +84,12 @@ macOS 用 `wails build -platform darwin/universal`,Linux 用 `wails build -platf
 
 ## 快速上手
 
-1. 打开应用,点击左侧 **「API Key」** 折叠区,粘贴你的 GPTCODEX key(`sk-...`)
-2. ⚠️ **重要**:在中转站后台把这个 key 绑定到**拥有 `gpt-5.5` 模型的分组**(余额分组 / 套餐分组),**不要** 选 image-2 分组。详见应用内 FAQ 或下方 [API Key 配置](#api-key-配置)
-3. (可选)点击 **「🔌 测试连接」** 按钮验证 key 是否有 gpt-5.5 权限
-4. 输入 prompt(可在右上角 📋 选模板/历史),选风格 / 比例 / 质量 / 数量
-5. 按 `Ctrl + Enter` 或点击 **「生成 N 张」**
+1. 打开应用,点击右下角 ⚙ 「设置」,在 **「上游 BASE_URL」** 填入你自己的中转站地址(必须兼容 OpenAI Responses API + `image_generation` 工具)
+2. 点击左侧 **「API Key」** 折叠区,粘贴对应的 API key(`sk-...`)
+3. ⚠️ **重要**:这个 key 在中转站后台需要绑定到**拥有 `gpt-5.5`(或同等具备 image_generation 工具的)模型的分组**。详见应用内 FAQ 或下方 [API Key 配置](#api-key-配置)
+4. (可选)点击 **「🔌 测试连接」** 按钮验证 key 是否能正常调用
+5. 输入 prompt(可在右上角 📋 选模板/历史),选风格 / 比例 / 质量 / 数量
+6. 按 `Ctrl + Enter` 或点击 **「生成 N 张」**
 
 图生图流程:
 - 拖入本地图片到窗口 / Ctrl+V 粘贴 / 「+ 添加图片」按钮 → 累积参考图列表
@@ -100,11 +101,13 @@ macOS 用 `wails build -platform darwin/universal`,Linux 用 `wails build -platf
 
 **本应用调用的是上游的 `/v1/responses` 接口**(OpenAI Responses API 形态),而不是直接的 `/v1/images/generations`。图像生成是通过模型内置的 `image_generation` 工具触发的。
 
-所以你的 key 必须:
-- ✅ 绑定到**拥有 `gpt-5.5` 模型的分组**(中转站后台叫做「余额分组」或「套餐分组」)
-- ❌ **不要**选「image-2 分组」 — 那是直接 image API 的分组,不包含 gpt-5.5,会返回 401/403 或 `model not found`
+> 本应用 **不内置任何默认上游**,需要你自己在「设置 → 上游 BASE_URL」中填入兼容 Responses API 的中转站地址。
 
-更换上游 / 模型:左侧设置面板可改 `BASE_URL`、文本模型 ID(默认 `gpt-5.5`)、图像模型 ID(默认 `gpt-image-2`)。任何兼容 OpenAI **Responses API** 形态 + 提供 `image_generation` 工具的中转站理论上都行;**不兼容**普通 `/v1/chat/completions` 中转站。
+所以你的 key 必须:
+- ✅ 绑定到**拥有 `gpt-5.5`(或等同具备 image_generation 工具的)模型的分组**
+- ❌ 如果中转站区分「文本分组」「image API 分组」,**不要**选纯 image API 的那个 —— 那个不包含 gpt-5.5,会返回 401/403 或 `model not found`
+
+设置面板可改 `BASE_URL`、文本模型 ID(默认 `gpt-5.5`)、图像模型 ID(默认 `gpt-image-2`)。任何兼容 OpenAI **Responses API** 形态 + 提供 `image_generation` 工具的中转站理论上都行;**不兼容**普通 `/v1/chat/completions` 中转站。
 
 ---
 
@@ -182,7 +185,7 @@ macOS 用 `wails build -platform darwin/universal`,Linux 用 `wails build -platf
 | 历史记录元数据 | 浏览器 IndexedDB |
 | 生成的 PNG | `%APPDATA%\image-studio\images\` |
 | 拖入 / 变换的图 | `%APPDATA%\image-studio\imports\` |
-| 原始 SSE 响应 | 跟 PNG 同目录(`gptcodex-response-*.txt`,排错用) |
+| 原始 SSE 响应 | 跟 PNG 同目录(`sse-response-*.txt`,排错用) |
 | 用户偏好(主题、预设、prompt 历史) | `localStorage` |
 
 数据完全不出本地;唯一的外部网络请求是向你配置的上游 BASE_URL 发起的生成请求本身。

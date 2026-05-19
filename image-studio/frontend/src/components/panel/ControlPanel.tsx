@@ -80,12 +80,11 @@ export function ControlPanel() {
       <section className="prompt-wrap">
         <div className="head-row">
           <label className="head">Prompt 提示词</label>
-          <span className="prompt-counter">{promptLen} / 1000</span>
+          <span className="prompt-counter">{promptLen}</span>
         </div>
         <textarea
           className="textarea"
           value={prompt}
-          maxLength={1000}
           placeholder="描述你想要生成的画面内容,越详细越好..."
           onChange={(e) => setField("prompt", e.target.value)}
         />

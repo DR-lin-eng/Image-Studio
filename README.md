@@ -20,16 +20,6 @@
 
 ---
 
-<p align="center">
-  <a href="https://gptcodex.top">
-    <img src="./docs/banner-gptcodex.png" alt="GPTCODEX · gptcodex.top" width="420">
-  </a>
-  <br />
-  <sub>本应用默认使用 <a href="https://gptcodex.top"><b>GPTCODEX 中转站</b> (gptcodex.top)</a> 的 <code>/v1/responses</code> 接口 · 需要拥有 <code>gpt-5.5</code> 模型的分组(余额 / 套餐)</sub>
-</p>
-
----
-
 ## 为什么写这个
 
 大多数 OpenAI/GPTCODEX 中转站把图像生成接口架在 Cloudflare 后面,而 image-2 这种模型推理需要 30~120 秒。一旦超过 CF 的 100s 默认网关超时,连接被切断 → 客户端收到 524/504 → 整张图作废。
@@ -269,21 +259,6 @@ Key 没有 `gpt-5.5` 模型权限。换分组,或者把图像模型 ID 改成你
 ## License
 
 [MIT](./LICENSE) © 2026
-
----
-
-## 推荐:GPTCODEX 中转站
-
-本应用默认连接的中转站是 **[gptcodex.top](https://gptcodex.top)**。
-特点是 **稳定承载 image-2 长推理**(配合本应用的 SSE 流式保活,524 截断率近乎为零)+ 余额 / 套餐双模式按需选择。
-
-> 提示:在 GPTCODEX 后台把要用的 key 绑定到「**余额分组**」或「**套餐分组**」(包含 `gpt-5.5` 模型),不要选 image-2 分组。详情见应用内的 ❓ FAQ。
-
-<p align="center">
-  <a href="https://gptcodex.top">
-    <img src="./docs/banner-gptcodex.png" alt="GPTCODEX · gptcodex.top" width="360">
-  </a>
-</p>
 
 ---
 

@@ -32,7 +32,7 @@ function PresetsRow() {
 
 export function SettingsPanel() {
   const {
-    transport, baseURL, textModelID, imageModelID,
+    transport, baseURL, textModelID, imageModelID, apiMode,
     theme, fontScale,
     setField, setAPIKey,
     history,
@@ -98,7 +98,34 @@ export function SettingsPanel() {
           </div>
 
           <div className="settings-row">
-            <label className="head">上游 BASE_URL(必填,兼容 OpenAI Responses API + image_generation 工具)</label>
+            <label className="head">API 形态</label>
+            <div className="api-mode-grid">
+              <button
+                className={`api-mode-btn ${apiMode === "responses" ? "active" : ""}`}
+                onClick={() => setField("apiMode", "responses")}
+                title="POST /v1/responses · SSE 流式保活 · 防 Cloudflare 524"
+              >
+                <span className="api-mode-title">Responses API</span>
+                <span className="api-mode-sub">SSE 保活,推荐</span>
+              </button>
+              <button
+                className={`api-mode-btn ${apiMode === "images" ? "active" : ""}`}
+                onClick={() => setField("apiMode", "images")}
+                title="POST /v1/images/generations · /v1/images/edits · 一次性 JSON 响应"
+              >
+                <span className="api-mode-title">Images API</span>
+                <span className="api-mode-sub">标准 generations / edits</span>
+              </button>
+            </div>
+            <div className="settings-hint">
+              {apiMode === "responses"
+                ? "通过 /v1/responses 调用模型内置的 image_generation 工具,SSE 流式接收;适合不稳定的中转站(可防 CF 524 截断)。"
+                : "通过 /v1/images/generations(文生图)和 /v1/images/edits(图生图,multipart 上传)。无 SSE 保活,长推理上 CF 超时风险更大,但兼容性广。"}
+            </div>
+          </div>
+
+          <div className="settings-row">
+            <label className="head">上游 BASE_URL(必填,兼容上面选择的 API 形态)</label>
             <input
               className="input"
               type="text"

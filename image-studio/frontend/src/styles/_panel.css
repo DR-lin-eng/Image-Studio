@@ -140,3 +140,36 @@
 .settings-toggle:hover { color: var(--text); }
 .settings-body { display: flex; flex-direction: column; gap: 12px; margin-top: 10px; }
 .settings-row { display: flex; flex-direction: column; gap: 6px; }
+.settings-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  padding: 4px 8px;
+  background: var(--surface);
+  border-radius: 6px;
+  border: 1px dashed var(--border);
+}
+.api-mode-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.api-mode-btn {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 8px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  transition: all 120ms;
+  color: var(--text);
+}
+.api-mode-btn:hover { border-color: var(--accent); }
+.api-mode-btn.active { border-color: var(--accent); background: var(--accent-soft); }
+.api-mode-title { font-size: 12px; font-weight: 600; }
+.api-mode-btn.active .api-mode-title { color: var(--accent); }
+.api-mode-sub { font-size: 10px; color: var(--text-muted); }
+.api-mode-btn.active .api-mode-sub { color: var(--accent); opacity: 0.85; }

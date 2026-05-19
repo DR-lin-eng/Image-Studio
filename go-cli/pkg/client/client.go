@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -104,9 +105,27 @@ loop:
 // policy as the Python script. It writes one raw-response file per attempt
 // (sse-response-{timestamp}-attempt{N}.txt) under outputDir.
 //
+// Dispatches between the Responses API SSE flow and the standard Images API
+// based on opts.APIMode. Empty / "responses" → SSE; "images" → Images API.
+//
 // Returns the final ImageResult and the path of the last raw-response file
 // (handy for the CLI to print).
 func RequestAndExtractWithRetries(
+	ctx context.Context,
+	transport Transport,
+	opts Options,
+	outputDir string,
+	timestamp string,
+	onLog func(string),
+	onProgress func(stage string, elapsed int, bytes int64),
+) (ImageResult, string, error) {
+	if opts.APIMode == APIModeImages {
+		return imagesAPIWithRetries(ctx, opts, outputDir, timestamp, onLog, onProgress)
+	}
+	return responsesAPIWithRetries(ctx, transport, opts, outputDir, timestamp, onLog, onProgress)
+}
+
+func responsesAPIWithRetries(
 	ctx context.Context,
 	transport Transport,
 	opts Options,
@@ -191,4 +210,87 @@ func sleepCtx(ctx context.Context, d time.Duration) bool {
 	case <-t.C:
 		return true
 	}
+}
+
+// imagesAPIWithRetries runs the standard OpenAI Images API path with the same
+// 3-attempt retry policy. Raw response per attempt is dumped to
+// images-response-{timestamp}-attempt{N}.json so users can inspect upstream
+// error messages.
+func imagesAPIWithRetries(
+	ctx context.Context,
+	opts Options,
+	outputDir string,
+	timestamp string,
+	onLog func(string),
+	onProgress func(stage string, elapsed int, bytes int64),
+) (ImageResult, string, error) {
+	if onLog == nil {
+		onLog = func(string) {}
+	}
+	if err := os.MkdirAll(outputDir, 0o755); err != nil {
+		return ImageResult{}, "", fmt.Errorf("create output dir: %w", err)
+	}
+
+	var lastErr error
+	var lastPath string
+
+	for attempt := 1; attempt <= MaxAttempts; attempt++ {
+		rawPath := filepath.Join(outputDir, fmt.Sprintf("images-response-%s-attempt%d.json", timestamp, attempt))
+		lastPath = rawPath
+		onLog(fmt.Sprintf("[Images API] 第 %d/%d 次请求...", attempt, MaxAttempts))
+
+		f, err := os.Create(rawPath)
+		if err != nil {
+			return ImageResult{}, lastPath, fmt.Errorf("create raw response file: %w", err)
+		}
+		result, reqErr := RequestImagesAPI(ctx, opts, f, onProgress)
+		f.Close()
+
+		if reqErr == nil {
+			return result, rawPath, nil
+		}
+
+		rawBytes, _ := os.ReadFile(rawPath)
+		raw := string(rawBytes)
+
+		lastErr = reqErr
+		// Images API has no SSE / no partial — only retry on transport-level
+		// errors and Cloudflare 5xx HTML pages.
+		if attempt < MaxAttempts && (IsRetryable(raw) || isTransportishError(reqErr)) {
+			onLog(fmt.Sprintf("%v", reqErr))
+			onLog(fmt.Sprintf("%d 秒后自动重试...", RetryBackoffSeconds))
+			if !sleepCtx(ctx, time.Duration(RetryBackoffSeconds)*time.Second) {
+				return ImageResult{}, lastPath, ctx.Err()
+			}
+			continue
+		}
+		abs, _ := filepath.Abs(rawPath)
+		return ImageResult{}, lastPath, fmt.Errorf("%v\n原始返回已保存:%s", reqErr, abs)
+	}
+
+	abs, _ := filepath.Abs(lastPath)
+	return ImageResult{}, lastPath, fmt.Errorf("多次请求后仍未成功。最后一次原始返回:%s: %w", abs, lastErr)
+}
+
+// isTransportishError treats common transport-layer failures as retryable.
+func isTransportishError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	for _, needle := range []string{
+		"connection reset",
+		"EOF",
+		"timeout",
+		"deadline exceeded",
+		"i/o timeout",
+		"TLS handshake",
+		"no such host",
+		"upstream connect error",
+	} {
+		if strings.Contains(msg, needle) {
+			return true
+		}
+	}
+	return false
 }

@@ -1,6 +1,6 @@
 # Image Studio
 
-> 一个开源的 GPTCODEX 图像生成 / 编辑桌面客户端 ·
+> 一个开源的 image-2 图像生成 / 编辑桌面客户端 ·
 > **流式 SSE 保活,兼容 Cloudflare 524/504 超时截断** ·
 > Wails(Go + React/TS)
 

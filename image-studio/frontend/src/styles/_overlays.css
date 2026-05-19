@@ -237,7 +237,7 @@
   border: 1px solid var(--border);
   padding: 1px 5px;
   border-radius: 3px;
-  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-family: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   font-size: 11px;
   color: var(--accent);
 }
@@ -246,7 +246,7 @@
   border: 1px solid var(--border-2);
   padding: 1px 6px;
   border-radius: 3px;
-  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-family: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
   font-size: 10px;
   color: var(--text);
   box-shadow: 0 1px 0 var(--border-2);

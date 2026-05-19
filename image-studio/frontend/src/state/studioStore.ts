@@ -52,6 +52,10 @@ interface StudioState {
   baseURL: string;
   textModelID: string;
   imageModelID: string;
+  // 上游 API 形态:
+  //   "responses" — 默认,POST /v1/responses + SSE 流式保活(防 CF 524)
+  //   "images"    — 标准 OpenAI Images API,POST /v1/images/generations + /v1/images/edits
+  apiMode: "responses" | "images";
   // Multi-reference source images. The legacy single-source UI now feeds into
   // and reads from this list. Empty list + currentImage on the canvas triggers
   // a fallback where the canvas image is used as the implicit source.
@@ -270,6 +274,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   baseURL: "",
   textModelID: "",
   imageModelID: "",
+  apiMode: "responses",
   sources: [],
 
   runningJobs: [],
@@ -313,7 +318,17 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   activeWorkspaceId: "",
   styleTag: "",
 
-  setField: (key, value) => set({ [key]: value } as any),
+  setField: (key, value) => {
+    set({ [key]: value } as any);
+    // Persist upstream-config + apiMode + transport so they survive restarts.
+    if (
+      key === "apiMode" || key === "baseURL" ||
+      key === "textModelID" || key === "imageModelID" ||
+      key === "transport"
+    ) {
+      try { localStorage.setItem(`gptcodex.${String(key)}`, String(value)); } catch {}
+    }
+  },
 
   setAPIKey: (v) => {
     saveAPIKey(v);
@@ -415,6 +430,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       textModelID: s.textModelID,
       imageModelID: s.imageModelID,
       transport: s.transport,
+      apiMode: s.apiMode,
     };
 
     if (s.prompt.trim()) {
@@ -545,6 +561,23 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       const n = Number(raw);
       if (!Number.isNaN(n) && n > 0.5 && n < 2) fontScale = n;
     } catch {}
+    // 上游 / 模型 / 通道 / API 形态 — 全部走 gptcodex.{field}
+    let apiMode: "responses" | "images" = "responses";
+    let baseURL = "";
+    let textModelID = "";
+    let imageModelID = "";
+    let transport: TransportKind = "auto";
+    try {
+      const v = localStorage.getItem("gptcodex.apiMode");
+      if (v === "images" || v === "responses") apiMode = v;
+    } catch {}
+    try { baseURL = localStorage.getItem("gptcodex.baseURL") ?? ""; } catch {}
+    try { textModelID = localStorage.getItem("gptcodex.textModelID") ?? ""; } catch {}
+    try { imageModelID = localStorage.getItem("gptcodex.imageModelID") ?? ""; } catch {}
+    try {
+      const v = localStorage.getItem("gptcodex.transport");
+      if (v === "auto" || v === "native" || v === "curl") transport = v;
+    } catch {}
     // Apply theme + font scale to root immediately.
     document.documentElement.setAttribute("data-theme", theme);
     document.documentElement.style.setProperty("--font-scale", String(fontScale));
@@ -565,6 +598,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     };
     set({
       apiKey: key, history: items, promptHistory, presets, theme, fontScale,
+      apiMode, baseURL, textModelID, imageModelID, transport,
       workspaces: [initialWorkspace],
       activeWorkspaceId: wsId,
     });
@@ -837,6 +871,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
         textModelID: s.textModelID,
         imageModelID: s.imageModelID,
         transport: s.transport,
+        apiMode: s.apiMode,
       } as any);
       // We don't actually wait for the image; the job is queued in backend.
       // Cancel right after to avoid burning quota.

@@ -154,7 +154,7 @@
   50% { opacity: 0.6; transform: scale(0.9); }
 }
 .footer-version {
-  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-family: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   font-size: 10px;
   color: var(--text-dim);
   background: var(--surface);

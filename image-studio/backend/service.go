@@ -138,6 +138,11 @@ func (s *Service) runJob(ctx context.Context, jobID string, opts GenerateOptions
 		mode = client.ModeEdit
 	}
 
+	apiMode := client.APIMode(opts.APIMode)
+	if apiMode == "" {
+		apiMode = client.APIModeResponses
+	}
+
 	clientOpts := client.Options{
 		APIKey:         opts.APIKey,
 		Prompt:         opts.Prompt,
@@ -151,19 +156,25 @@ func (s *Service) runJob(ctx context.Context, jobID string, opts GenerateOptions
 		TextModelID:    opts.TextModelID,
 		ImageModelID:   opts.ImageModelID,
 		Transport:      client.TransportKind(opts.Transport),
+		APIMode:        apiMode,
 	}
 	if mode == client.ModeEdit {
 		paths := opts.collectPaths()
-		urls := make([]string, 0, len(paths))
-		for _, p := range paths {
-			dataURL, err := client.ImageFileToDataURL(p)
-			if err != nil {
-				s.emitError(jobID, fmt.Errorf("加载源图片 %s 失败:%w", filepath.Base(p), err))
-				return
+		clientOpts.ImagePaths = paths
+		// Responses API 仍需 data URL(走 input_image 形态);
+		// Images API 直接 multipart 上传文件,跳过 base64 编码节省往返开销。
+		if apiMode == client.APIModeResponses {
+			urls := make([]string, 0, len(paths))
+			for _, p := range paths {
+				dataURL, err := client.ImageFileToDataURL(p)
+				if err != nil {
+					s.emitError(jobID, fmt.Errorf("加载源图片 %s 失败:%w", filepath.Base(p), err))
+					return
+				}
+				urls = append(urls, dataURL)
 			}
-			urls = append(urls, dataURL)
+			clientOpts.ImageDataURLs = urls
 		}
-		clientOpts.ImageDataURLs = urls
 	}
 
 	transport, err := client.PickTransport(clientOpts.Transport)

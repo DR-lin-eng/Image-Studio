@@ -6,33 +6,46 @@ export function FAQModal({ open, onClose }: { open: boolean; onClose: () => void
     <Modal open={open} onClose={onClose} title="常见问题" width={520}>
       <div className="faq">
         <details open>
-          <summary>API Key 应该选哪个分组?</summary>
+          <summary>Responses API 与 Images API 怎么选?</summary>
           <p>
-            本应用调用的是上游的 <code>/v1/responses</code> 接口(类似 OpenAI Responses API),
-            而不是 <code>/v1/images/generations</code>。图像生成是通过模型内置的
-            <code> image_generation </code> 工具触发的。
+            本应用支持两种上游接口形态,在「设置 → API 形态」切换:
           </p>
+          <ul>
+            <li>
+              <strong>Responses API</strong>(默认,推荐):POST <code>/v1/responses</code>,通过模型内置的
+              <code> image_generation </code> 工具触发生图,SSE 流式接收。
+              <strong>能防 Cloudflare 524/504 超时</strong>(图像推理常常超过 100 秒),
+              但要求上游 key 绑定到「拥有 gpt-5.5(或同等具备 image_generation 工具的)模型的分组」。
+            </li>
+            <li>
+              <strong>Images API</strong>:标准 OpenAI <code>/v1/images/generations</code>(文生图)+
+              <code>/v1/images/edits</code>(图生图,multipart 上传)。一次性 JSON 响应,无 SSE 保活。
+              <strong>兼容性最广</strong> —— 几乎所有 OpenAI 兼容中转站都开了这两个端点。但长推理(尤其图生图)
+              上 CF 524 风险更高。
+            </li>
+          </ul>
           <p>
-            所以在你使用的中转站后台,key 需要绑定到
-            <strong>「拥有 gpt-5.5(或同等具备 image_generation 工具的)模型的分组」</strong>。
-            如果中转站区分「文本分组」「image API 分组」,要选包含 gpt-5.5 的那个,
-            <strong>不是</strong>纯 image API 那个。
-          </p>
-          <p>
-            如果 key 没有 gpt-5.5 权限,接口会返回 401/403 或者 "model not found" 错误。
+            <strong>选哪个?</strong>看你的中转站 key 绑定的是「文本/Responses 分组」还是「Images 分组」。
+            如果两个都开了,优先 Responses(更稳)。Images 模式不需要 gpt-5.5,只需要图像模型权限(如 gpt-image-1 / image-2)。
           </p>
         </details>
 
         <details>
           <summary>支持哪些上游中转站?</summary>
           <p>
-            <strong>不内置任何默认上游</strong>,首次使用需到「设置 → 上游 BASE_URL」中填入你自己的地址。
-            任何兼容 OpenAI <strong>Responses API</strong> 形态 + 提供
-            <code> image_generation </code> 工具的中转站理论上都行。
+            <strong>不内置任何默认上游</strong>,首次使用需到「设置 → 上游 BASE_URL」中填入你自己的地址,
+            并选择对应的 API 形态(见上一条 FAQ)。
           </p>
           <p>
-            注意:OpenAI 官方 <code>/v1/chat/completions</code> 接口的中转站
-            <strong>不兼容</strong>(本应用不发 chat completions 请求)。
+            <strong>Responses API 模式</strong>下:任何兼容 OpenAI Responses API 形态 + 提供
+            <code> image_generation </code> 工具的中转站都行。
+          </p>
+          <p>
+            <strong>Images API 模式</strong>下:任何提供 <code>/v1/images/generations</code> 和
+            <code> /v1/images/edits </code>(或仅 generations,若只做文生图)的 OpenAI 兼容中转站都行。
+          </p>
+          <p>
+            注意:只提供 <code>/v1/chat/completions</code> 的中转站<strong>两种模式都不兼容</strong>(本应用不发 chat 请求)。
           </p>
         </details>
 
@@ -83,7 +96,7 @@ export function FAQModal({ open, onClose }: { open: boolean; onClose: () => void
             <li>历史记录元数据:浏览器 IndexedDB</li>
             <li>生成的图片 PNG:<code>%APPDATA%\image-studio\images\</code></li>
             <li>导入的源图:<code>%APPDATA%\image-studio\imports\</code></li>
-            <li>原始 SSE 响应:跟 PNG 同目录,排错时用</li>
+            <li>原始上游响应:跟 PNG 同目录(<code>sse-response-*.txt</code> 或 <code>images-response-*.json</code>,排错时用)</li>
           </ul>
         </details>
 

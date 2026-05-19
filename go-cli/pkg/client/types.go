@@ -67,6 +67,20 @@ const (
 	TransportCurl   TransportKind = "curl"
 )
 
+// APIMode selects which upstream contract to use.
+//
+//   - APIModeResponses: 老路径,POST /v1/responses(OpenAI Responses API 形态)
+//     模型内置的 image_generation 工具,SSE 流式 → 兼容 Cloudflare 524/504。
+//   - APIModeImages: 标准 OpenAI Images API,POST /v1/images/generations(文生图)
+//     与 /v1/images/edits(图生图,multipart),一次性 JSON 响应,无 SSE 保活,
+//     适合走 cloudflare 比较稳的中转站,或上游不支持 Responses API 的场景。
+type APIMode string
+
+const (
+	APIModeResponses APIMode = "responses"
+	APIModeImages    APIMode = "images"
+)
+
 // Options drives a single image request.
 type Options struct {
 	APIKey  string
@@ -83,6 +97,16 @@ type Options struct {
 	// Deprecated: kept for callers that still pass a single source image.
 	// If both are set, ImageDataURLs wins. Single URL is appended to the slice.
 	ImageDataURL string
+
+	// ImagePaths holds local filesystem paths of source images. Used by the
+	// Images API (multipart upload of the raw file). When both ImageDataURLs
+	// and ImagePaths are set, ImagePaths wins for Images API and ImageDataURLs
+	// wins for Responses API.
+	ImagePaths []string
+
+	// APIMode selects between Responses API (default) and Images API.
+	// Empty string is treated as APIModeResponses for back-compat.
+	APIMode APIMode
 
 	MaskB64 string // optional, reserved for Phase 3 GUI; omitted from payload when empty
 

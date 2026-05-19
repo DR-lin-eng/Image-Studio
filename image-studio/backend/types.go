@@ -27,6 +27,7 @@ type GenerateOptions struct {
 	TextModelID    string `json:"textModelID"`    // overrides the default text model
 	ImageModelID   string `json:"imageModelID"`   // overrides the default image model
 	Transport      string `json:"transport"`      // "auto" | "native" | "curl"
+	APIMode        string `json:"apiMode"`        // "responses" (default) | "images"
 }
 
 // JobStarted is the response to Generate/Edit.

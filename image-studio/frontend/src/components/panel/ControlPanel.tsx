@@ -15,10 +15,9 @@ const STYLE_CHIPS: { id: string; label: string }[] = [
 
 const ASPECT_OPTIONS: { value: SizeValue; label: string; w: number; h: number }[] = [
   { value: "1024x1024", label: "1:1",  w: 18, h: 18 },
-  { value: "1024x1536", label: "3:4",  w: 14, h: 18 },
-  { value: "1536x1024", label: "4:3",  w: 20, h: 15 },
-  { value: "1024x1536", label: "9:16", w: 11, h: 19 },
-  { value: "1536x1024", label: "16:9", w: 22, h: 12 },
+  { value: "1024x1536", label: "2:3",  w: 14, h: 20 },
+  { value: "1536x1024", label: "3:2",  w: 22, h: 14 },
+  { value: "2048x1152", label: "16:9", w: 24, h: 13 },
 ];
 
 // Quality tiers re-labelled by perceived resolution class. The underlying

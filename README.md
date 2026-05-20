@@ -1,7 +1,7 @@
 # Image Studio
 
-> 一个开源的 image-2 图像生成 / 编辑桌面客户端 ·
-> **流式 SSE 保活,兼容 Cloudflare 524/504 超时截断** ·
+> 一个开源的图像生成 / 编辑桌面客户端 ·
+> 两种 API 形态可选(**SSE 流式保活** 兼容 Cloudflare 524/504 · 或标准 **Images API**)·
 > Wails(Go + React/TS)
 
 ![license](https://img.shields.io/badge/license-MIT-7c3aed)
@@ -22,16 +22,23 @@
 
 ## 为什么写这个
 
-大多数 OpenAI 兼容中转站把图像生成接口架在 Cloudflare 后面,而 image-2 这种模型推理需要 30~120 秒。一旦超过 CF 的 100s 默认网关超时,连接被切断 → 客户端收到 524/504 → 整张图作废。
+大多数 OpenAI 兼容中转站把图像生成接口架在 Cloudflare 后面,而 image-2 / gpt-image 这种模型推理需要 30~120 秒。一旦超过 CF 的 100s 默认网关超时,连接被切断 → 客户端收到 524/504 → 整张图作废。
 
 常见后果:你点了「生成」,等 100 秒,然后看到 `Cloudflare Error code 524 · A timeout occurred`,再等几分钟再试,大概率重复。
 
-**本项目的核心解法是用上游的 `/v1/responses` 接口(类似 OpenAI Responses API)+ SSE 流式协议**:
+**核心解法:用 `/v1/responses` + SSE 流式协议**(Responses API 模式):
 - 模型边推理边发心跳事件(`response.in_progress` / `image_generation_call.generating` / `partial_image` ...),保持 TCP 连接活跃,CF 看到流量就不会断
 - 即使真的被掐了,本地有 3 次自动重试 + 15 秒 backoff
 - 收到 `partial_image_b64` 也会兜底保存,作为「半成品」给你看效果
 
-把这个 Python CLI 脚本(`generate_gptcodex_image.py`)重写为 Go,再封装成 Wails 桌面应用,补全了画板、蒙版、多参考图、撤销重做、历史对比、多标签页等图像编辑器该有的能力。
+**对于不支持 Responses API 的中转站**(或 key 只绑了标准 image 分组的情况),也支持原生 Images API 模式:
+- POST `/v1/images/generations`(文生图,JSON)+ `/v1/images/edits`(图生图,multipart 上传)
+- 一次性 JSON 响应,无 SSE 保活;长推理 CF 524 风险更高,但兼容性最广
+- 同样有 3 次自动重试
+
+两种模式可在「🔧 上游配置」里切换,使用同一套 UI 和文件落地逻辑。
+
+最初是个 Python CLI 脚本(`generate_gptcodex_image.py`),后来重写为 Go,再封装成 Wails 桌面应用,补全了画板、蒙版、多参考图、撤销重做、历史对比、多标签页等图像编辑器该有的能力。
 
 ---
 
@@ -39,13 +46,15 @@
 
 | | |
 |---|---|
-| 🛡 **SSE 流式保活** | 用 `/v1/responses` 接口而非 `/v1/images/generations`,以 Server-Sent Events 持续从上游接收事件,Cloudflare/Nginx 网关看到持续流量不会判定为空闲超时 |
-| 🔁 **自动重试 + 部分结果回退** | 识别 Cloudflare 524/504、JSON `status` 5xx、`retryable=true` 自动重试 3 次;final result 没拿到时用最后的 `partial_image_b64` 兜底 |
+| 🛡 **SSE 流式保活**(Responses API) | 用 `/v1/responses` 接口,以 Server-Sent Events 持续从上游接收事件,Cloudflare/Nginx 网关看到持续流量不会判定为空闲超时 —— **CF 524 推荐这个** |
+| 🔀 **双 API 形态** | 一个 toggle 在 Responses API(SSE 保活,需 gpt-5.5 分组)和 Images API(标准 `/v1/images/generations` + `/v1/images/edits`,可用 image-2 分组)间切换 |
+| 🔁 **自动重试 + 部分结果回退** | 识别 Cloudflare 524/504、JSON `status` 5xx、`retryable=true` 自动重试 3 次;Responses 模式下 final result 没拿到时用最后的 `partial_image_b64` 兜底 |
 | 📦 **大 base64 单行缓冲** | `partial_image_b64` 单行可超 4MB,自定义 8MB scanner buffer,不会被 Go bufio 默认的 64KB 截断 |
 | 🔌 **双 transport** | 默认 net/http 直连;遇到 TLS 指纹 / 代理问题可一键切到子进程 `curl`(`--http1.1 --ssl-no-revoke`) |
 | ⏹ **真正可取消** | `context.Context` 端到端,包括 `exec.CommandContext` 给 curl,「取消」按钮能立刻中断 in-flight 请求 |
 | 🖼 **完整图像编辑器** | Konva 画布、蒙版+橡皮、4 种标注、旋转/翻转/裁剪、历史对比、并发批量(1/2/4/8) |
 | 🧩 **多标签 workspace** | 浏览器风的多 tab,每个独立 prompt/参数/源图;切换不丢现场 |
+| 🔧 **首次启动引导** | apiKey / baseURL 缺失时自动弹「上游配置」窗口,5 字段一次填完(API 形态、BASE_URL、API Key、文本模型、图像模型) |
 | 💾 **100% 本地数据** | 无遥测、无云端账户、无内购;API key、历史、生成图都在你的机器上 |
 
 ---
@@ -54,7 +63,7 @@
 
 ### 方式 1:下载预编译版本(推荐)
 
-到 [Releases](https://github.com/RoseKhlifa/Image-Studio/releases) 页面下载 `image-studio-windows-amd64.exe`(约 12 MB),双击即可运行。
+到 [Releases](https://github.com/RoseKhlifa/Image-Studio/releases) 页面下载 `image-studio-windows-amd64.exe`(约 20 MB,内嵌中文字体),双击即可运行。
 
 Win10+ 需要 [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)(大部分新机器已预装)。
 
@@ -74,7 +83,7 @@ cd Image-Studio/image-studio
 # 开发模式(Vite 热重载 + DevTools)
 wails dev
 
-# 生产构建,输出到 build/bin/image-studio.exe (~12MB)
+# 生产构建,输出到 build/bin/image-studio.exe (~20MB,内嵌字体后)
 wails build
 ```
 
@@ -84,12 +93,21 @@ macOS 用 `wails build -platform darwin/universal`,Linux 用 `wails build -platf
 
 ## 快速上手
 
-1. 打开应用,点击右下角 ⚙ 「设置」,在 **「上游 BASE_URL」** 填入你自己的中转站地址(必须兼容 OpenAI Responses API + `image_generation` 工具)
-2. 点击左侧 **「API Key」** 折叠区,粘贴对应的 API key(`sk-...`)
-3. ⚠️ **重要**:这个 key 在中转站后台需要绑定到**拥有 `gpt-5.5`(或同等具备 image_generation 工具的)模型的分组**。详见应用内 FAQ 或下方 [API Key 配置](#api-key-配置)
-4. (可选)点击 **「🔌 测试连接」** 按钮验证 key 是否能正常调用
-5. 输入 prompt(可在右上角 📋 选模板/历史),选风格 / 比例 / 质量 / 数量
-6. 按 `Ctrl + Enter` 或点击 **「生成 N 张」**
+首次启动会自动弹出**「上游配置」窗口**(也可以从左侧「🔧 上游配置」按钮随时呼起):
+
+1. **API 形态** —— 二选一:
+   - **Responses API**(CF 超时推荐):SSE 保活,长推理稳;**key 要绑「拥有 gpt-5.5 模型的分组」**
+   - **Images API**:标准 `/v1/images/generations` + `/v1/images/edits`,**key 用标准 image-2 分组**即可
+2. **上游 BASE_URL** —— 你自己的中转站地址(应用不内置任何默认上游)
+3. **API Key** —— `sk-...`,绑定到上面对应的分组
+4. **文本模型 ID** —— 仅 Responses API 需要,默认 `gpt-5.5`,可留空
+5. **图像模型 ID** —— 默认 `gpt-image-2`,可留空。两种 API 形态都会用到
+6. (可选)点 **「🔌 测试连接」** 验证一下
+
+填好保存后:
+
+7. 输入 prompt(可在右上角 📋 选模板/历史),选风格 / 比例 / 质量 / 数量
+8. 按 `Ctrl + Enter` 或点击 **「生成 N 张」**
 
 图生图流程:
 - 拖入本地图片到窗口 / Ctrl+V 粘贴 / 「+ 添加图片」按钮 → 累积参考图列表
@@ -97,17 +115,30 @@ macOS 用 `wails build -platform darwin/universal`,Linux 用 `wails build -platf
 
 ---
 
-## API Key 配置
+## API 形态 · 分组怎么选
 
-**本应用调用的是上游的 `/v1/responses` 接口**(OpenAI Responses API 形态),而不是直接的 `/v1/images/generations`。图像生成是通过模型内置的 `image_generation` 工具触发的。
+> 本应用 **不内置任何默认上游**,首次启动会弹「上游配置」让你自己填。
 
-> 本应用 **不内置任何默认上游**,需要你自己在「设置 → 上游 BASE_URL」中填入兼容 Responses API 的中转站地址。
+### Responses API 模式(默认,CF 超时推荐)
 
-所以你的 key 必须:
-- ✅ 绑定到**拥有 `gpt-5.5`(或等同具备 image_generation 工具的)模型的分组**
-- ❌ 如果中转站区分「文本分组」「image API 分组」,**不要**选纯 image API 的那个 —— 那个不包含 gpt-5.5,会返回 401/403 或 `model not found`
+调用的是上游 `/v1/responses`,通过模型内置的 `image_generation` 工具触发图像生成,SSE 流式接收。
 
-设置面板可改 `BASE_URL`、文本模型 ID(默认 `gpt-5.5`)、图像模型 ID(默认 `gpt-image-2`)。任何兼容 OpenAI **Responses API** 形态 + 提供 `image_generation` 工具的中转站理论上都行;**不兼容**普通 `/v1/chat/completions` 中转站。
+- ✅ Key 绑定到**拥有 `gpt-5.5` 模型的分组**(中转站后台通常叫「余额分组」或「套餐分组」)
+- ❌ **不要**选「image-2 分组」 —— 那是直接 image API 的分组,不包含 gpt-5.5,会返回 401/403 或 `model not found`
+- 兼容性:任何提供 Responses API + `image_generation` 工具的中转站
+
+### Images API 模式(兼容广)
+
+调用的是标准 `/v1/images/generations`(文生图,JSON)和 `/v1/images/edits`(图生图,multipart 上传)。
+
+- ✅ Key 用标准的 **image-2 / image API 分组**即可,**不需要 gpt-5.5 权限**
+- 适合 key 只绑了 image 分组、或上游不支持 Responses API 的中转站
+- 缺点:没有 SSE 保活,长推理 CF 524 风险更高
+
+### 共用约束
+
+- **不兼容**只提供 `/v1/chat/completions` 的中转站(本应用不发 chat completions 请求)
+- 设置 → 「🔧 上游配置」可随时切换形态、改 BASE_URL / 模型 ID
 
 ---
 
@@ -116,8 +147,9 @@ macOS 用 `wails build -platform darwin/universal`,Linux 用 `wails build -platf
 ### 生成
 - 文生图 / 图生图(支持多张参考图,可拖动重排顺序)
 - 输入图源:文件对话框 / 拖拽窗口 / Ctrl+V 粘贴 / 从历史复用 / 双击历史项
-- 参数:5 种比例 · 3 档质量(1K/2K/4K)· seed · negative prompt · 5 种风格 chip
+- 参数:4 种比例(1:1 / 2:3 / 3:2 / 16:9)· 3 档质量(1K/2K/4K)· seed · negative prompt · 5 种风格 chip
 - **并发批量** 1 / 2 / 4 / 8 张,每张自动随机 seed
+- **双 API 形态**:Responses API(SSE 保活)/ Images API(标准 generations + edits)随时切换
 - 上游可配:BASE_URL、文本模型 ID、图像模型 ID、传输通道(native/curl)
 - prompt 历史(自动去重,cap 50)+ 8 个内置模板(写实/二次元/水彩/像素等)
 
@@ -145,12 +177,15 @@ macOS 用 `wails build -platform darwin/universal`,Linux 用 `wails build -platf
 - 进度估算(基于最近 5 次耗时滚动平均)
 
 ### 设置
+- **🔧 上游配置**:首次启动自动弹出 / 之后可手动呼起;5 字段集中管理(API 形态 / BASE_URL / API Key / 文本模型 ID / 图像模型 ID),含 API Key 显示切换 + 内嵌测试连接按钮
 - 主题:深色 / 浅色
 - 字号:小 / 中 / 大
+- 网络通道:auto / native / curl(应对 TLS 指纹 / 代理问题)
 - 参数预设保存(尺寸 + 质量 + 风格 + 批量,常用配置一键应用)
 - 历史导入 / 导出 JSON
 - 清除 API Key / 清空历史
 - 关于:版本号、MIT 协议链接、GitHub 仓库 / Issues 一键跳转
+- **字体**:UI 用 HarmonyOS Sans SC(中文)+ JetBrains Mono(英文 / 数字 / 等宽),已嵌入 exe 免下载
 
 ---
 
@@ -182,11 +217,12 @@ macOS 用 `wails build -platform darwin/universal`,Linux 用 `wails build -platf
 | 类型 | 位置 |
 |---|---|
 | API Key | 浏览器 `localStorage`(明文) |
+| 上游配置(API 形态、BASE_URL、模型 ID、传输通道) | `localStorage` |
 | 历史记录元数据 | 浏览器 IndexedDB |
-| 生成的 PNG | `%APPDATA%\image-studio\images\` |
+| 生成的 PNG | `%APPDATA%\image-studio\images\`(命名形如 `image-generate-<slug>-<ts>.png`) |
 | 拖入 / 变换的图 | `%APPDATA%\image-studio\imports\` |
-| 原始 SSE 响应 | 跟 PNG 同目录(`sse-response-*.txt`,排错用) |
-| 用户偏好(主题、预设、prompt 历史) | `localStorage` |
+| 原始上游响应(排错用) | 跟 PNG 同目录:Responses 模式 `sse-response-*.txt`;Images 模式 `images-response-*.json` |
+| 用户偏好(主题、字号、预设、prompt 历史) | `localStorage` |
 
 数据完全不出本地;唯一的外部网络请求是向你配置的上游 BASE_URL 发起的生成请求本身。
 
@@ -197,19 +233,26 @@ macOS 用 `wails build -platform darwin/universal`,Linux 用 `wails build -platf
 ### 一直 524 / 504
 
 - 上游网关超时在很多中转站很常见。本应用自动重试 3 次,如果都失败:
-  - 检查 key 是否过期 / 余额 / 是否绑对了分组(见上方 [API Key 配置](#api-key-配置))
+  - **如果当前是 Images API 模式,优先切到 Responses API** —— SSE 保活就是为此设计的(前提是你的 key 有 gpt-5.5 分组权限)
+  - 检查 key 是否过期 / 余额 / 是否绑对了分组(见上方 [API 形态 · 分组怎么选](#api-形态--分组怎么选))
   - 设置 → 网络通道 改成 `curl`,有时能绕过原生 HTTP 的 TLS 指纹问题
-  - 历史项 右键 → **查看 raw 响应**,看上游具体返回了什么(原始 SSE 全文)
+  - 历史项 右键 → **查看 raw 响应**,看上游具体返回了什么(原始 SSE / JSON 全文)
 
 ### `model not found` / 401 / 403
 
-Key 没有 `gpt-5.5` 模型权限。换分组,或者把图像模型 ID 改成你的 key 实际支持的(设置 → 图像模型 ID)。
+- **Responses 模式**:Key 没有 `gpt-5.5` 模型权限。换分组,或在 🔧 上游配置 里把图像模型 ID 改成你 key 实际支持的
+- **Images 模式**:把图像模型 ID 改成中转站列表里有的(常见:`gpt-image-1` / `gpt-image-2` / `dall-e-3`),或换一个有这些模型权限的分组
 
 ### 多参考图 / 蒙版 / seed 没生效
 
-这些字段在 payload 里都正确发送,**但上游是否真正使用取决于中转站和模型实现**。蒙版作为 tool 的 `mask` 字段、seed 作为 `seed` 字段、negative prompt 作为 `negative_prompt` 字段;不同模型实现对这些字段的支持程度不一。
+这些字段在 payload 里都正确发送,**但上游是否真正使用取决于中转站和模型实现**。两种 API 形态的字段映射:
 
-完整 FAQ 请见应用内「API Key 区右上角的 ❓ FAQ」入口。
+- Responses 模式:`mask` / `seed` / `negative_prompt` 作为 `image_generation` 工具参数
+- Images Edits 模式:`mask` 作为单独的 multipart file,`seed` / `negative_prompt` 作为 form 字段
+
+不同模型 / 中转站对这些字段的支持程度不一。Images 模式下多张参考图的支持取决于 relay —— 标准 OpenAI 接口只接受一张 `image`,本应用第二张及之后用 `image[]` 兼容字段发送(可能被忽略)。
+
+完整 FAQ 请见应用内「上游区右上角的 ❓ FAQ」入口。
 
 ---
 
@@ -218,13 +261,21 @@ Key 没有 `gpt-5.5` 模型权限。换分组,或者把图像模型 ID 改成你
 ```
 .
 ├── go-cli/                       # 独立 Go CLI(可单独跑,共享 pkg/client)
-│   ├── pkg/client/               # 核心:payload 构建 / SSE 解析 / 重试 / 双 transport
+│   ├── pkg/client/               # 核心
+│   │   ├── client.go             # 重试编排 + Responses/Images 形态分发
+│   │   ├── payload.go            # Responses API payload 构建
+│   │   ├── sse.go                # SSE 行解析 + image 提取
+│   │   ├── images_api.go         # Images API(generations + edits multipart)
+│   │   ├── retry.go              # 524/504 识别 + 错误归因
+│   │   ├── http_native.go        # net/http + 8MB scanner buffer
+│   │   ├── http_curl.go          # curl 子进程 fallback
+│   │   └── types.go              # Options / APIMode / SizeOptions 等
 │   ├── internal/{promptui,fsio}/ # 终端交互 + 文件 IO
 │   └── cmd/gptcodex-image/main.go
 ├── image-studio/                 # Wails 桌面应用
 │   ├── backend/                  # Go bindings(按职责分文件)
-│   │   ├── service.go            # Service + 生命周期 + Generate/Edit/Cancel
-│   │   ├── types.go              # JSON-bound structs
+│   │   ├── service.go            # Service + 生命周期 + Generate/Edit/Cancel + apiMode 分发
+│   │   ├── types.go              # JSON-bound structs(含 APIMode 字段)
 │   │   ├── dialogs.go            # 文件对话框 / URL 跳转 / 历史导入导出
 │   │   ├── imports.go            # 拖拽/粘贴 import + 文件名 sanitize
 │   │   ├── imageops.go           # 旋转 / 翻转 / 裁剪(Go image 库)
@@ -233,12 +284,13 @@ Key 没有 `gpt-5.5` 模型权限。换分组,或者把图像模型 ID 改成你
 │   ├── frontend/src/             # React + TS
 │   │   ├── components/
 │   │   │   ├── layout/           # AppHeader / WorkspaceBar / FooterBar
-│   │   │   ├── panel/            # ControlPanel / SettingsPanel / PromptPopover / FAQModal
+│   │   │   ├── panel/            # ControlPanel / SettingsPanel / PromptPopover / FAQModal / UpstreamConfigModal
 │   │   │   ├── canvas/           # CanvasStage / Toolbar / SourceStrip / StatusBar / EmptyState
 │   │   │   ├── history/          # HistoryRail / RawResponseModal
 │   │   │   └── common/           # Modal / ToastContainer / ContextMenu
 │   │   ├── state/                # zustand store
-│   │   ├── styles/               # 拆分的 CSS modules
+│   │   ├── styles/               # 拆分的 CSS modules + @font-face
+│   │   ├── assets/fonts/         # HarmonyOS Sans SC + JetBrains Mono(嵌入 exe)
 │   │   ├── lib/                  # localStorage / idb-keyval 工具
 │   │   └── types/                # 领域类型
 │   └── build/bin/                # 生产 .exe 输出

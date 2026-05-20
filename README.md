@@ -15,8 +15,10 @@
 <p align="center">
   <img src="./docs/screenshot.png" alt="Image Studio 主界面" width="880">
   <br />
-  <sub>左侧:控制面板(prompt / 风格 / 比例 / 质量 / 数量) · 中:画板 + 工具栏 + 状态栏 · 右:历史记录</sub>
+  <sub>左侧:控制面板(模式 / prompt / 风格 / 比例 / 质量) · 中:画板 + 工具栏 + 状态栏 · 右:历史记录</sub>
 </p>
+
+> **v0.1.2 重塑了整套 UI**:换成 Tailwind v4 + zinc/emerald 色调 + lucide-react 图标,字体 HarmonyOS Sans SC Medium + JetBrains Mono;每日一言条幅、动态画板棋盘格、白底黑线条新图标;输出目录拆分 `/images/` + `/log/`;Responses API 加「不优化提示词」开关让模型逐字使用你的 prompt。
 
 ---
 
@@ -55,6 +57,9 @@
 | 🖼 **完整图像编辑器** | Konva 画布、蒙版+橡皮、4 种标注、旋转/翻转/裁剪、历史对比、并发批量(1/2/4/8) |
 | 🧩 **多标签 workspace** | 浏览器风的多 tab,每个独立 prompt/参数/源图;切换不丢现场 |
 | 🔧 **首次启动引导** | apiKey / baseURL 缺失时自动弹「上游配置」窗口,5 字段一次填完(API 形态、BASE_URL、API Key、文本模型、图像模型) |
+| ✏️ **不优化提示词开关** | Responses API 默认让文本模型把你的 prompt 重写一遍。勾上后顶层加 instructions 让模型逐字使用,适合已经精修过的 prompt |
+| 🪟 **首次启动配置 + 详情抽屉** | 生成成功后的 toast 带「查看详情」按钮,弹出右抽屉显示图片预览 + 全部参数 + 原/优化版 prompt + 文件路径,可一键复制 / 用作下次 prompt |
+| 🎨 **现代 UI**(v0.1.2) | Tailwind v4 + zinc/emerald 色调 + lucide-react 图标;HarmonyOS Sans SC Medium 中文字体 + JetBrains Mono 等宽数字;暗色启动无白闪 |
 | 💾 **100% 本地数据** | 无遥测、无云端账户、无内购;API key、历史、生成图都在你的机器上 |
 
 ---
@@ -63,7 +68,7 @@
 
 ### 方式 1:下载预编译版本(推荐)
 
-到 [Releases](https://github.com/RoseKhlifa/Image-Studio/releases) 页面下载 `image-studio-windows-amd64.exe`(约 20 MB,内嵌中文字体),双击即可运行。
+到 [Releases](https://github.com/RoseKhlifa/Image-Studio/releases) 页面下载 `image-studio-windows-amd64.exe`(约 29 MB,内嵌 HarmonyOS Sans SC Regular + Medium + JetBrains Mono),双击即可运行。
 
 Win10+ 需要 [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)(大部分新机器已预装)。
 
@@ -83,7 +88,7 @@ cd Image-Studio/image-studio
 # 开发模式(Vite 热重载 + DevTools)
 wails dev
 
-# 生产构建,输出到 build/bin/image-studio.exe (~20MB,内嵌字体后)
+# 生产构建,输出到 build/bin/image-studio.exe (~29MB,内嵌字体 + Tailwind 资源)
 wails build
 ```
 
@@ -106,8 +111,10 @@ macOS 用 `wails build -platform darwin/universal`,Linux 用 `wails build -platf
 
 填好保存后:
 
-7. 输入 prompt(可在右上角 📋 选模板/历史),选风格 / 比例 / 质量 / 数量
-8. 按 `Ctrl + Enter` 或点击 **「生成 N 张」**
+7. 选模式(📝 文生图 / 🖼 图生图),输入 prompt(下方可选模板/历史),选风格 / 比例 / 质量
+8. 如果你已经精修过 prompt 不想被模型再优化一遍,勾上 prompt 输入框下的 **「不优化提示词」**(仅 Responses API 模式有效)
+9. 按 `Ctrl + Enter` 或点击 **「生成」**
+10. 生成成功后右上角 toast 会带「查看详情」按钮,弹出右抽屉显示全部参数 + 原/优化版 prompt + 文件路径
 
 图生图流程:
 - 拖入本地图片到窗口 / Ctrl+V 粘贴 / 「+ 添加图片」按钮 → 累积参考图列表
@@ -221,7 +228,7 @@ macOS 用 `wails build -platform darwin/universal`,Linux 用 `wails build -platf
 | 历史记录元数据 | 浏览器 IndexedDB |
 | 生成的 PNG | `%APPDATA%\image-studio\images\`(命名形如 `image-generate-<slug>-<ts>.png`) |
 | 拖入 / 变换的图 | `%APPDATA%\image-studio\imports\` |
-| 原始上游响应(排错用) | 跟 PNG 同目录:Responses 模式 `sse-response-*.txt`;Images 模式 `images-response-*.json` |
+| 原始上游响应(排错用) | `%APPDATA%\image-studio\log\`:Responses 模式 `sse-response-*.txt`;Images 模式 `images-response-*.json`(v0.1.2 起从 `images/` 拆出,避免污染图片浏览) |
 | 用户偏好(主题、字号、预设、prompt 历史) | `localStorage` |
 
 数据完全不出本地;唯一的外部网络请求是向你配置的上游 BASE_URL 发起的生成请求本身。
@@ -281,18 +288,19 @@ macOS 用 `wails build -platform darwin/universal`,Linux 用 `wails build -platf
 │   │   ├── imageops.go           # 旋转 / 翻转 / 裁剪(Go image 库)
 │   │   ├── paths.go              # 目录解析 + 文件名构造
 │   │   └── open.go               # 跨平台 OS 打开
-│   ├── frontend/src/             # React + TS
+│   ├── frontend/src/             # React + TS · Tailwind v4 + lucide-react
 │   │   ├── components/
-│   │   │   ├── layout/           # AppHeader / WorkspaceBar / FooterBar
+│   │   │   ├── layout/           # AppHeader / HitokotoStrip(每日一言) / WorkspaceBar / FooterBar
 │   │   │   ├── panel/            # ControlPanel / SettingsPanel / PromptPopover / FAQModal / UpstreamConfigModal
-│   │   │   ├── canvas/           # CanvasStage / Toolbar / SourceStrip / StatusBar / EmptyState
+│   │   │   ├── canvas/           # CanvasStage / Toolbar / SourceStrip / StatusBar / EmptyState(棋盘格滚动)
 │   │   │   ├── history/          # HistoryRail / RawResponseModal
 │   │   │   └── common/           # Modal / ToastContainer / ContextMenu
 │   │   ├── state/                # zustand store
-│   │   ├── styles/               # 拆分的 CSS modules + @font-face
-│   │   ├── assets/fonts/         # HarmonyOS Sans SC + JetBrains Mono(嵌入 exe)
+│   │   ├── styles/               # index.css(Tailwind v4 入口 + @font-face)+ _canvas.css(画板动画)
+│   │   ├── assets/fonts/         # HarmonyOS Sans SC Regular/Medium + JetBrains Mono(嵌入 exe)
 │   │   ├── lib/                  # localStorage / idb-keyval 工具
 │   │   └── types/                # 领域类型
+│   ├── build/                    # Wails 资源:appicon.png(白底黑线条)+ windows/icon.ico
 │   └── build/bin/                # 生产 .exe 输出
 └── go.work                       # Go workspace(backend replace ../go-cli)
 ```

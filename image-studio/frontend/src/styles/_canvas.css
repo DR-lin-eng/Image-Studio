@@ -98,7 +98,11 @@
 }
 .source-thumb.add:hover { color: var(--accent); border-color: var(--accent); }
 
-/* Konva stage host (checkered background). */
+/* Konva stage host —— 棋盘格底,带斜向慢漂浮动画。
+   动画原理:同时位移所有 4 个 linear-gradient 的 background-position,
+   每 30s 走完一个 tile 周期(24px)。图存在时 Konva canvas 完全覆盖此层,
+   动画不可见;空状态下提供轻微的「这界面是活的」反馈。
+   prefers-reduced-motion 时停掉。 */
 .stage-host {
   position: relative;
   overflow: hidden;
@@ -115,7 +119,20 @@
   background-size: 24px 24px;
   background-position: 0 0, 0 12px, 12px -12px, 12px 0;
   background-color: var(--panel-2);
+  animation: checker-drift 6s linear infinite;
+  will-change: background-position;
 }
+@keyframes checker-drift {
+  0% {
+    background-position: 0 0, 0 12px, 12px -12px, 12px 0;
+  }
+  100% {
+    /* 48px / 48px = 2 个 tile 周期。6s 一轮 → 8 px/s,肉眼能看到漂的速度 */
+    background-position: 48px 48px, 48px 60px, 60px 36px, 60px 48px;
+  }
+}
+/* 注:故意不加 prefers-reduced-motion 守卫 —— Win11 默认就关了系统动画,
+   带上之后这条 keyframe 全员失效。需要的话用户可以从浏览器层面手动覆盖。 */
 
 /* Minimal empty state shown when no currentImage. */
 .empty-stage {

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Copy } from "lucide-react";
 import { Modal } from "../common/Modal";
 import { ReadTextFile } from "../../../wailsjs/go/backend/Service";
 import { useStudioStore } from "../../state/studioStore";
@@ -15,8 +16,9 @@ export function RawResponseModal({ path, onClose }: { path: string; onClose: () 
     setLoading(true);
     ReadTextFile(path)
       .then((t) => {
-        if (t.length > MAX_PREVIEW) setText(t.slice(0, MAX_PREVIEW) + `\n\n... [截断,完整 ${(t.length / 1024).toFixed(1)} KB 在文件里]`);
-        else setText(t);
+        if (t.length > MAX_PREVIEW) {
+          setText(t.slice(0, MAX_PREVIEW) + `\n\n... [截断,完整 ${(t.length / 1024).toFixed(1)} KB 在文件里]`);
+        } else setText(t);
       })
       .catch((e: any) => setError(e?.message ?? String(e)))
       .finally(() => setLoading(false));
@@ -32,29 +34,24 @@ export function RawResponseModal({ path, onClose }: { path: string; onClose: () 
   }
 
   return (
-    <Modal open onClose={onClose} title="原始 SSE 响应" width={760}>
-      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, fontSize: 11, color: "var(--text-muted)" }}>
-        <code style={{ wordBreak: "break-all" }}>{path}</code>
-        <div style={{ display: "flex", gap: 6 }}>
-          <button className="tool-btn" onClick={copyAll}>复制全文</button>
-        </div>
+    <Modal open onClose={onClose} title="原始上游响应" width={760}>
+      <div className="flex justify-between items-center mb-2 text-[11px] text-zinc-500 gap-2">
+        <code className="font-mono-token break-all text-zinc-600 dark:text-zinc-400">{path}</code>
+        <button
+          onClick={copyAll}
+          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs text-zinc-700 dark:text-zinc-300 ring-1 ring-black/[0.08] dark:ring-white/[0.06] hover:ring-emerald-500/40 hover:text-emerald-400 transition-colors shrink-0"
+        >
+          <Copy className="w-3 h-3" /> 复制全文
+        </button>
       </div>
-      {loading && <div style={{ color: "var(--text-muted)", padding: 12 }}>读取中...</div>}
-      {error && <div className="error-banner">{error}</div>}
+      {loading && <div className="text-zinc-500 p-3 text-sm">读取中...</div>}
+      {error && (
+        <div className="rounded-lg bg-red-500/10 ring-1 ring-red-500/30 p-3 text-sm text-red-400">{error}</div>
+      )}
       {!loading && !error && (
-        <pre style={{
-          background: "var(--bg)",
-          color: "var(--text-muted)",
-          padding: 12,
-          borderRadius: 6,
-          maxHeight: "55vh",
-          overflow: "auto",
-          fontSize: 11,
-          lineHeight: 1.5,
-          whiteSpace: "pre-wrap",
-          wordBreak: "break-all",
-          border: "1px solid var(--border)",
-        }}>{text}</pre>
+        <pre className="font-mono-token bg-zinc-50 dark:bg-zinc-950 ring-1 ring-black/[0.08] dark:ring-white/[0.06] p-3 rounded-lg max-h-[55vh] overflow-auto text-[11px] leading-relaxed whitespace-pre-wrap break-all text-zinc-600 dark:text-zinc-400">
+          {text}
+        </pre>
       )}
     </Modal>
   );

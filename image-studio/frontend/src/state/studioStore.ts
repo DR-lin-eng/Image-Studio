@@ -684,6 +684,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     if (activeKey !== legacyKey) saveAPIKey(activeKey); // 同步 legacy 存储
     // Apply theme + font scale to root immediately.
     document.documentElement.setAttribute("data-theme", theme);
+    document.documentElement.classList.toggle("dark", theme === "dark");
     document.documentElement.style.setProperty("--font-scale", String(fontScale));
     // 用户自定义输出目录 —— 把 localStorage 里保存的路径推给 backend。
     try {
@@ -951,6 +952,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     set({ theme: t });
     try { localStorage.setItem("gptcodex.theme", t); } catch {}
     document.documentElement.setAttribute("data-theme", t);
+    document.documentElement.classList.toggle("dark", t === "dark");
   },
 
   setFontScale: (v) => {

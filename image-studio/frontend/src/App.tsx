@@ -110,7 +110,13 @@ function App() {
   }, [importImageFile]);
 
   return (
-    <div className="app-root">
+    <div className="app-root relative">
+      {/* Ambient background blobs — 模糊圆球点缀,主界面之下永远不挡 */}
+      <div className="pointer-events-none fixed inset-0 overflow-hidden -z-10">
+        <div className="absolute top-[-8%] left-[18%] w-[460px] h-[460px] rounded-full bg-emerald-500/[0.04] blur-3xl" />
+        <div className="absolute top-[55%] right-[-8%] w-[400px] h-[400px] rounded-full bg-blue-500/[0.03] blur-3xl" />
+      </div>
+
       <AppHeader />
       <WorkspaceBar />
       <div className={`studio ${fullscreen ? "fullscreen" : ""}`}>

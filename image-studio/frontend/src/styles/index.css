@@ -1,7 +1,177 @@
-/* Stylesheet entry point. Order matters: tokens first so subsequent files can
- * reference CSS variables, then layout primitives, then component-level rules. */
+@import "tailwindcss";
 
-@import "./_tokens.css";
+/* 启用 class-based 暗色模式(挂在 <html> 上)。 */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* 自托管字体:中文 HarmonyOS Sans SC(Regular + Medium)、英文/等宽 JetBrains Mono。
+   两个 HarmonyOS 文件按各自字重声明,让 Tailwind 的 font-normal / font-medium
+   都能命中真正的 ttf。body 默认走 Medium —— Regular 在小字 + 暗色下偏淡。 */
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../assets/fonts/JetBrainsMono-Regular.ttf") format("truetype");
+}
+@font-face {
+  font-family: "HarmonyOS Sans SC";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../assets/fonts/HarmonyOS_SansSC_Regular.ttf") format("truetype");
+}
+@font-face {
+  font-family: "HarmonyOS Sans SC";
+  font-style: normal;
+  font-weight: 500 700;
+  font-display: swap;
+  src: url("../assets/fonts/HarmonyOS_SansSC_Medium.ttf") format("truetype");
+}
+
+/* 兼容旧 CSS 模块里残留的 var(--accent) / var(--text) 等(逐文件改 utility 之前先有 fallback)。
+   等所有组件改完,这些变量会变成无人引用的 dead code,可以删。
+   关键约束:这里的 CSS 变量都映射到 zinc + emerald 的对应色,实现「老组件不动也好看」。 */
+:root {
+  --accent: oklch(69.6% 0.17 162.48);       /* emerald-500 #10b981 */
+  --accent-2: oklch(75% 0.18 162);          /* emerald-400 */
+  --accent-soft: oklch(95% 0.05 162 / 0.18);
+  --bg: #fafafa;
+  --bg-2: #f4f4f5;
+  --panel: #ffffff;
+  --panel-2: #fafafa;
+  --surface: #f4f4f5;
+  --surface-2: #e4e4e7;
+  --border: rgb(0 0 0 / 0.08);
+  --border-2: rgb(0 0 0 / 0.12);
+  --text: #18181b;
+  --text-muted: #71717a;
+  --text-dim: #a1a1aa;
+  --danger: #ef4444;
+  --danger-soft: rgb(239 68 68 / 0.08);
+  --success: #10b981;
+  --canvas-bg: #f4f4f5;
+  --canvas-tile: #e4e4e7;
+  --font-scale: 1;
+  --on-accent-soft: var(--accent);
+  --btn-secondary-bg: #f4f4f5;
+  --btn-secondary-bg-hover: #e4e4e7;
+  --tool-hover-bg: rgb(16 185 129 / 0.1);
+  --tool-hover-text: var(--accent);
+  --error-text: #b91c1c;
+  --error-border: rgb(239 68 68 / 0.3);
+  --shadow-card: none;
+  --shadow-card-hover: none;
+  --pink: var(--accent);
+  --pink-soft: var(--accent-soft);
+  --gradient-primary: var(--accent);
+  --gradient-primary-hover: var(--accent-2);
+  --gradient-card: transparent;
+}
+
+/* 暗色模式(默认):全 zinc-950/900 系底 + emerald 强调 */
+:root.dark {
+  --bg: #09090b;
+  --bg-2: #18181b;
+  --panel: #18181b;
+  --panel-2: #09090b;
+  --surface: #27272a;
+  --surface-2: #3f3f46;
+  --border: rgb(255 255 255 / 0.06);
+  --border-2: rgb(255 255 255 / 0.1);
+  --text: #fafafa;
+  --text-muted: #a1a1aa;
+  --text-dim: #71717a;
+  --danger: #f87171;
+  --danger-soft: rgb(248 113 113 / 0.1);
+  --success: #34d399;
+  --canvas-bg: #18181b;
+  --canvas-tile: #27272a;
+  --on-accent-soft: oklch(85% 0.12 162);
+  --btn-secondary-bg: #27272a;
+  --btn-secondary-bg-hover: #3f3f46;
+  --tool-hover-bg: rgb(16 185 129 / 0.15);
+  --tool-hover-text: oklch(85% 0.12 162);
+  --error-text: #fca5a5;
+  --error-border: rgb(248 113 113 / 0.4);
+}
+
+/* 老 data-theme 选择器映射到 .dark class,平滑过渡。 */
+html[data-theme="dark"] { /* same as :root.dark */ }
+html[data-theme="light"] {
+  /* 等同 light(默认),无需重写 */
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  /* 根字号 15px(原 13px 太小,Tailwind text-xs 算下来才 9.75px,读不清)。
+     用户偏好里的「字号」(font-scale)仍按比例缩放。 */
+  font-size: calc(15px * var(--font-scale, 1));
+}
+
+body {
+  /* UI 文本走 HarmonyOS Sans SC(中文 + Latin 全字符);代码/数字/路径才走
+     JetBrains Mono(显式加 .font-mono-token 或 <code>/<pre>)。
+     默认字重 500(Medium)—— Regular 在暗色 + 13~14px 下显瘦。 */
+  font-family: "HarmonyOS Sans SC",
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Microsoft YaHei", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-weight: 500;
+  background: var(--bg);
+  color: var(--text);
+  /* 不开 -webkit-font-smoothing: antialiased —— 在 Windows 上会跳过 ClearType
+     subpixel rendering,让 CJK 看起来「淡淡的雾」。默认走 subpixel-antialiased。 */
+  user-select: none;
+}
+button, input, textarea, select { font-family: inherit; }
+
+/* 全局滚动条 —— 模仿 fuckwangui 的圆角 thumb */
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: rgb(212 212 216);
+  border-radius: 8px;
+  border: 2px solid var(--bg);
+}
+*::-webkit-scrollbar-thumb:hover { background: rgb(161 161 170); }
+html.dark *::-webkit-scrollbar-thumb {
+  background: rgb(63 63 70);
+  border-color: var(--bg);
+}
+html.dark *::-webkit-scrollbar-thumb:hover { background: rgb(82 82 91); }
+
+/* Emerald 高亮的文字选区 */
+::selection {
+  background: rgb(16 185 129 / 0.25);
+  color: #ecfdf5;
+}
+
+/* JetBrains Mono 等宽场景的小工具类,留给数字 / token / 路径用 */
+.font-mono-token {
+  font-family: "JetBrains Mono", ui-monospace, "SFMono-Regular",
+    "Cascadia Code", Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  letter-spacing: -0.01em;
+}
+
+/* 通用 focus-ring(emerald glow)*/
+.focus-ring {
+  outline: none;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.focus-ring:focus-visible {
+  border-color: rgb(16 185 129 / 0.6);
+  box-shadow: 0 0 0 3px rgb(16 185 129 / 0.15);
+}
+
+/* Spin 动画(loader)*/
+@keyframes spin-emerald { to { transform: rotate(360deg); } }
+.spin-emerald { animation: spin-emerald 0.8s linear infinite; }
+
+/* 原有模块继续 import —— 这些里面的样式会在组件改造期间被逐个替换为 tailwind 类后失效。
+   每改完一个组件,删一段对应 CSS。 */
 @import "./_buttons.css";
 @import "./_form.css";
 @import "./_layout.css";

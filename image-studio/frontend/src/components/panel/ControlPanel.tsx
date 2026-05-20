@@ -1,6 +1,10 @@
 import { useState } from "react";
+import {
+  Dices, HelpCircle, ImagePlus, ListPlus, Plug, RotateCw,
+  Settings, Trash2, X,
+} from "lucide-react";
 import { useStudioStore } from "../../state/studioStore";
-import { SIZE_OPTIONS, QUALITY_OPTIONS, SizeValue, QualityValue, Mode } from "../../types/domain";
+import { SizeValue, QualityValue, Mode } from "../../types/domain";
 import { SettingsPanel } from "./SettingsPanel";
 import { PromptPopover } from "./PromptPopover";
 import { FAQModal } from "./FAQModal";
@@ -21,11 +25,6 @@ const ASPECT_OPTIONS: { value: SizeValue; label: string; w: number; h: number }[
   { value: "2048x1152", label: "16:9", w: 24, h: 13 },
 ];
 
-// Quality tiers re-labelled by perceived resolution class. The underlying
-// image-generation quality knob is `low / medium / high`; we just relabel:
-//   1K = low    (fast / cheap / less detail)
-//   2K = medium (balanced — the default)
-//   4K = high   (slow / expensive / best detail)
 const QUALITY_TIERS: { value: QualityValue; label: string }[] = [
   { value: "low",    label: "1K" },
   { value: "medium", label: "2K" },
@@ -41,7 +40,7 @@ export function ControlPanel() {
     noPromptRevision,
     setField,
     selectSourceImage, removeSource, clearSources,
-    submit, cancel, retryLast, testAPIKey, pushToast,
+    submit, cancel, retryLast, testAPIKey,
   } = useStudioStore();
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [promptPopover, setPromptPopover] = useState(false);
@@ -51,87 +50,93 @@ export function ControlPanel() {
   const activeAspect = ASPECT_OPTIONS.find((a) => a.value === size)?.label ?? "1:1";
 
   return (
-    <div className="panel">
+    <div className="w-[320px] shrink-0 overflow-y-auto flex flex-col gap-4 p-4 bg-white/85 dark:bg-zinc-900/40 border-r border-black/[0.08] dark:border-white/[0.06]">
       {errorMessage && (
-        <div className="error-banner">
-          <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-            <div style={{ flex: 1, whiteSpace: "pre-wrap" }}>{errorMessage}</div>
+        <div className="rounded-xl bg-red-500/10 ring-1 ring-red-500/30 p-3 text-xs text-red-700 dark:text-red-300">
+          <div className="flex items-start gap-2">
+            <div className="flex-1 whitespace-pre-wrap leading-relaxed">{errorMessage}</div>
             <button
               onClick={() => setField("errorMessage", null)}
-              style={{ background: "transparent", border: 0, color: "var(--error-text)", cursor: "pointer", fontSize: 16, lineHeight: 1, padding: 0 }}
+              className="text-red-400 hover:text-red-300 -m-1 p-1"
               title="关闭"
             >
-              ×
+              <X className="w-3.5 h-3.5" />
             </button>
           </div>
           {lastPayload && !isRunning && (
-            <div style={{ marginTop: 8 }}>
-              <button className="btn secondary" onClick={retryLast} style={{ fontSize: 11, padding: "4px 10px" }}>
-                ↻ 重试上次请求
-              </button>
-            </div>
+            <button
+              onClick={retryLast}
+              className="mt-2 inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded bg-red-500/15 hover:bg-red-500/25 transition-colors"
+            >
+              <RotateCw className="w-3 h-3" /> 重试上次请求
+            </button>
           )}
         </div>
       )}
 
-      <section>
-        <label className="head">模式</label>
-        <div className="seg">
+      {/* 模式 */}
+      <Section label="模式">
+        <Seg>
           {(["generate", "edit"] as Mode[]).map((m) => (
-            <button
+            <SegItem
               key={m}
-              className={`seg-item ${mode === m ? "active" : ""}`}
+              active={mode === m}
               onClick={() => setField("mode", m)}
-              type="button"
             >
               {m === "generate" ? "📝 文生图" : "🖼 图生图"}
-            </button>
+            </SegItem>
           ))}
-        </div>
-      </section>
+        </Seg>
+      </Section>
 
-      <section className="prompt-wrap">
-        <div className="head-row">
-          <label className="head">{mode === "edit" ? "修改要求" : "Prompt 提示词"}</label>
-          <span className="prompt-counter">{promptLen}</span>
+      {/* Prompt */}
+      <section className="relative">
+        <div className="flex items-center justify-between mb-1.5">
+          <label className="text-[11px] uppercase tracking-wide text-zinc-500">
+            {mode === "edit" ? "修改要求" : "Prompt 提示词"}
+          </label>
+          <span className="font-mono-token text-zinc-400 dark:text-zinc-600 tabular-nums">{promptLen}</span>
         </div>
         <textarea
-          className="textarea"
           value={prompt}
           placeholder={mode === "edit"
             ? "描述如何修改源图(例如:把背景换成夜空,人物保持不变)..."
             : "描述你想要生成的画面内容,越详细越好..."}
           onChange={(e) => setField("prompt", e.target.value)}
+          className="w-full min-h-[110px] resize-y bg-white dark:bg-zinc-950 ring-1 ring-black/[0.08] dark:ring-white/[0.06] rounded-lg px-3 py-2.5 text-sm text-zinc-900 dark:text-zinc-200 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus-ring"
         />
-        <div className="prompt-foot">
+        <div className="flex items-center justify-between mt-1.5 gap-2">
           <button
-            className="prompt-action-btn"
+            type="button"
             onClick={() => setPromptPopover((v) => !v)}
             title="prompt 模板与历史"
+            className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md text-zinc-500 hover:text-emerald-400 hover:bg-emerald-500/10 transition-colors"
           >
-            📋 模板 / 历史
+            <ListPlus className="w-3 h-3" /> 模板 / 历史
           </button>
           <label
-            className={`prompt-action-btn ${noPromptRevision ? "active" : ""}`}
             title={apiMode === "responses"
-              ? "勾上后 Responses API 文本模型不会优化你的 prompt,逐字传给图像模型。适合你已经精修过 prompt 的场景。"
-              : "Images API 形态本就不优化 prompt,此开关无效。"}
-            style={{
-              display: "inline-flex", alignItems: "center", gap: 4,
-              cursor: apiMode === "responses" ? "pointer" : "not-allowed",
-              opacity: apiMode === "responses" ? 1 : 0.5,
-            }}
+              ? "勾上后 Responses API 文本模型不会优化你的 prompt,逐字传给图像模型"
+              : "Images API 形态本就不优化 prompt,此开关无效"}
+            className={`inline-flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-md ring-1 transition-colors ${
+              noPromptRevision
+                ? "bg-emerald-500/12 text-emerald-300 ring-emerald-500/30"
+                : "text-zinc-500 dark:text-zinc-400 ring-transparent hover:ring-black/[0.08] dark:hover:ring-white/[0.06]"
+            } ${apiMode !== "responses" ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
           >
             <input
               type="checkbox"
               checked={noPromptRevision}
               disabled={apiMode !== "responses"}
               onChange={(e) => setField("noPromptRevision", e.target.checked)}
-              style={{ margin: 0, width: 12, height: 12, cursor: "inherit" }}
+              className="sr-only peer"
             />
-            <span>不优化提示词</span>
+            <span className={`w-3 h-3 rounded border ${noPromptRevision ? "border-emerald-500 bg-emerald-500" : "border-zinc-400 dark:border-zinc-600"} flex items-center justify-center transition-colors`}>
+              {noPromptRevision && <span className="w-1.5 h-1.5 rounded-sm bg-zinc-950" />}
+            </span>
+            不优化提示词
           </label>
-          <span style={{ fontSize: 10, color: "var(--text-dim)" }}>Ctrl + Enter 提交</span>
+          <span className="text-[10px] text-zinc-400 dark:text-zinc-600">Ctrl+Enter</span>
         </div>
         {promptPopover && (
           <PromptPopover
@@ -144,210 +149,303 @@ export function ControlPanel() {
         )}
       </section>
 
-      <section>
-        <div className="head-row">
-          <label className="head">风格</label>
-          {styleTag && (
-            <span className="head-link" onClick={() => setField("styleTag", "")}>清除</span>
-          )}
+      {/* 风格 */}
+      <Section label="风格" trailing={styleTag ? (
+        <button onClick={() => setField("styleTag", "")} className="text-[11px] text-emerald-500 hover:text-emerald-400">清除</button>
+      ) : null}>
+        <div className="flex flex-wrap gap-1.5">
+          {STYLE_CHIPS.map((s) => {
+            const active = styleTag === s.id;
+            return (
+              <button
+                key={s.id}
+                onClick={() => setField("styleTag", active ? "" : s.id)}
+                className={`px-2.5 py-1 rounded-md text-xs ring-1 transition-colors ${
+                  active
+                    ? "bg-emerald-500/12 text-emerald-300 ring-emerald-500/30"
+                    : "text-zinc-600 dark:text-zinc-400 ring-black/[0.08] dark:ring-white/[0.06] hover:text-zinc-900 dark:hover:text-zinc-200 hover:ring-emerald-500/30"
+                }`}
+              >
+                {s.label}
+              </button>
+            );
+          })}
         </div>
-        <div className="style-chips">
-          {STYLE_CHIPS.map((s) => (
-            <button
-              key={s.id}
-              className={`style-pill ${styleTag === s.id ? "active" : ""}`}
-              onClick={() => setField("styleTag", styleTag === s.id ? "" : s.id)}
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
-      </section>
+      </Section>
 
-      <section>
-        <label className="head">比例</label>
-        <div className="aspect-grid">
-          {ASPECT_OPTIONS.map((a) => (
-            <button
-              key={a.label}
-              className={`aspect-btn ${activeAspect === a.label ? "active" : ""}`}
-              onClick={() => setField("size", a.value as SizeValue)}
-            >
-              <span className="aspect-icon" style={{ width: a.w, height: a.h }} />
-              <span className="aspect-label">{a.label}</span>
-            </button>
-          ))}
+      {/* 比例 */}
+      <Section label="比例">
+        <div className="grid grid-cols-5 gap-1.5">
+          {ASPECT_OPTIONS.map((a) => {
+            const active = activeAspect === a.label;
+            return (
+              <button
+                key={a.label}
+                onClick={() => setField("size", a.value as SizeValue)}
+                className={`flex flex-col items-center gap-1 py-2 rounded-md ring-1 transition-colors ${
+                  active
+                    ? "bg-emerald-500/12 ring-emerald-500/40"
+                    : "ring-black/[0.08] dark:ring-white/[0.06] hover:ring-emerald-500/30"
+                }`}
+              >
+                <span
+                  className={`block rounded-sm border-2 ${
+                    active ? "border-emerald-400" : "border-zinc-400 dark:border-zinc-600"
+                  }`}
+                  style={{ width: a.w, height: a.h }}
+                />
+                <span className={`text-[10px] ${active ? "text-emerald-400" : "text-zinc-500"}`}>{a.label}</span>
+              </button>
+            );
+          })}
         </div>
-      </section>
+      </Section>
 
-      <section>
-        <label className="head">质量</label>
-        <div className="seg">
+      {/* 质量 */}
+      <Section label="质量">
+        <Seg>
           {QUALITY_TIERS.map((q) => (
-            <button
+            <SegItem
               key={q.value}
-              className={`seg-item ${quality === q.value ? "active" : ""}`}
+              active={quality === q.value}
               onClick={() => setField("quality", q.value as QualityValue)}
             >
               {q.label}
-            </button>
+            </SegItem>
           ))}
-        </div>
-      </section>
+        </Seg>
+      </Section>
 
+      {/* 源图(只在 edit 模式)*/}
       {mode === "edit" && (
-        <section>
-          <label className="head">
-            源图片 / 参考图
-            {sources.length > 0 && (
-              <span style={{ marginLeft: 6, opacity: 0.6, fontWeight: "normal" }}>· {sources.length} 张</span>
+        <Section
+          label={`源图片 / 参考图${sources.length > 0 ? ` · ${sources.length} 张` : ""}`}
+        >
+          <div className="flex flex-col gap-1.5">
+            {sources.length === 0 && currentImage?.savedPath && (
+              <div className="px-3 py-2 rounded-md ring-1 ring-black/[0.06] dark:ring-white/[0.04] text-xs text-zinc-500 dark:text-zinc-500 italic">
+                (画板当前图 · 隐式源图)
+              </div>
             )}
-          </label>
-          {sources.length === 0 && currentImage?.savedPath && (
-            <div className="source-pill" style={{ opacity: 0.7 }}>
-              <span className="name">(画板当前图 · 隐式源图)</span>
+            {sources.map((src, i) => (
+              <div key={src.path} className="flex items-center gap-1 px-2.5 py-1.5 rounded-md ring-1 ring-black/[0.08] dark:ring-white/[0.06] bg-white dark:bg-zinc-950">
+                <span className="flex-1 text-xs text-zinc-700 dark:text-zinc-300 truncate" title={src.path}>
+                  {i + 1}. {src.name}
+                </span>
+                <button
+                  onClick={() => removeSource(i)}
+                  title="移除"
+                  className="p-1 -m-1 text-zinc-400 hover:text-red-400"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
+            <div className="flex gap-1.5">
+              <button onClick={selectSourceImage} className="flex-1 inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-md text-xs text-zinc-700 dark:text-zinc-300 ring-1 ring-black/[0.08] dark:ring-white/[0.06] hover:ring-emerald-500/40 hover:text-emerald-400 transition-colors">
+                <ImagePlus className="w-3.5 h-3.5" /> 添加图片
+              </button>
+              {sources.length > 0 && (
+                <button onClick={clearSources} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs text-zinc-500 ring-1 ring-black/[0.08] dark:ring-white/[0.06] hover:text-red-400 hover:ring-red-400/40 transition-colors">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
-          )}
-          {sources.map((src, i) => (
-            <div key={src.path} className="source-pill">
-              <span className="name" title={src.path}>
-                {i + 1}. {src.name}
-              </span>
-              <button onClick={() => removeSource(i)} title="移除">×</button>
-            </div>
-          ))}
-          <div className="row">
-            <button className="btn secondary" onClick={selectSourceImage}>+ 添加图片</button>
-            {sources.length > 0 && <button className="btn secondary" onClick={clearSources}>清空</button>}
           </div>
-        </section>
+        </Section>
       )}
 
+      {/* 高级参数(可折叠)*/}
       <section>
         <button
-          className="settings-toggle"
           onClick={() => setAdvancedOpen((v) => !v)}
           type="button"
+          className="w-full flex items-center justify-between text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200 transition-colors"
         >
-          <span>高级参数</span>
-          <span style={{ opacity: 0.5 }}>{advancedOpen ? "▾" : "▸"} 展开设置</span>
+          <span className="uppercase tracking-wide">高级参数</span>
+          <span className="text-[10px] opacity-60">{advancedOpen ? "收起 ▾" : "展开 ▸"}</span>
         </button>
         {advancedOpen && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 8 }}>
+          <div className="flex flex-col gap-2 mt-2">
             <textarea
-              className="textarea"
-              style={{ minHeight: 50 }}
               value={negativePrompt}
               placeholder="负向提示词(不希望出现的元素)..."
               onChange={(e) => setField("negativePrompt", e.target.value)}
+              className="w-full min-h-[50px] resize-y bg-white dark:bg-zinc-950 ring-1 ring-black/[0.08] dark:ring-white/[0.06] rounded-lg px-3 py-2 text-xs text-zinc-900 dark:text-zinc-200 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus-ring"
             />
-            <div className="row">
+            <div className="flex gap-1.5">
               <input
-                className="input"
                 type="number"
                 value={seed || ""}
                 placeholder="seed (留空=随机)"
                 min={0}
                 onChange={(e) => setField("seed", Number(e.target.value) || 0)}
+                className="flex-1 bg-white dark:bg-zinc-950 ring-1 ring-black/[0.08] dark:ring-white/[0.06] rounded-md px-2.5 py-1.5 text-xs font-mono-token text-zinc-900 dark:text-zinc-200 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus-ring"
               />
-              <button className="btn secondary" onClick={() => setField("seed", Math.floor(Math.random() * 2_000_000_000))} title="生成随机 seed">🎲</button>
-              {seed > 0 && <button className="btn secondary" onClick={() => setField("seed", 0)} title="清除">×</button>}
+              <button
+                onClick={() => setField("seed", Math.floor(Math.random() * 2_000_000_000))}
+                title="随机 seed"
+                className="px-2 py-1.5 rounded-md ring-1 ring-black/[0.08] dark:ring-white/[0.06] text-zinc-600 dark:text-zinc-400 hover:text-emerald-400 hover:ring-emerald-500/40 transition-colors"
+              >
+                <Dices className="w-3.5 h-3.5" />
+              </button>
+              {seed > 0 && (
+                <button
+                  onClick={() => setField("seed", 0)}
+                  title="清除"
+                  className="px-2 py-1.5 rounded-md ring-1 ring-black/[0.08] dark:ring-white/[0.06] text-zinc-500 hover:text-red-400 hover:ring-red-400/40 transition-colors"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
           </div>
         )}
       </section>
 
-      <section>
-        <div className="head-row">
-          <label className="head" style={{ flex: 1 }}>
+      {/* 上游 */}
+      <Section
+        label={
+          <span className="flex items-center gap-1.5">
             上游
-            {apiKey && baseURL ? (
-              <span style={{ color: "var(--success)", fontSize: 10, marginLeft: 6 }}>● 已配置</span>
-            ) : (
-              <span style={{ color: "var(--error-text)", fontSize: 10, marginLeft: 6 }}>● 未配置</span>
-            )}
-          </label>
+            <span className={`w-1.5 h-1.5 rounded-full ${apiKey && baseURL ? "bg-emerald-500 shadow-[0_0_6px_rgb(16_185_129_/_0.8)]" : "bg-red-500"}`} />
+            <span className={`text-[10px] ${apiKey && baseURL ? "text-emerald-500" : "text-red-400"}`}>
+              {apiKey && baseURL ? "已配置" : "未配置"}
+            </span>
+          </span>
+        }
+        trailing={
           <button
-            className="head-link"
             onClick={() => setFaqOpen(true)}
             title="关于 API Key 分组、模型选择等"
-            style={{ background: "transparent", border: 0, cursor: "pointer", padding: "0 4px", fontSize: 11 }}
+            className="text-[11px] text-zinc-500 hover:text-emerald-500 inline-flex items-center gap-0.5"
           >
-            ❓ FAQ
+            <HelpCircle className="w-3 h-3" /> FAQ
           </button>
-        </div>
-        {/* 热切换芯片 —— 一键切 mode,自动加载该形态保存的 BASE_URL / Key / 模型 ID */}
-        <div className="api-mode-switch" title="热切换:两种形态各保留一份配置,切换时另一份不动">
+        }
+      >
+        {/* 热切换 chip */}
+        <div className="flex gap-1 p-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800/60 ring-1 ring-black/[0.06] dark:ring-white/[0.04]">
           {(["responses", "images"] as const).map((m) => {
             const cfg = m === "responses" ? responsesConfig : imagesConfig;
             const ready = cfg.apiKey.trim() && cfg.baseURL.trim();
+            const active = apiMode === m;
             return (
               <button
                 key={m}
-                type="button"
-                className={`api-mode-chip ${apiMode === m ? "active" : ""}`}
                 onClick={() => setField("apiMode", m)}
-                title={ready ? `${m} · 已配置 · ${cfg.baseURL.replace(/^https?:\/\//, "")}` : `${m} · 未配置(点了之后会加载该形态的空槽)`}
+                title={ready ? `${m} · 已配置 · ${cfg.baseURL.replace(/^https?:\/\//, "")}` : `${m} · 未配置`}
+                className={`flex-1 inline-flex items-center justify-center gap-1.5 px-2 py-1.5 rounded text-[11px] font-medium transition-colors ${
+                  active
+                    ? "bg-white dark:bg-zinc-900 text-emerald-500 shadow-sm"
+                    : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200"
+                }`}
               >
-                <span>{m === "responses" ? "Responses" : "Images"}</span>
-                <span style={{
-                  marginLeft: 4,
-                  fontSize: 9,
-                  color: ready ? "var(--success)" : "var(--text-dim)",
-                }}>●</span>
+                {m === "responses" ? "Responses" : "Images"}
+                <span className={`w-1 h-1 rounded-full ${ready ? "bg-emerald-500" : "bg-zinc-400 dark:bg-zinc-600"}`} />
               </button>
             );
           })}
         </div>
-        <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+        <div className="flex gap-1.5 mt-1.5">
           <button
-            className="btn secondary"
-            style={{ flex: 1, fontSize: 11, padding: "8px 10px" }}
             onClick={openUpstreamConfig}
-            type="button"
+            className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-xs text-zinc-700 dark:text-zinc-300 ring-1 ring-black/[0.08] dark:ring-white/[0.06] hover:ring-emerald-500/40 hover:text-emerald-400 transition-colors"
           >
-            🔧 上游配置
+            <Settings className="w-3.5 h-3.5" /> 上游配置
           </button>
           <button
-            className="btn secondary"
-            style={{ fontSize: 11, padding: "8px 10px" }}
             onClick={testAPIKey}
             disabled={!apiKey.trim() || !baseURL.trim() || isTestingKey}
-            type="button"
             title="发送一个最小请求验证 BASE_URL + API Key + 分组权限"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-xs ring-1 ring-black/[0.08] dark:ring-white/[0.06] hover:ring-emerald-500/40 hover:text-emerald-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isTestingKey ? "测试中..." : "🔌 测试"}
+            <Plug className={`w-3.5 h-3.5 ${isTestingKey ? "animate-spin" : ""}`} /> {isTestingKey ? "测试中..." : "测试"}
           </button>
         </div>
-        <div className="key-hint" style={{ marginTop: 6 }}>
+        <p className="text-[10px] text-zinc-500 dark:text-zinc-500 leading-relaxed mt-1.5">
           {apiMode === "responses"
             ? "Responses API · key 需绑「拥有 gpt-5.5 模型的分组」(可防 CF 524)"
             : "Images API · 可使用标准 image-2 / image API 分组"}
-        </div>
-      </section>
+        </p>
+      </Section>
 
       <FAQModal open={faqOpen} onClose={() => setFaqOpen(false)} />
 
-      <div className="generate-wrap">
+      {/* 生成按钮 */}
+      <div className="mt-auto pt-2 sticky bottom-0 bg-gradient-to-t from-white via-white/95 to-transparent dark:from-zinc-900 dark:via-zinc-900/95 -mx-4 px-4 pb-4">
         {isRunning ? (
-          <button className="btn danger generate-btn" onClick={cancel}>取消生成</button>
+          <button
+            onClick={cancel}
+            className="w-full py-2.5 rounded-xl bg-red-500/12 hover:bg-red-500/20 text-red-400 ring-1 ring-red-500/40 font-medium transition-colors"
+          >
+            取消生成
+          </button>
         ) : (
           <button
-            className="btn generate-btn"
             onClick={submit}
             disabled={!apiKey || !prompt}
+            className="w-full py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:bg-zinc-200 dark:disabled:bg-zinc-800 disabled:text-zinc-500 text-zinc-950 font-semibold transition-colors disabled:cursor-not-allowed"
           >
             {mode === "edit" ? "编辑" : "生成"}
           </button>
         )}
         {(!apiKey || !baseURL) && (
-          <div className="generate-sub">
-            首次使用请点击「🔧 上游配置」填入 BASE_URL 和 API Key
-          </div>
+          <p className="mt-2 text-[11px] text-zinc-500 text-center">
+            首次使用请点击「上游配置」填入 BASE_URL + API Key
+          </p>
         )}
       </div>
 
       <SettingsPanel />
     </div>
+  );
+}
+
+// ---- 内部 helpers ----
+
+function Section({
+  label, trailing, children,
+}: {
+  label: React.ReactNode;
+  trailing?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section>
+      <div className="flex items-center justify-between mb-1.5">
+        <label className="text-[11px] uppercase tracking-wide text-zinc-500">{label}</label>
+        {trailing}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function Seg({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex gap-1 p-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800/60 ring-1 ring-black/[0.06] dark:ring-white/[0.04]">
+      {children}
+    </div>
+  );
+}
+
+function SegItem({ active, onClick, children }: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex-1 px-2 py-1.5 rounded text-xs font-medium transition-colors ${
+        active
+          ? "bg-white dark:bg-zinc-900 text-emerald-500 shadow-sm"
+          : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200"
+      }`}
+    >
+      {children}
+    </button>
   );
 }

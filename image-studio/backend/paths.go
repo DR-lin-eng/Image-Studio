@@ -9,15 +9,21 @@ import (
 	"github.com/yuanhua/image-gptcodex/pkg/client"
 )
 
-// defaultOutputDir is where generated images and raw SSE dumps land.
-// Falls back to ./images if the user config dir is unavailable.
+// defaultOutputDir 返回「输出根目录」(不带 images/log 子目录)。
+// 实际落盘位置由调用方走 imagesSubdir / logSubdir 拼出来。
+// 默认 = %APPDATA%/image-studio,失败回退到 ./image-studio-output
 func defaultOutputDir() (string, error) {
 	cfg, err := os.UserConfigDir()
 	if err != nil {
-		return filepath.Join(".", "images"), nil
+		return filepath.Join(".", "image-studio-output"), nil
 	}
-	return filepath.Join(cfg, "image-studio", "images"), nil
+	return filepath.Join(cfg, "image-studio"), nil
 }
+
+// imagesSubdir / logSubdir 把根目录拆为「生成的 PNG」和「原始响应/排错日志」两个子文件夹。
+// 用户在 SettingsPanel 里可以「打开输出目录」=> 落到根,所以两类内容在同一个文件夹下并列。
+func imagesSubdir(root string) string { return filepath.Join(root, "images") }
+func logSubdir(root string) string    { return filepath.Join(root, "log") }
 
 // importsDir holds files dropped/pasted into the canvas, plus rotation/flip/
 // crop derivatives. Separate from `images/` so the user can manage them apart.

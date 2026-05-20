@@ -243,12 +243,19 @@ func (s *Service) runJob(ctx context.Context, jobID string, opts GenerateOptions
 		return
 	}
 
-	outputDir, err := s.resolvedOutputDir()
+	rootDir, err := s.resolvedOutputDir()
 	if err != nil {
 		s.emitError(jobID, err)
 		return
 	}
-	if err := os.MkdirAll(outputDir, 0o755); err != nil {
+	// 拆 PNG 和 raw response 到两个子目录,避免单目录文件混杂。
+	imagesDir := imagesSubdir(rootDir)
+	logDir := logSubdir(rootDir)
+	if err := os.MkdirAll(imagesDir, 0o755); err != nil {
+		s.emitError(jobID, err)
+		return
+	}
+	if err := os.MkdirAll(logDir, 0o755); err != nil {
 		s.emitError(jobID, err)
 		return
 	}
@@ -263,8 +270,9 @@ func (s *Service) runJob(ctx context.Context, jobID string, opts GenerateOptions
 		})
 	}
 
+	// raw response(SSE 文本 / Images API JSON)落到 log 子目录;PNG 落到 images 子目录。
 	result, rawPath, err := client.RequestAndExtractWithRetries(
-		ctx, transport, clientOpts, outputDir, timestamp, logFn, progressFn,
+		ctx, transport, clientOpts, logDir, timestamp, logFn, progressFn,
 	)
 	if err != nil {
 		s.emitError(jobID, err)
@@ -272,7 +280,7 @@ func (s *Service) runJob(ctx context.Context, jobID string, opts GenerateOptions
 	}
 
 	imageName := buildImageName(mode, opts.Prompt, timestamp)
-	savedPath := filepath.Join(outputDir, imageName)
+	savedPath := filepath.Join(imagesDir, imageName)
 	if abs, werr := writeBase64PNG(result.ImageB64, savedPath); werr == nil {
 		savedPath = abs
 	}

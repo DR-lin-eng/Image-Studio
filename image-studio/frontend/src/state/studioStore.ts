@@ -90,6 +90,9 @@ interface StudioState {
   //   "responses" — 默认,POST /v1/responses + SSE 流式保活(防 CF 524)
   //   "images"    — 标准 OpenAI Images API,POST /v1/images/generations + /v1/images/edits
   apiMode: "responses" | "images";
+  // 关掉 Responses API 的 prompt 改写(在 payload 顶层加 instructions 让模型逐字使用)。
+  // 对 Images API 无效但留着不影响。全局偏好,不分形态。
+  noPromptRevision: boolean;
   // 两种形态各自独立的持久化槽。setField 在改 baseURL/textModelID/imageModelID
   // 或 setAPIKey 改 apiKey 时,同时写入对应形态的槽 + 顶层镜像。
   responsesConfig: ModeConfig;
@@ -321,6 +324,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   textModelID: "",
   imageModelID: "",
   apiMode: "responses",
+  noPromptRevision: false,
   responsesConfig: EMPTY_MODE_CFG,
   imagesConfig: EMPTY_MODE_CFG,
   sources: [],
@@ -395,10 +399,12 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       saveModeField(mode, key as keyof ModeConfig, cleaned);
       return;
     }
-    // transport 跟 apiMode/上游 4 字段不同 —— 它是全局的,不分形态
+    // 其他全局偏好字段
     set({ [key]: value } as any);
     if (key === "transport") {
       try { localStorage.setItem("gptcodex.transport", String(value)); } catch {}
+    } else if (key === "noPromptRevision") {
+      try { localStorage.setItem("gptcodex.noPromptRevision", value ? "1" : "0"); } catch {}
     }
   },
 
@@ -507,6 +513,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       imageModelID: s.imageModelID,
       transport: s.transport,
       apiMode: s.apiMode,
+      noPromptRevision: s.noPromptRevision,
     };
 
     if (s.prompt.trim()) {
@@ -642,6 +649,10 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       const v = localStorage.getItem("gptcodex.transport");
       if (v === "auto" || v === "native" || v === "curl") transport = v;
     } catch {}
+    let noPromptRevision = false;
+    try {
+      noPromptRevision = localStorage.getItem("gptcodex.noPromptRevision") === "1";
+    } catch {}
     // 每个形态的独立上游槽
     let responsesConfig = loadModeConfig("responses");
     let imagesConfig = loadModeConfig("images");
@@ -698,7 +709,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     };
     set({
       apiKey: activeKey, history: items, promptHistory, presets, theme, fontScale,
-      apiMode, baseURL, textModelID, imageModelID, transport,
+      apiMode, baseURL, textModelID, imageModelID, transport, noPromptRevision,
       responsesConfig, imagesConfig,
       workspaces: [initialWorkspace],
       activeWorkspaceId: wsId,
@@ -979,6 +990,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
         imageModelID: s.imageModelID,
         transport: s.transport,
         apiMode: s.apiMode,
+        noPromptRevision: s.noPromptRevision,
       } as any);
       // We don't actually wait for the image; the job is queued in backend.
       // Cancel right after to avoid burning quota.

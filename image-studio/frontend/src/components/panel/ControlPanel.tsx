@@ -38,6 +38,7 @@ export function ControlPanel() {
     sources, currentImage,
     errorMessage, isRunning, lastPayload, isTestingKey,
     apiMode, baseURL, responsesConfig, imagesConfig, openUpstreamConfig,
+    noPromptRevision,
     setField,
     selectSourceImage, removeSource, clearSources,
     submit, cancel, retryLast, testAPIKey, pushToast,
@@ -114,6 +115,26 @@ export function ControlPanel() {
           >
             📋 模板 / 历史
           </button>
+          <label
+            className={`prompt-action-btn ${noPromptRevision ? "active" : ""}`}
+            title={apiMode === "responses"
+              ? "勾上后 Responses API 文本模型不会改写你的 prompt,逐字传给图像模型。适合你已经精修过 prompt 的场景。"
+              : "Images API 形态本就不改写 prompt,此开关无效。"}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 4,
+              cursor: apiMode === "responses" ? "pointer" : "not-allowed",
+              opacity: apiMode === "responses" ? 1 : 0.5,
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={noPromptRevision}
+              disabled={apiMode !== "responses"}
+              onChange={(e) => setField("noPromptRevision", e.target.checked)}
+              style={{ margin: 0, width: 12, height: 12, cursor: "inherit" }}
+            />
+            <span>不改写</span>
+          </label>
           <span style={{ fontSize: 10, color: "var(--text-dim)" }}>Ctrl + Enter 提交</span>
         </div>
         {promptPopover && (

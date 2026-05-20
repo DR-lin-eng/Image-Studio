@@ -59,6 +59,11 @@
   border-color: var(--accent);
   background: var(--accent-soft);
 }
+.prompt-action-btn.active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
 
 /* Aspect ratio picker (rectangles + ratio label). */
 .aspect-grid {

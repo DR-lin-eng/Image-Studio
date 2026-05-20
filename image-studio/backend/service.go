@@ -216,6 +216,7 @@ func (s *Service) runJob(ctx context.Context, jobID string, opts GenerateOptions
 		ImageModelID:   opts.ImageModelID,
 		Transport:      client.TransportKind(opts.Transport),
 		APIMode:        apiMode,
+		NoPromptRevision: opts.NoPromptRevision,
 	}
 	if mode == client.ModeEdit {
 		paths := opts.collectPaths()

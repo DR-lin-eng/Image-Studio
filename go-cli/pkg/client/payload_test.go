@@ -97,6 +97,38 @@ func TestBuildPayloadEmptyPromptError(t *testing.T) {
 	}
 }
 
+func TestBuildPayloadNoPromptRevision(t *testing.T) {
+	// 关闭改写时 payload 顶层应该有 instructions 字段
+	b, err := BuildPayload(Options{
+		Prompt:           "a tiny red dot",
+		Size:             "1024x1024",
+		Quality:          "auto",
+		NoPromptRevision: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var p map[string]any
+	if err := json.Unmarshal(b, &p); err != nil {
+		t.Fatal(err)
+	}
+	instr, ok := p["instructions"].(string)
+	if !ok || instr == "" {
+		t.Errorf("expected non-empty instructions, got %v", p["instructions"])
+	}
+	if !strings.Contains(instr, "VERBATIM") {
+		t.Errorf("instructions missing VERBATIM directive: %s", instr)
+	}
+
+	// 默认(NoPromptRevision=false)不应含 instructions
+	b2, _ := BuildPayload(Options{Prompt: "a tiny red dot", Size: "1024x1024", Quality: "auto"})
+	var p2 map[string]any
+	json.Unmarshal(b2, &p2)
+	if _, has := p2["instructions"]; has {
+		t.Errorf("default payload should not contain instructions, got %v", p2["instructions"])
+	}
+}
+
 func TestBuildPayloadMultiImageReferences(t *testing.T) {
 	urls := []string{
 		"data:image/png;base64,AAA",

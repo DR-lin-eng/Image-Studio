@@ -15,49 +15,65 @@ export function UpstreamConfigModal({
   onClose: () => void;
 }) {
   const {
-    apiMode, baseURL, apiKey, textModelID, imageModelID,
+    apiMode, responsesConfig, imagesConfig,
     setField, setAPIKey,
     testAPIKey, isTestingKey,
   } = useStudioStore();
 
-  // 本地草稿态:用户可能改了字段又取消,不应污染全局 state。
-  // 弹窗每次打开时同步全局 → 本地。
+  // 本地草稿态:每个形态各持一份,modal 内切 mode 时只是切显示草稿,不污染全局。
+  // 「保存」时只把当前 draftApiMode 那份草稿 commit 进 store(同时 store 会把它写到对应槽)。
   const [draftApiMode, setDraftApiMode] = useState<"responses" | "images">(apiMode);
-  const [draftBaseURL, setDraftBaseURL] = useState(baseURL);
-  const [draftApiKey, setDraftApiKey] = useState(apiKey);
-  const [draftTextModel, setDraftTextModel] = useState(textModelID);
-  const [draftImageModel, setDraftImageModel] = useState(imageModelID);
+  const [draftResponses, setDraftResponses] = useState(responsesConfig);
+  const [draftImages, setDraftImages] = useState(imagesConfig);
   const [showKey, setShowKey] = useState(false);
 
   useEffect(() => {
     if (open) {
       setDraftApiMode(apiMode);
-      setDraftBaseURL(baseURL);
-      setDraftApiKey(apiKey);
-      setDraftTextModel(textModelID);
-      setDraftImageModel(imageModelID);
+      setDraftResponses(responsesConfig);
+      setDraftImages(imagesConfig);
     }
-  }, [open, apiMode, baseURL, apiKey, textModelID, imageModelID]);
+  }, [open, apiMode, responsesConfig, imagesConfig]);
+
+  // 当前可见草稿 = draftApiMode 对应的那份
+  const cur = draftApiMode === "responses" ? draftResponses : draftImages;
+  const setCur = (patch: Partial<typeof cur>) => {
+    if (draftApiMode === "responses") setDraftResponses({ ...draftResponses, ...patch });
+    else setDraftImages({ ...draftImages, ...patch });
+  };
+
+  const draftBaseURL = cur.baseURL;
+  const draftApiKey = cur.apiKey;
+  const draftTextModel = cur.textModelID;
+  const draftImageModel = cur.imageModelID;
 
   const canSave = draftBaseURL.trim() && draftApiKey.trim();
 
-  function save() {
+  // commit:把两份草稿都写回 store(每个字段调一次 setField,自动落到对应槽)+ 最后切换 apiMode
+  function commit() {
+    const writeMode = (m: "responses" | "images", cfg: typeof cur) => {
+      // 先临时切到 m,再写它的字段(store 的 setField 是按当前 apiMode 决定写哪个槽)
+      setField("apiMode", m);
+      setField("baseURL", cfg.baseURL.trim());
+      setAPIKey(cfg.apiKey.trim());
+      setField("textModelID", cfg.textModelID.trim());
+      setField("imageModelID", cfg.imageModelID.trim());
+    };
+    writeMode("responses", draftResponses);
+    writeMode("images", draftImages);
+    // 最终激活用户在 modal 里选中的那个形态
     setField("apiMode", draftApiMode);
-    setField("baseURL", draftBaseURL.trim());
-    setAPIKey(draftApiKey.trim());
-    setField("textModelID", draftTextModel.trim());
-    setField("imageModelID", draftImageModel.trim());
+  }
+
+  function save() {
+    commit();
     onClose();
   }
 
   // 在 modal 内点「测试连接」需要先把草稿提交,否则测试用的是旧值。
   function testWithCurrentDraft() {
     if (!canSave) return;
-    setField("apiMode", draftApiMode);
-    setField("baseURL", draftBaseURL.trim());
-    setAPIKey(draftApiKey.trim());
-    setField("textModelID", draftTextModel.trim());
-    setField("imageModelID", draftImageModel.trim());
+    commit();
     // setAPIKey 是异步触发 setState,但 testAPIKey 在下一个 tick 读 get() 时能拿到新值。
     setTimeout(() => testAPIKey(), 0);
   }
@@ -104,6 +120,11 @@ export function UpstreamConfigModal({
           </div>
         </div>
 
+        <div className="settings-hint" style={{ background: "var(--accent-soft)", color: "var(--accent)", borderStyle: "solid" }}>
+          下方编辑的是 <strong>{draftApiMode === "responses" ? "Responses API" : "Images API"}</strong> 的配置 ——
+          两种形态各存一份,切换形态时另一份不动。
+        </div>
+
         {/* BASE_URL */}
         <div className="upstream-row">
           <label className="head">上游 BASE_URL <span className="req">*</span></label>
@@ -112,7 +133,7 @@ export function UpstreamConfigModal({
             type="text"
             value={draftBaseURL}
             placeholder="https://your-relay.example.com"
-            onChange={(e) => setDraftBaseURL(e.target.value)}
+            onChange={(e) => setCur({ baseURL: e.target.value })}
             spellCheck={false}
             autoFocus={!draftBaseURL}
           />
@@ -127,7 +148,7 @@ export function UpstreamConfigModal({
               type={showKey ? "text" : "password"}
               value={draftApiKey}
               placeholder="sk-..."
-              onChange={(e) => setDraftApiKey(e.target.value)}
+              onChange={(e) => setCur({ apiKey: e.target.value })}
               spellCheck={false}
               autoComplete="off"
             />
@@ -151,7 +172,7 @@ export function UpstreamConfigModal({
               type="text"
               value={draftTextModel}
               placeholder="留空=默认 gpt-5.5"
-              onChange={(e) => setDraftTextModel(e.target.value)}
+              onChange={(e) => setCur({ textModelID: e.target.value })}
               spellCheck={false}
             />
           </div>
@@ -169,7 +190,7 @@ export function UpstreamConfigModal({
                 ? "留空=默认 gpt-image-2(由 image_generation 工具触发)"
                 : "留空=默认 gpt-image-2(直接传给 Images API)"
             }
-            onChange={(e) => setDraftImageModel(e.target.value)}
+            onChange={(e) => setCur({ imageModelID: e.target.value })}
             spellCheck={false}
           />
         </div>

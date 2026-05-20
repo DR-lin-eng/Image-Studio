@@ -36,6 +36,38 @@ import {
   loadAllHistory,
 } from "../lib/storage";
 
+// 单个 API 形态的上游 5 字段(去掉 apiMode 本身)。两种形态各持有一份,在
+// localStorage 里以 `gptcodex.<mode>.<field>` 命名持久化。
+export interface ModeConfig {
+  baseURL: string;
+  apiKey: string;
+  textModelID: string;
+  imageModelID: string;
+}
+
+const EMPTY_MODE_CFG: ModeConfig = { baseURL: "", apiKey: "", textModelID: "", imageModelID: "" };
+
+function loadModeConfig(mode: "responses" | "images"): ModeConfig {
+  const r = (k: keyof ModeConfig): string => {
+    try { return localStorage.getItem(`gptcodex.${mode}.${k}`) ?? ""; } catch { return ""; }
+  };
+  return {
+    baseURL: r("baseURL"),
+    apiKey: r("apiKey"),
+    textModelID: r("textModelID"),
+    imageModelID: r("imageModelID"),
+  };
+}
+
+function saveModeField(mode: "responses" | "images", field: keyof ModeConfig, value: string) {
+  try { localStorage.setItem(`gptcodex.${mode}.${field}`, value); } catch {}
+}
+
+// trim trailing slashes — Go 端虽然会兜底,UI 持久化也清一遍,展示更干净
+function cleanBaseURL(v: string): string {
+  return v.replace(/\/+$/, "").trim();
+}
+
 interface StudioState {
   // ---- Form state ----
   apiKey: string;
@@ -47,8 +79,9 @@ interface StudioState {
   seed: number;          // 0 = random
   transport: TransportKind;
 
-  // Upstream-config overrides. Persisted to localStorage so they survive
-  // restarts but are blank by default → backend uses its compiled-in defaults.
+  // 顶层的「当前生效」上游配置 —— 它实际等于 responsesConfig 或 imagesConfig 里
+  // 一份的镜像,具体取决于 apiMode。改 apiMode 时这 4 个字段会被瞬时换成另一形态
+  // 已保存的值(热切换),所以两种形态的 BASE_URL / Key / 模型 ID 互不污染。
   baseURL: string;
   textModelID: string;
   imageModelID: string;
@@ -56,6 +89,10 @@ interface StudioState {
   //   "responses" — 默认,POST /v1/responses + SSE 流式保活(防 CF 524)
   //   "images"    — 标准 OpenAI Images API,POST /v1/images/generations + /v1/images/edits
   apiMode: "responses" | "images";
+  // 两种形态各自独立的持久化槽。setField 在改 baseURL/textModelID/imageModelID
+  // 或 setAPIKey 改 apiKey 时,同时写入对应形态的槽 + 顶层镜像。
+  responsesConfig: ModeConfig;
+  imagesConfig: ModeConfig;
   // Multi-reference source images. The legacy single-source UI now feeds into
   // and reads from this list. Empty list + currentImage on the canvas triggers
   // a fallback where the canvas image is used as the implicit source.
@@ -279,6 +316,8 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   textModelID: "",
   imageModelID: "",
   apiMode: "responses",
+  responsesConfig: EMPTY_MODE_CFG,
+  imagesConfig: EMPTY_MODE_CFG,
   sources: [],
 
   runningJobs: [],
@@ -326,20 +365,45 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   styleTag: "",
 
   setField: (key, value) => {
+    // apiMode 切换 → 把另一形态已保存的槽热加载到顶层镜像;两形态配置不互相覆盖
+    if (key === "apiMode") {
+      const newMode = value as "responses" | "images";
+      const cfg = newMode === "responses" ? get().responsesConfig : get().imagesConfig;
+      set({
+        apiMode: newMode,
+        baseURL: cfg.baseURL,
+        apiKey: cfg.apiKey,
+        textModelID: cfg.textModelID,
+        imageModelID: cfg.imageModelID,
+      });
+      saveAPIKey(cfg.apiKey); // 让旧的 gptcodex.apiKey 也跟着新 active 走,保持向后兼容
+      try { localStorage.setItem("gptcodex.apiMode", newMode); } catch {}
+      return;
+    }
+    // 上游 4 字段:写顶层镜像 + 写当前 mode 的槽
+    if (key === "baseURL" || key === "textModelID" || key === "imageModelID") {
+      const cleaned = key === "baseURL" ? cleanBaseURL(String(value)) : String(value);
+      const mode = get().apiMode;
+      const slot = mode === "responses" ? "responsesConfig" : "imagesConfig";
+      const next: ModeConfig = { ...get()[slot], [key]: cleaned };
+      set({ [key]: cleaned, [slot]: next } as any);
+      saveModeField(mode, key as keyof ModeConfig, cleaned);
+      return;
+    }
+    // transport 跟 apiMode/上游 4 字段不同 —— 它是全局的,不分形态
     set({ [key]: value } as any);
-    // Persist upstream-config + apiMode + transport so they survive restarts.
-    if (
-      key === "apiMode" || key === "baseURL" ||
-      key === "textModelID" || key === "imageModelID" ||
-      key === "transport"
-    ) {
-      try { localStorage.setItem(`gptcodex.${String(key)}`, String(value)); } catch {}
+    if (key === "transport") {
+      try { localStorage.setItem("gptcodex.transport", String(value)); } catch {}
     }
   },
 
   setAPIKey: (v) => {
-    saveAPIKey(v);
-    set({ apiKey: v });
+    saveAPIKey(v); // legacy gptcodex.apiKey,保持向后兼容
+    const mode = get().apiMode;
+    const slot = mode === "responses" ? "responsesConfig" : "imagesConfig";
+    const next: ModeConfig = { ...get()[slot], apiKey: v };
+    set({ apiKey: v, [slot]: next } as any);
+    saveModeField(mode, "apiKey", v);
   },
 
   selectSourceImage: async () => {
@@ -568,23 +632,46 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       const n = Number(raw);
       if (!Number.isNaN(n) && n > 0.5 && n < 2) fontScale = n;
     } catch {}
-    // 上游 / 模型 / 通道 / API 形态 — 全部走 gptcodex.{field}
+    // API 形态 + 网络通道(全局)
     let apiMode: "responses" | "images" = "responses";
-    let baseURL = "";
-    let textModelID = "";
-    let imageModelID = "";
     let transport: TransportKind = "auto";
     try {
       const v = localStorage.getItem("gptcodex.apiMode");
       if (v === "images" || v === "responses") apiMode = v;
     } catch {}
-    try { baseURL = localStorage.getItem("gptcodex.baseURL") ?? ""; } catch {}
-    try { textModelID = localStorage.getItem("gptcodex.textModelID") ?? ""; } catch {}
-    try { imageModelID = localStorage.getItem("gptcodex.imageModelID") ?? ""; } catch {}
     try {
       const v = localStorage.getItem("gptcodex.transport");
       if (v === "auto" || v === "native" || v === "curl") transport = v;
     } catch {}
+    // 每个形态的独立上游槽
+    let responsesConfig = loadModeConfig("responses");
+    let imagesConfig = loadModeConfig("images");
+    // 旧版本(共享单份配置)迁移:legacy 字段 → 当前形态的槽,只在该槽为空时迁入。
+    // legacy apiKey 走 loadAPIKey,其他三个走旧的 gptcodex.<field>。
+    const legacyBaseURL  = (() => { try { return localStorage.getItem("gptcodex.baseURL") ?? ""; } catch { return ""; } })();
+    const legacyTextID   = (() => { try { return localStorage.getItem("gptcodex.textModelID") ?? ""; } catch { return ""; } })();
+    const legacyImageID  = (() => { try { return localStorage.getItem("gptcodex.imageModelID") ?? ""; } catch { return ""; } })();
+    const legacyKey = key; // loadAPIKey 上面已经取过
+    const activeSlot = apiMode === "responses" ? responsesConfig : imagesConfig;
+    let migrated = false;
+    if (!activeSlot.baseURL && legacyBaseURL)     { activeSlot.baseURL = cleanBaseURL(legacyBaseURL); migrated = true; }
+    if (!activeSlot.apiKey && legacyKey)          { activeSlot.apiKey = legacyKey; migrated = true; }
+    if (!activeSlot.textModelID && legacyTextID)  { activeSlot.textModelID = legacyTextID; migrated = true; }
+    if (!activeSlot.imageModelID && legacyImageID){ activeSlot.imageModelID = legacyImageID; migrated = true; }
+    if (migrated) {
+      saveModeField(apiMode, "baseURL", activeSlot.baseURL);
+      saveModeField(apiMode, "apiKey", activeSlot.apiKey);
+      saveModeField(apiMode, "textModelID", activeSlot.textModelID);
+      saveModeField(apiMode, "imageModelID", activeSlot.imageModelID);
+      if (apiMode === "responses") responsesConfig = activeSlot;
+      else imagesConfig = activeSlot;
+    }
+    // 顶层镜像 = 当前形态的槽
+    const baseURL = activeSlot.baseURL;
+    const textModelID = activeSlot.textModelID;
+    const imageModelID = activeSlot.imageModelID;
+    const activeKey = activeSlot.apiKey || legacyKey; // 优先使用形态槽里的 key
+    if (activeKey !== legacyKey) saveAPIKey(activeKey); // 同步 legacy 存储
     // Apply theme + font scale to root immediately.
     document.documentElement.setAttribute("data-theme", theme);
     document.documentElement.style.setProperty("--font-scale", String(fontScale));
@@ -604,12 +691,13 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       currentImageId: null,
     };
     set({
-      apiKey: key, history: items, promptHistory, presets, theme, fontScale,
+      apiKey: activeKey, history: items, promptHistory, presets, theme, fontScale,
       apiMode, baseURL, textModelID, imageModelID, transport,
+      responsesConfig, imagesConfig,
       workspaces: [initialWorkspace],
       activeWorkspaceId: wsId,
-      // 首次启动:apiKey 或 baseURL 任一缺失 → 自动弹上游配置。
-      upstreamModalOpen: !key.trim() || !baseURL.trim(),
+      // 首次启动:当前形态的 apiKey 或 baseURL 任一缺失 → 自动弹上游配置。
+      upstreamModalOpen: !activeKey.trim() || !baseURL.trim(),
     });
   },
 

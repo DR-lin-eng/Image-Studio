@@ -28,9 +28,9 @@ func RequestAndExtract(
 		return ImageResult{}, err
 	}
 
-	baseURL := opts.BaseURL
+	baseURL := strings.TrimRight(opts.BaseURL, "/")
 	if baseURL == "" {
-		baseURL = BaseURL
+		baseURL = strings.TrimRight(BaseURL, "/")
 	}
 	if baseURL == "" {
 		return ImageResult{}, errors.New("未配置上游 BASE_URL,请在「设置 → 上游 BASE_URL」中填入兼容 Responses API 的中转站地址")

@@ -36,7 +36,7 @@ export function ControlPanel() {
     apiKey, mode, prompt, negativePrompt, size, quality, seed, batchCount, styleTag,
     sources, currentImage,
     errorMessage, isRunning, lastPayload, isTestingKey,
-    apiMode, baseURL, openUpstreamConfig,
+    apiMode, baseURL, responsesConfig, imagesConfig, openUpstreamConfig,
     setField,
     selectSourceImage, removeSource, clearSources,
     submit, cancel, retryLast, testAPIKey, pushToast,
@@ -263,7 +263,30 @@ export function ControlPanel() {
             ❓ FAQ
           </button>
         </div>
-        <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+        {/* 热切换芯片 —— 一键切 mode,自动加载该形态保存的 BASE_URL / Key / 模型 ID */}
+        <div className="api-mode-switch" title="热切换:两种形态各保留一份配置,切换时另一份不动">
+          {(["responses", "images"] as const).map((m) => {
+            const cfg = m === "responses" ? responsesConfig : imagesConfig;
+            const ready = cfg.apiKey.trim() && cfg.baseURL.trim();
+            return (
+              <button
+                key={m}
+                type="button"
+                className={`api-mode-chip ${apiMode === m ? "active" : ""}`}
+                onClick={() => setField("apiMode", m)}
+                title={ready ? `${m} · 已配置 · ${cfg.baseURL.replace(/^https?:\/\//, "")}` : `${m} · 未配置(点了之后会加载该形态的空槽)`}
+              >
+                <span>{m === "responses" ? "Responses" : "Images"}</span>
+                <span style={{
+                  marginLeft: 4,
+                  fontSize: 9,
+                  color: ready ? "var(--success)" : "var(--text-dim)",
+                }}>●</span>
+              </button>
+            );
+          })}
+        </div>
+        <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
           <button
             className="btn secondary"
             style={{ flex: 1, fontSize: 11, padding: "8px 10px" }}

@@ -24,6 +24,7 @@ func (t *NativeTransport) Stream(ctx context.Context, req Request, rawSink io.Wr
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Accept", "text/event-stream")
 	httpReq.Header.Set("Authorization", "Bearer "+req.APIKey)
+	httpReq.Header.Set("User-Agent", UserAgent)
 
 	cli := t.Client
 	if cli == nil {

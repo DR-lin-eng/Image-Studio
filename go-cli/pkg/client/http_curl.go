@@ -33,6 +33,7 @@ func BuildCurlArgs(apiKey, url, bodyPath string) []string {
 		"-H", "Accept: */*",
 		"-H", "Content-Type: application/json",
 		"-H", "Authorization: Bearer " + apiKey,
+		"-H", "User-Agent: " + UserAgent,
 		"--data-binary", "@" + bodyPath,
 	}
 }

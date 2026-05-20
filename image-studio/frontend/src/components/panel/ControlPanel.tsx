@@ -77,15 +77,33 @@ export function ControlPanel() {
         </div>
       )}
 
+      <section>
+        <label className="head">模式</label>
+        <div className="seg">
+          {(["generate", "edit"] as Mode[]).map((m) => (
+            <button
+              key={m}
+              className={`seg-item ${mode === m ? "active" : ""}`}
+              onClick={() => setField("mode", m)}
+              type="button"
+            >
+              {m === "generate" ? "📝 文生图" : "🖼 图生图"}
+            </button>
+          ))}
+        </div>
+      </section>
+
       <section className="prompt-wrap">
         <div className="head-row">
-          <label className="head">Prompt 提示词</label>
+          <label className="head">{mode === "edit" ? "修改要求" : "Prompt 提示词"}</label>
           <span className="prompt-counter">{promptLen}</span>
         </div>
         <textarea
           className="textarea"
           value={prompt}
-          placeholder="描述你想要生成的画面内容,越详细越好..."
+          placeholder={mode === "edit"
+            ? "描述如何修改源图(例如:把背景换成夜空,人物保持不变)..."
+            : "描述你想要生成的画面内容,越详细越好..."}
           onChange={(e) => setField("prompt", e.target.value)}
         />
         <div className="prompt-foot">
@@ -217,14 +235,6 @@ export function ControlPanel() {
               />
               <button className="btn secondary" onClick={() => setField("seed", Math.floor(Math.random() * 2_000_000_000))} title="生成随机 seed">🎲</button>
               {seed > 0 && <button className="btn secondary" onClick={() => setField("seed", 0)} title="清除">×</button>}
-            </div>
-            <div className="row">
-              {(["generate", "edit"] as Mode[]).map((m) => (
-                <label key={m} className={`radio ${mode === m ? "active" : ""}`}>
-                  <input type="radio" checked={mode === m} onChange={() => setField("mode", m)} />
-                  {m === "generate" ? "文生图" : "图生图"}
-                </label>
-              ))}
             </div>
           </div>
         )}

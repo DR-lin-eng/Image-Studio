@@ -11,6 +11,9 @@ const (
 	OutputFormat       = "png"
 	MaxInputImageBytes = 50 * 1024 * 1024
 	MaxAttempts        = 3
+	// 所有出站请求的 User-Agent。sub2api / 中转站后台会把这串当客户端标识展示。
+	// 改这里就同时影响 NativeTransport / CurlTransport / Images API 路径。
+	UserAgent = "image-studio/0.1.0"
 )
 
 // Tunable knobs (exposed as vars so tests can shrink them).

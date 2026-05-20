@@ -3,7 +3,7 @@
 
 export type Mode = "generate" | "edit";
 
-export type SizeValue = "1024x1024" | "1536x1024" | "1024x1536" | "2048x1152";
+export type SizeValue = "1024x1024" | "1536x1024" | "1024x1536" | "2048x1152" | "1152x2048";
 export type QualityValue = "auto" | "high" | "medium" | "low";
 export type TransportKind = "auto" | "native" | "curl";
 
@@ -15,6 +15,7 @@ export const SIZE_OPTIONS: SizeOption[] = [
   { value: "1536x1024", label: "横版 1536×1024" },
   { value: "1024x1536", label: "竖版 1024×1536" },
   { value: "2048x1152", label: "宽屏 2048×1152" },
+  { value: "1152x2048", label: "竖屏 1152×2048" },
 ];
 
 export const QUALITY_OPTIONS: QualityOption[] = [

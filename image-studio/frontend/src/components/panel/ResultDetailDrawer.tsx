@@ -120,12 +120,12 @@ export function ResultDetailDrawer() {
           </Section>
         ) : null}
 
-        {/* 修订 prompt(仅 Responses API 才有)*/}
+        {/* 优化版 prompt(仅 Responses API 才有,可在 prompt 框下方勾选「不优化」关闭)*/}
         {item.revisedPrompt ? (
-          <Section title="✨ 模型修订后" hint="Responses API 模式下,模型会把原 prompt 改写成更具体的描述,然后再生图。">
+          <Section title="✨ 模型优化后" hint="Responses API 模式下,文本模型默认会把原 prompt 优化成更具体的描述再喂给图像模型。要逐字使用原 prompt,可在 prompt 框下勾选「不优化提示词」。">
             <p className="rd-prompt rd-prompt-revised">{item.revisedPrompt}</p>
             <div className="rd-actions">
-              <button type="button" className="rd-btn" onClick={() => copy(item.revisedPrompt!, "修订 prompt")}>
+              <button type="button" className="rd-btn" onClick={() => copy(item.revisedPrompt!, "优化版 prompt")}>
                 📋 复制
               </button>
               <button type="button" className="rd-btn rd-btn-primary" onClick={() => useAsNextPrompt(item.revisedPrompt!)}>

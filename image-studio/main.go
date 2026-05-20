@@ -19,9 +19,9 @@ func main() {
 	err := wails.Run(&options.App{
 		Title:     "Image Studio",
 		Width:     1440,
-		Height:    900,
+		Height:    980,
 		MinWidth:  1100,
-		MinHeight: 720,
+		MinHeight: 780,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},

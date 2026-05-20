@@ -169,7 +169,7 @@ export function Toolbar() {
             <button
               className="tool-btn"
               onClick={() => openResultDetail(currentImage)}
-              title="查看本张图的详细信息(参数 / prompt / 修订 / 文件路径)"
+              title="查看本张图的详细信息(参数 / prompt / 优化版 / 文件路径)"
             >
               ℹ 详情
             </button>

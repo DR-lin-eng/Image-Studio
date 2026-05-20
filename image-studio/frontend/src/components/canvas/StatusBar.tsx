@@ -47,7 +47,7 @@ export function StatusBar() {
         <span>✓ {metaParts.join(" · ")} · {created}</span>
         {currentImage.revisedPrompt && (
           <span style={{ color: "var(--text-muted)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={currentImage.revisedPrompt}>
-            修订: {currentImage.revisedPrompt}
+            优化: {currentImage.revisedPrompt}
           </span>
         )}
         <span style={{ color: "var(--text-muted)", marginLeft: "auto" }}>缩放 {zoomLabel}</span>

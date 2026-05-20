@@ -52,10 +52,6 @@ export function ControlPanel() {
 
   return (
     <div className="panel">
-      <div className="panel-head">
-        <h1>生成控制台</h1>
-      </div>
-
       {errorMessage && (
         <div className="error-banner">
           <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
@@ -118,8 +114,8 @@ export function ControlPanel() {
           <label
             className={`prompt-action-btn ${noPromptRevision ? "active" : ""}`}
             title={apiMode === "responses"
-              ? "勾上后 Responses API 文本模型不会改写你的 prompt,逐字传给图像模型。适合你已经精修过 prompt 的场景。"
-              : "Images API 形态本就不改写 prompt,此开关无效。"}
+              ? "勾上后 Responses API 文本模型不会优化你的 prompt,逐字传给图像模型。适合你已经精修过 prompt 的场景。"
+              : "Images API 形态本就不优化 prompt,此开关无效。"}
             style={{
               display: "inline-flex", alignItems: "center", gap: 4,
               cursor: apiMode === "responses" ? "pointer" : "not-allowed",
@@ -133,7 +129,7 @@ export function ControlPanel() {
               onChange={(e) => setField("noPromptRevision", e.target.checked)}
               style={{ margin: 0, width: 12, height: 12, cursor: "inherit" }}
             />
-            <span>不改写</span>
+            <span>不优化提示词</span>
           </label>
           <span style={{ fontSize: 10, color: "var(--text-dim)" }}>Ctrl + Enter 提交</span>
         </div>

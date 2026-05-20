@@ -13,6 +13,7 @@ import {
   ReadImageAsBase64,
   ExportHistoryToFile,
   ImportHistoryFromFile,
+  SetOutputDir,
 } from "../../wailsjs/go/backend/Service";
 import type { backend } from "../../wailsjs/go/models";
 import {
@@ -669,6 +670,13 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     // Apply theme + font scale to root immediately.
     document.documentElement.setAttribute("data-theme", theme);
     document.documentElement.style.setProperty("--font-scale", String(fontScale));
+    // 用户自定义输出目录 —— 把 localStorage 里保存的路径推给 backend。
+    try {
+      const customOutput = localStorage.getItem("gptcodex.outputDir");
+      if (customOutput && customOutput.trim()) {
+        SetOutputDir(customOutput).catch(() => undefined);
+      }
+    } catch {}
     // Make sure there's always at least one workspace.
     const wsId = genId();
     const initialWorkspace: Workspace = {

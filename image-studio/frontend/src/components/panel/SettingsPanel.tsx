@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useStudioStore } from "../../state/studioStore";
-import { GetOutputDir, OpenOutputDir, OpenExternalURL } from "../../../wailsjs/go/backend/Service";
+import { GetOutputDir, OpenOutputDir, OpenExternalURL, ChooseOutputDir, SetOutputDir } from "../../../wailsjs/go/backend/Service";
 import type { TransportKind } from "../../types/domain";
 import { Modal } from "../common/Modal";
 
@@ -38,6 +38,7 @@ export function SettingsPanel() {
     history,
     exportHistory, importHistory,
     setTheme, setFontScale,
+    pushToast,
   } = useStudioStore();
 
   const [open, setOpen] = useState(false);
@@ -94,6 +95,46 @@ export function SettingsPanel() {
             <div className="source-pill">
               <span className="name" title={outputDir}>{outputDir || "..."}</span>
               <button onClick={() => OpenOutputDir().catch(() => undefined)} title="在资源管理器中打开">📂</button>
+            </div>
+            <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+              <button
+                className="btn secondary"
+                style={{ flex: 1, fontSize: 11, padding: "6px 10px" }}
+                onClick={async () => {
+                  try {
+                    const chosen = await ChooseOutputDir();
+                    if (chosen) {
+                      try { localStorage.setItem("gptcodex.outputDir", chosen); } catch {}
+                      setOutputDir(chosen);
+                      pushToast(`输出目录已切换:${chosen}`, "success");
+                    }
+                  } catch (e: any) {
+                    pushToast(`切换失败:${e?.message ?? e}`, "error", 5000);
+                  }
+                }}
+                type="button"
+              >
+                📁 修改
+              </button>
+              <button
+                className="btn secondary"
+                style={{ fontSize: 11, padding: "6px 10px" }}
+                onClick={async () => {
+                  try {
+                    await SetOutputDir("");
+                    try { localStorage.removeItem("gptcodex.outputDir"); } catch {}
+                    const def = await GetOutputDir();
+                    setOutputDir(def);
+                    pushToast("已恢复默认输出目录", "success");
+                  } catch (e: any) {
+                    pushToast(`重置失败:${e?.message ?? e}`, "error", 5000);
+                  }
+                }}
+                type="button"
+                title="清除自定义路径,回到 %APPDATA%\\image-studio\\images"
+              >
+                ↺ 默认
+              </button>
             </div>
           </div>
 

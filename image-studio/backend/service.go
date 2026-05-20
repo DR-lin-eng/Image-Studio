@@ -33,8 +33,9 @@ import (
 type Service struct {
 	ctx context.Context
 
-	mu   sync.Mutex
-	jobs map[string]*job
+	mu        sync.Mutex
+	jobs      map[string]*job
+	outputDir string // 用户自定义输出目录;空时回退到 defaultOutputDir()
 }
 
 type job struct {
@@ -50,6 +51,64 @@ func NewService() *Service {
 // Startup is wired into wails.Options OnStartup; persists the runtime context.
 func (s *Service) Startup(ctx context.Context) {
 	s.ctx = ctx
+}
+
+// resolvedOutputDir 返回当前生效的输出目录:用户自定义优先,否则默认。
+// 不存在则尝试创建。
+func (s *Service) resolvedOutputDir() (string, error) {
+	s.mu.Lock()
+	custom := s.outputDir
+	s.mu.Unlock()
+	if custom != "" {
+		if err := os.MkdirAll(custom, 0o755); err != nil {
+			return "", fmt.Errorf("无法创建输出目录 %s: %w", custom, err)
+		}
+		return custom, nil
+	}
+	return defaultOutputDir()
+}
+
+// SetOutputDir 由前端调用以应用用户选择的输出目录。空串表示恢复默认。
+// 路径会被 MkdirAll 兜底创建;创建失败则不接受。
+func (s *Service) SetOutputDir(path string) error {
+	if strings.TrimSpace(path) == "" {
+		s.mu.Lock()
+		s.outputDir = ""
+		s.mu.Unlock()
+		return nil
+	}
+	clean, err := filepath.Abs(path)
+	if err != nil {
+		return fmt.Errorf("路径无效:%w", err)
+	}
+	if err := os.MkdirAll(clean, 0o755); err != nil {
+		return fmt.Errorf("无法创建输出目录 %s: %w", clean, err)
+	}
+	s.mu.Lock()
+	s.outputDir = clean
+	s.mu.Unlock()
+	return nil
+}
+
+// ChooseOutputDir 弹出系统目录选择对话框,选中后立刻应用并返回新路径。
+// 用户取消时返回空串(不报错)。
+func (s *Service) ChooseOutputDir() (string, error) {
+	if s.ctx == nil {
+		return "", errors.New("服务未启动")
+	}
+	chosen, err := runtime.OpenDirectoryDialog(s.ctx, runtime.OpenDialogOptions{
+		Title: "选择生成图片的保存目录",
+	})
+	if err != nil {
+		return "", err
+	}
+	if chosen == "" {
+		return "", nil // 用户取消
+	}
+	if err := s.SetOutputDir(chosen); err != nil {
+		return "", err
+	}
+	return chosen, nil
 }
 
 // --- Generation entry points -----------------------------------------------
@@ -183,7 +242,7 @@ func (s *Service) runJob(ctx context.Context, jobID string, opts GenerateOptions
 		return
 	}
 
-	outputDir, err := defaultOutputDir()
+	outputDir, err := s.resolvedOutputDir()
 	if err != nil {
 		s.emitError(jobID, err)
 		return

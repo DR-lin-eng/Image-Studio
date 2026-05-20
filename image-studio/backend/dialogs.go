@@ -52,18 +52,15 @@ func (s *Service) SaveImageAs(imageB64, suggestedName string) (string, error) {
 }
 
 // GetOutputDir returns the directory where generated images and raw response
-// dumps are written.
+// dumps are written —— 用户自定义优先,空时回退到默认。
 func (s *Service) GetOutputDir() (string, error) {
-	return defaultOutputDir()
+	return s.resolvedOutputDir()
 }
 
 // OpenOutputDir reveals the output directory in the OS file explorer.
 func (s *Service) OpenOutputDir() error {
-	dir, err := defaultOutputDir()
+	dir, err := s.resolvedOutputDir()
 	if err != nil {
-		return err
-	}
-	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
 	return openInExplorer(dir)

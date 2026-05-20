@@ -147,6 +147,56 @@ func TestRequestAndExtractWithRetries_RetryOn524(t *testing.T) {
 	}
 }
 
+// TestRequestAndExtract_StreamCutAfterFinal:服务端发完 final event 后立刻
+// 关掉连接(模拟 Cloudflare 在 idle 阶段 reset),客户端不应再算作失败 ——
+// buffer 已经包含完整 final event,parse 出图。
+func TestRequestAndExtract_StreamCutAfterFinal(t *testing.T) {
+	pngB64 := base64.StdEncoding.EncodeToString([]byte("\x89PNG\r\n\x1a\nfake"))
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		flusher, _ := w.(http.Flusher)
+		fmt.Fprintln(w, `data: {"type":"response.created"}`)
+		body, _ := json.Marshal(map[string]any{
+			"type": "response.output_item.done",
+			"item": map[string]any{"type": "image_generation_call", "result": pngB64},
+		})
+		fmt.Fprintln(w, "data: "+string(body))
+		if flusher != nil {
+			flusher.Flush()
+		}
+		// 强制 hijack 连接并立刻关 —— 模拟上游中间链路 reset
+		hj, ok := w.(http.Hijacker)
+		if !ok {
+			return
+		}
+		c, _, err := hj.Hijack()
+		if err != nil {
+			return
+		}
+		c.Close()
+	}))
+	defer srv.Close()
+
+	transport := &injectingTransport{inner: &NativeTransport{}, url: srv.URL}
+	dir := t.TempDir()
+	rawPath := filepath.Join(dir, "raw.txt")
+	f, _ := os.Create(rawPath)
+	defer f.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	res, err := RequestAndExtract(ctx, transport, Options{APIKey: "k", Prompt: "p", BaseURL: "https://test.local"}, f, nil)
+	if err != nil {
+		t.Fatalf("expected success despite stream cut, got: %v", err)
+	}
+	if res.ImageB64 != pngB64 {
+		t.Errorf("image b64 mismatch")
+	}
+	if res.SourceEvent != "final" {
+		t.Errorf("source = %q, want final", res.SourceEvent)
+	}
+}
+
 func TestRequestAndExtractContextCancel(t *testing.T) {
 	// Server hangs forever; ensure ctx cancellation propagates.
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

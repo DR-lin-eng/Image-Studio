@@ -87,9 +87,12 @@ loop:
 	}
 
 	if streamErr != nil {
-		// Even on transport failure, the buffer may contain a partial body
-		// that the caller's retry logic wants to inspect — but parsing here
-		// is not the job, just bubble up.
+		// Stream errored mid-flight。但常见场景:上游已经把 final event(含完整
+		// base64 result)发完之后,Cloudflare/上游 nginx 在 idle 阶段才把连接 reset。
+		// 这时 buf 里其实有完整图;不该浪费一次重试。先 parse 试试,能拿出图就当成功。
+		if result, perr := ExtractImageResult(buf.String()); perr == nil && result.ImageB64 != "" {
+			return result, nil
+		}
 		return ImageResult{}, streamErr
 	}
 

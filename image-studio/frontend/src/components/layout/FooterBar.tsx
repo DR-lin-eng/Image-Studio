@@ -4,7 +4,7 @@ import { OpenExternalURL, OpenOutputDir } from "../../../wailsjs/go/backend/Serv
 
 const REPO_URL = "https://github.com/RoseKhlifa/Image-Studio";
 const ISSUES_URL = "https://github.com/RoseKhlifa/Image-Studio/issues";
-const VERSION = "0.1.3";
+const VERSION = "0.1.4";
 
 export function FooterBar() {
   const { fullscreen, history, runningJobs, isRunning, pushToast } = useStudioStore();

@@ -308,12 +308,14 @@ macOS 用 `wails build -platform darwin/universal`,Linux 用 `wails build -platf
 ---
 
 ## 致谢 / Stack
-
+- [linux.do](https://linux.do/) 感谢 L站 及其社区为项目开发与交流提供支持与启发。
+- 
 - [Wails v2](https://wails.io/) — Go 后端 + Web 前端的桌面应用框架
 - [React 18](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/) + [Vite](https://vitejs.dev/)
 - [zustand](https://github.com/pmndrs/zustand) — 状态管理
 - [react-konva](https://konvajs.org/docs/react/) — 画布渲染
 - [idb-keyval](https://github.com/jakearchibald/idb-keyval) — IndexedDB 简易封装
+
 
 灵感来自实际使用中频繁被中转站 524 截断的痛苦经历。
 

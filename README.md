@@ -228,10 +228,20 @@ macOS 用 `wails build -platform darwin/universal`,Linux 用 `wails build -platf
 | API Key | 浏览器 `localStorage`(明文) |
 | 上游配置(API 形态、BASE_URL、模型 ID、传输通道) | `localStorage` |
 | 历史记录元数据 | 浏览器 IndexedDB |
-| 生成的 PNG | `%APPDATA%\image-studio\images\`(命名形如 `image-generate-<slug>-<ts>.png`) |
-| 拖入 / 变换的图 | `%APPDATA%\image-studio\imports\` |
-| 原始上游响应(排错用) | `%APPDATA%\image-studio\log\`:Responses 模式 `sse-response-*.txt`;Images 模式 `images-response-*.json`(v0.1.2 起从 `images/` 拆出,避免污染图片浏览) |
+| 生成的 PNG | 输出目录下的 `images/`(命名形如 `image-generate-<slug>-<ts>.png`) |
+| 拖入 / 变换的图 | 系统 config 目录下的 `image-studio/imports/`(内部 scratch,与输出目录解耦) |
+| 原始上游响应(排错用) | 输出目录下的 `log/`:Responses 模式 `sse-response-*.txt`;Images 模式 `images-response-*.json`(v0.1.2 起从 `images/` 拆出,避免污染图片浏览) |
 | 用户偏好(主题、字号、预设、prompt 历史) | `localStorage` |
+
+**输出目录默认值(v0.1.4 起按平台区分)**:
+
+| 平台 | 默认输出目录 |
+|---|---|
+| Windows | `%APPDATA%\image-studio\` |
+| macOS | `~/Pictures/Image Studio/` |
+| Linux | `~/Pictures/Image Studio/` |
+
+> 之所以不沿用 macOS / Linux 的 `~/Library/Application Support/` 或 `~/.config/`:这两个目录默认被 Finder / 文件管理器隐藏,点「打开输出目录」相当于黑盒 —— 既看不到也没法直接管理图片。改走 `Pictures` 目录后,生成的 PNG 在系统图库里立即可见。设置 →「输出目录 / 修改」可以随时换到自己想要的路径。
 
 数据完全不出本地;唯一的外部网络请求是向你配置的上游 BASE_URL 发起的生成请求本身。
 

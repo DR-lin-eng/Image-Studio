@@ -5,19 +5,35 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/yuanhua/image-gptcodex/pkg/client"
 )
 
 // defaultOutputDir 返回「输出根目录」(不带 images/log 子目录)。
 // 实际落盘位置由调用方走 imagesSubdir / logSubdir 拼出来。
-// 默认 = %APPDATA%/image-studio,失败回退到 ./image-studio-output
+//
+// 各平台默认值(选用每个 OS 的「图片目录」习惯而不是 config 目录,这样在
+// 文件管理器里立即可见 —— macOS 上 ~/Library/Application Support 默认被
+// Finder 隐藏,Linux 上 ~/.config 同样不是用户日常去的地方):
+//   - Windows:%APPDATA%\image-studio\
+//   - macOS:  ~/Pictures/Image Studio/
+//   - Linux:  ~/Pictures/Image Studio/
+//
+// 任何 UserHomeDir 失败的环境(沙盒、容器、CI 等)回退到 ./image-studio-output。
 func defaultOutputDir() (string, error) {
-	cfg, err := os.UserConfigDir()
+	if runtime.GOOS == "windows" {
+		cfg, err := os.UserConfigDir() // = %APPDATA%
+		if err != nil {
+			return filepath.Join(".", "image-studio-output"), nil
+		}
+		return filepath.Join(cfg, "image-studio"), nil
+	}
+	home, err := os.UserHomeDir()
 	if err != nil {
 		return filepath.Join(".", "image-studio-output"), nil
 	}
-	return filepath.Join(cfg, "image-studio"), nil
+	return filepath.Join(home, "Pictures", "Image Studio"), nil
 }
 
 // imagesSubdir / logSubdir 把根目录拆为「生成的 PNG」和「原始响应/排错日志」两个子文件夹。

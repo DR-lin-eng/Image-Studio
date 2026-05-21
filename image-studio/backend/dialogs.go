@@ -58,9 +58,18 @@ func (s *Service) GetOutputDir() (string, error) {
 }
 
 // OpenOutputDir reveals the output directory in the OS file explorer.
+// 兜底:用户在第一次生成前就点「打开输出目录」,默认路径还不存在 ——
+// `open` / `xdg-open` / `explorer` 拿到不存在的路径都会失败(macOS / Linux
+// 表现为完全打不开),所以这里把根目录 + images/log 子目录预建好。
 func (s *Service) OpenOutputDir() error {
 	dir, err := s.resolvedOutputDir()
 	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(imagesSubdir(dir), 0o755); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(logSubdir(dir), 0o755); err != nil {
 		return err
 	}
 	return openInExplorer(dir)

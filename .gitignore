@@ -19,11 +19,15 @@
 # Go
 *.test
 *.out
+.gocache/
+.gomodcache/
+.gopath/
 
 # Python
 __pycache__/
 *.pyc
 *.pyo
+.pytest_cache/
 
 # IDE / OS
 .vscode/
@@ -40,6 +44,11 @@ Thumbs.db
 .env
 .env.local
 *.local
+
+# Local caches / sandboxes
+.npm-cache/
+.sandbox-home/
+.tmp/
 
 # Frontend (wails-generated hash files)
 package-lock.json.md5

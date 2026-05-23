@@ -2,8 +2,8 @@ import { useState, useEffect } from "react";
 import { Eye, EyeOff, Info, Plug } from "lucide-react";
 import { Modal } from "../common/Modal";
 import { useStudioStore } from "../../state/studioStore";
-import { cleanBaseURL, validateBaseURL } from "../../lib/security";
-import { isWindows } from "../../lib/platform";
+import { validateBaseURL } from "../../lib/security";
+import { isWindows, usesAppleUI } from "../../lib/platform";
 
 export function UpstreamConfigModal({
   open,
@@ -14,7 +14,7 @@ export function UpstreamConfigModal({
 }) {
   const {
     apiMode, responsesConfig, imagesConfig,
-    setField, setAPIKey,
+    saveModeConfig,
     testAPIKey, isTestingKey,
   } = useStudioStore();
 
@@ -46,17 +46,9 @@ export function UpstreamConfigModal({
   const canSave = !baseURLError && !!draftBaseURL.trim() && !!draftApiKey.trim();
 
   async function commit() {
-    const writeMode = (m: "responses" | "images", cfg: typeof cur) => {
-      setField("apiMode", m);
-      setField("baseURL", cleanBaseURL(cfg.baseURL));
-      setField("textModelID", cfg.textModelID.trim());
-      setField("imageModelID", cfg.imageModelID.trim());
-    };
-    writeMode("responses", draftResponses);
-    await setAPIKey(draftResponses.apiKey.trim());
-    writeMode("images", draftImages);
-    await setAPIKey(draftImages.apiKey.trim());
-    setField("apiMode", draftApiMode);
+    await saveModeConfig("responses", draftResponses);
+    await saveModeConfig("images", draftImages);
+    useStudioStore.getState().setField("apiMode", draftApiMode);
   }
 
   async function save() {
@@ -90,9 +82,9 @@ export function UpstreamConfigModal({
                   key={o.id}
                   type="button"
                   onClick={() => setDraftApiMode(o.id)}
-                  className={`flex flex-col items-start gap-0.5 rounded-[16px] border p-3 text-left transition-colors ${
+                  className={`platform-card flex flex-col items-start gap-0.5 rounded-[16px] border p-3 text-left transition-colors ${
                     active
-                      ? "border-[color:var(--accent)]/25 bg-[var(--accent-soft)] text-[var(--accent)]"
+                      ? "active border-[color:var(--accent)]/25 bg-[var(--accent-soft)] text-[var(--accent)]"
                       : "border-black/[0.08] text-zinc-700 hover:border-[color:var(--accent)]/30 dark:border-white/[0.06] dark:text-zinc-300"
                   } ${isWindows ? "rounded-[10px]" : "rounded-[16px]"}`}
                 >
@@ -113,7 +105,7 @@ export function UpstreamConfigModal({
           </Hint>
         </Field>
 
-        <div className={`flex items-start gap-2 border border-[color:var(--accent)]/20 bg-[var(--accent-soft)] px-3 py-2 text-[11px] text-[var(--accent)] ${isWindows ? "rounded-[10px]" : "rounded-[16px]"}`}>
+        <div className={`${usesAppleUI ? "liquid-glass-panel" : ""} flex items-start gap-2 border border-[color:var(--accent)]/20 bg-[var(--accent-soft)] px-3 py-2 text-[11px] text-[var(--accent)] ${isWindows ? "rounded-[10px]" : "rounded-[16px]"}`}>
           <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
           <span>
             下方编辑的是 <strong>{draftApiMode === "responses" ? "Responses API" : "Images API"}</strong> 的配置 —— 两种形态各存一份,切换时另一份不动。
@@ -184,11 +176,24 @@ export function UpstreamConfigModal({
           />
         </Field>
 
+        <Field label="并发数量限制">
+          <input
+            type="number"
+            value={cur.concurrencyLimit || ""}
+            placeholder="留空=不限制"
+            min={0}
+            step={1}
+            onChange={(e) => setCur({ concurrencyLimit: Math.max(0, Math.floor(Number(e.target.value) || 0)) })}
+            className={`focus-ring w-full border border-black/[0.08] bg-[var(--surface)] px-3 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 dark:border-white/[0.08] dark:text-zinc-100 dark:placeholder:text-zinc-500 font-mono-token ${isWindows ? "rounded-[10px]" : "rounded-[14px]"}`}
+          />
+          <Hint>默认不限制。填入正整数后,同一 API 形态跨所有标签页最多同时运行这么多任务。</Hint>
+        </Field>
+
         <button
           type="button"
           onClick={testWithCurrentDraft}
           disabled={!canSave || isTestingKey}
-          className={`w-full inline-flex items-center justify-center gap-2 border border-black/[0.08] px-3 py-2.5 text-sm text-zinc-700 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:text-zinc-300 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
+          className={`platform-action-btn w-full inline-flex items-center justify-center gap-2 border border-black/[0.08] px-3 py-2.5 text-sm text-zinc-700 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:text-zinc-300 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
         >
           <Plug className={`w-3.5 h-3.5 ${isTestingKey ? "animate-spin" : ""}`} />
           {isTestingKey ? "测试中..." : "测试连接(会先保存草稿)"}
@@ -198,7 +203,7 @@ export function UpstreamConfigModal({
           <button
             type="button"
             onClick={onClose}
-            className={`border border-black/[0.08] px-4 py-2 text-sm text-zinc-700 transition-colors hover:bg-black/[0.04] dark:border-white/[0.08] dark:text-zinc-300 dark:hover:bg-white/[0.06] ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
+            className={`platform-action-btn border border-black/[0.08] px-4 py-2 text-sm text-zinc-700 transition-colors hover:bg-black/[0.04] dark:border-white/[0.08] dark:text-zinc-300 dark:hover:bg-white/[0.06] ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
           >
             稍后再配
           </button>
@@ -206,7 +211,7 @@ export function UpstreamConfigModal({
             type="button"
             onClick={save}
             disabled={!canSave}
-            className={`bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--accent-2)] disabled:cursor-not-allowed disabled:bg-zinc-200 disabled:text-zinc-500 dark:disabled:bg-zinc-800 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
+            className={`liquid-primary-button bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--accent-2)] disabled:cursor-not-allowed disabled:bg-zinc-200 disabled:text-zinc-500 dark:disabled:bg-zinc-800 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
           >
             保存
           </button>

@@ -92,11 +92,10 @@ export namespace backend {
 	    textModelID: string;
 	    imagePaths: string[];
 	    imagePath: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new PromptOptimizeOptions(source);
 	    }
-	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.apiKey = source["apiKey"];
@@ -122,6 +121,4 @@ export namespace backend {
 	        this.size = source["size"];
 	    }
 	}
-
 }
-

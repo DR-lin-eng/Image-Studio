@@ -5,7 +5,7 @@ import type { HistoryItem, Mode } from "../../types/domain";
 import { ContextMenu, MenuItem } from "../common/ContextMenu";
 import { RawResponseModal } from "./RawResponseModal";
 import { useBlobURL } from "../../lib/images";
-import { isWindows, usesAppleUI } from "../../lib/platform";
+import { isWindows, usesAndroidUI, usesAppleUI } from "../../lib/platform";
 
 const FAQModal = lazy(() => import("../panel/FAQModal").then((m) => ({ default: m.FAQModal })));
 
@@ -40,6 +40,10 @@ export function HistoryRail() {
   const [menu, setMenu] = useState<{ x: number; y: number; h: HistoryItem } | null>(null);
   const [rawPath, setRawPath] = useState<string | null>(null);
   const [faqOpen, setFaqOpen] = useState(false);
+  // 防快速连点产生竞态:每次点击递增 epoch,后台 materialize 全图 resolve
+  // 时跟当前 epoch 比对,过时的就丢弃。之前的写法是先 await 再 setField,
+  // 慢的请求会在用户已经点了另一张图之后把画布盖回去。
+  const selectEpochRef = useRef(0);
 
   const filtered = useMemo(() => {
     const needle = deferredQ.trim().toLowerCase();
@@ -52,10 +56,6 @@ export function HistoryRail() {
     });
   }, [history, deferredQ, modeF, dateF]);
 
-  // 防快速连点产生竞态:每次点击递增 epoch,后台 materialize 全图 resolve
-  // 时跟当前 epoch 比对,过时的就丢弃。之前的写法是先 await 再 setField,
-  // 慢的请求会在用户已经点了另一张图之后把画布盖回去。
-  const selectEpochRef = useRef(0);
   async function selectCurrent(h: HistoryItem) {
     const myEpoch = ++selectEpochRef.current;
     // 1) 立即把(可能只是预览的)项摆上画布 —— 给用户即时反馈,不等磁盘 IO
@@ -118,7 +118,7 @@ export function HistoryRail() {
   if (fullscreen) return null;
 
   return (
-    <aside className={`flex w-[292px] shrink-0 flex-col gap-3 overflow-y-auto border-l border-[var(--border)] bg-[var(--inspector)] px-3 py-4 backdrop-blur-2xl ${usesAppleUI ? "liquid-sidebar" : ""}`}>
+    <aside className={`history-rail flex w-[292px] shrink-0 flex-col gap-3 overflow-y-auto border-l border-[var(--border)] bg-[var(--inspector)] px-3 py-4 backdrop-blur-2xl ${usesAppleUI ? "liquid-sidebar" : ""} ${usesAndroidUI ? "android-surface-pane" : ""}`}>
       <div className={`platform-card border border-black/[0.05] bg-white/70 p-3 shadow-[var(--shadow-card)] dark:border-white/[0.06] dark:bg-white/[0.03] ${isWindows ? "rounded-[12px]" : "rounded-[18px]"}`}>
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5">

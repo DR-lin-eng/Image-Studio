@@ -9,6 +9,7 @@ import {
 import {
   Generate as wailsGenerate,
   Edit as wailsEdit,
+  OptimizePrompt as wailsOptimizePrompt,
   Cancel as wailsCancel,
   OpenImageDialog,
   GetOutputDir,
@@ -71,6 +72,16 @@ export interface ModeConfig {
   apiKey: string;
   textModelID: string;
   imageModelID: string;
+}
+
+export interface PromptOptimizeRequest {
+  apiKey: string;
+  prompt: string;
+  mode: Mode;
+  baseURL: string;
+  textModelID: string;
+  imagePaths: string[];
+  imagePath: string;
 }
 
 const EMPTY_MODE_CFG: ModeConfig = { baseURL: "", apiKey: "", textModelID: "", imageModelID: "" };
@@ -295,6 +306,8 @@ interface StudioState {
   setFontScale: (v: number) => void;
   testAPIKey: () => Promise<void>;
   isTestingKey: boolean;
+  isOptimizingPrompt: boolean;
+  optimizePrompt: () => Promise<void>;
   // 上游配置弹窗状态。bootstrap 在 apiKey/baseURL 任一为空时自动置 true。
   upstreamModalOpen: boolean;
   openUpstreamConfig: () => void;
@@ -489,6 +502,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   theme: "system",
   fontScale: 1,
   isTestingKey: false,
+  isOptimizingPrompt: false,
   upstreamModalOpen: false,
   openUpstreamConfig: () => set({ upstreamModalOpen: true }),
   closeUpstreamConfig: () => set({ upstreamModalOpen: false }),
@@ -1210,6 +1224,70 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     } catch (e: any) {
       set({ isTestingKey: false });
       s.pushToast(`连接失败:${e?.message ?? e}`, "error", 6000);
+    }
+  },
+
+  optimizePrompt: async () => {
+    const s = get();
+    if (s.isRunning || s.isOptimizingPrompt) return;
+    const hasDedicatedOptimizeConfig = !!(s.responsesConfig.apiKey.trim() && s.responsesConfig.baseURL.trim());
+    const optimizeConfig = hasDedicatedOptimizeConfig
+      ? s.responsesConfig
+      : {
+          apiKey: s.apiKey,
+          baseURL: s.baseURL,
+          textModelID: s.textModelID,
+          imageModelID: s.imageModelID,
+        };
+    const optimizeAPIKey = optimizeConfig.apiKey.trim();
+    const optimizeBaseURL = cleanBaseURL(optimizeConfig.baseURL);
+    const optimizeTextModelID = optimizeConfig.textModelID.trim();
+    if (!optimizeAPIKey) {
+      s.pushToast("先填入 API Key", "warn");
+      return;
+    }
+    if (!optimizeBaseURL) {
+      s.pushToast("先在上游配置里填入可用于 llmapi 的 Responses API 地址", "warn", 5000);
+      return;
+    }
+    if (!s.prompt.trim()) {
+      s.pushToast("先输入 prompt", "warn");
+      return;
+    }
+    const baseURLError = validateBaseURL(optimizeBaseURL);
+    if (baseURLError) {
+      s.pushToast(baseURLError, "error", 6000);
+      return;
+    }
+    const sourcePaths = s.mode === "edit"
+      ? s.sources.map((src) => src.path).filter(Boolean)
+      : [];
+    if (s.mode === "edit" && sourcePaths.length === 0 && s.currentImage?.savedPath) {
+      sourcePaths.push(s.currentImage.savedPath);
+    }
+    set({ isOptimizingPrompt: true, errorMessage: null });
+    try {
+      const optimized = await wailsOptimizePrompt({
+        apiKey: optimizeAPIKey,
+        prompt: s.prompt,
+        mode: s.mode,
+        baseURL: optimizeBaseURL,
+        textModelID: optimizeTextModelID,
+        imagePaths: sourcePaths,
+        imagePath: "",
+      } satisfies PromptOptimizeRequest);
+      const trimmed = optimized.trim();
+      if (!trimmed) {
+        throw new Error("上游没有返回可用的优化结果");
+      }
+      set({ prompt: trimmed });
+      s.pushToast("已优化提示词", "success");
+    } catch (e: any) {
+      const msg = `优化失败:${e?.message ?? e}`;
+      set({ errorMessage: msg });
+      s.pushToast(msg, "error", 6000);
+    } finally {
+      set({ isOptimizingPrompt: false });
     }
   },
 

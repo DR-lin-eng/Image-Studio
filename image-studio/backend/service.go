@@ -145,6 +145,35 @@ func (s *Service) Edit(opts GenerateOptions) (JobStarted, error) {
 	return s.startJob(opts)
 }
 
+// OptimizePrompt uses the configured LLM to rewrite the current prompt into a
+// cleaner image prompt. If edit source images are provided, they are included
+// as visual context. The original prompt is not mutated by the backend.
+func (s *Service) OptimizePrompt(opts PromptOptimizeOptions) (string, error) {
+	if s.ctx == nil {
+		return "", errors.New("服务未启动")
+	}
+	if strings.TrimSpace(opts.APIKey) == "" {
+		return "", errors.New("API Key 不能为空")
+	}
+	if strings.TrimSpace(opts.Prompt) == "" {
+		return "", errors.New("提示词不能为空")
+	}
+	baseURL, err := client.ValidateBaseURL(opts.BaseURL)
+	if err != nil {
+		return "", err
+	}
+	refPaths, cleanup, err := prepareUploadSourcePaths(opts.collectPaths())
+	if err != nil {
+		return "", err
+	}
+	defer cleanup()
+	modelID := strings.TrimSpace(opts.TextModelID)
+	if modelID == "" {
+		modelID = client.TextModel
+	}
+	return optimizePromptWithLLM(s.ctx, baseURL, opts.APIKey, modelID, opts.Mode, opts.Prompt, refPaths)
+}
+
 // Cancel terminates a running job. Safe to call with unknown IDs.
 func (s *Service) Cancel(jobID string) error {
 	s.mu.Lock()
@@ -234,7 +263,12 @@ func (s *Service) runJob(ctx context.Context, jobID string, opts GenerateOptions
 		NoPromptRevision: opts.NoPromptRevision,
 	}
 	if mode == client.ModeEdit {
-		paths := opts.collectPaths()
+		paths, cleanup, prepErr := prepareUploadSourcePaths(opts.collectPaths())
+		if prepErr != nil {
+			s.emitError(jobID, prepErr)
+			return
+		}
+		defer cleanup()
 		clientOpts.ImagePaths = paths
 		// Responses API 仍需 data URL(走 input_image 形态);
 		// Images API 直接 multipart 上传文件,跳过 base64 编码节省往返开销。

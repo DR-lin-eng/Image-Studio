@@ -1,6 +1,6 @@
 import { lazy, Suspense, useState } from "react";
 import {
-  Dices, ImagePlus, ListPlus, RotateCw, Trash2, X,
+  Dices, ImagePlus, ListPlus, RotateCw, Sparkles, Trash2, X,
 } from "lucide-react";
 import { useStudioStore } from "../../state/studioStore";
 import { SizeValue, QualityValue, Mode, OutputFormatValue, OUTPUT_FORMAT_OPTIONS } from "../../types/domain";
@@ -39,17 +39,24 @@ export function ControlPanel() {
     apiKey, mode, prompt, negativePrompt, size, quality, seed, styleTag,
     outputFormat,
     sources, currentImage,
-    errorMessage, isRunning, lastPayload, isTestingKey,
-    apiMode, baseURL,
+    errorMessage, isRunning, lastPayload, isTestingKey, isOptimizingPrompt,
+    apiMode, baseURL, responsesConfig,
     noPromptRevision,
     setField,
     selectSourceImage, removeSource, clearSources,
-    submit, cancel, retryLast,
+    submit, cancel, retryLast, optimizePrompt,
   } = useStudioStore();
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [promptPopover, setPromptPopover] = useState(false);
 
   const promptLen = prompt.length;
+  const optimizeReady = !!(
+    prompt.trim()
+    && (
+      (responsesConfig.apiKey.trim() && responsesConfig.baseURL.trim())
+      || (apiKey.trim() && baseURL.trim())
+    )
+  );
 
   return (
     <div className={`flex w-[336px] shrink-0 flex-col gap-4 overflow-y-auto border-r border-[var(--border)] bg-[var(--sidebar)] px-4 py-4 backdrop-blur-2xl ${isWindows ? "pt-3" : ""}`}>
@@ -134,6 +141,20 @@ export function ControlPanel() {
             className={`platform-pill inline-flex items-center gap-1 px-2.5 py-1 text-[11px] text-zinc-500 transition-colors hover:bg-[var(--accent-soft)] hover:text-[var(--accent)] ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
           >
             <ListPlus className="w-3 h-3" /> 模板 / 历史
+          </button>
+          <button
+            type="button"
+            onClick={optimizePrompt}
+            disabled={!optimizeReady || isOptimizingPrompt}
+            className={`platform-pill inline-flex items-center gap-1 px-2.5 py-1 text-[11px] transition-colors ${
+              isOptimizingPrompt
+                ? "bg-[var(--accent-soft)] text-[var(--accent)]"
+                : "text-zinc-500 hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]"
+            } disabled:cursor-not-allowed disabled:opacity-50 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
+            title="调用 Responses/llmapi 优化当前提示词"
+          >
+            <Sparkles className={`w-3 h-3 ${isOptimizingPrompt ? "animate-pulse" : ""}`} />
+            {isOptimizingPrompt ? "优化中..." : "LLM 优化"}
           </button>
           <label
             title={apiMode === "responses"

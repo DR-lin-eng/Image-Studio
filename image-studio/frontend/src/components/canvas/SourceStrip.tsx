@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Plus, X } from "lucide-react";
 import { useStudioStore } from "../../state/studioStore";
 import { useBlobURL } from "../../lib/images";
+import { isWindows } from "../../lib/platform";
 
 export function SourceStrip() {
   const sources = useStudioStore((s) => s.sources);
@@ -17,7 +18,7 @@ export function SourceStrip() {
   if (sources.length === 0) return null;
 
   return (
-    <div className="flex items-center gap-2 overflow-x-auto border-b border-black/[0.06] bg-[var(--toolbar)] px-3 py-2 backdrop-blur-2xl dark:border-white/[0.06]">
+    <div className="flex items-center gap-2 overflow-x-auto border-b border-[var(--border)] bg-[var(--toolbar)] px-3 py-2 backdrop-blur-2xl">
       <span className="text-[11px] text-zinc-500 shrink-0">参考图 {sources.length} 张:</span>
       {sources.map((s, i) => (
         <SourceTile
@@ -35,7 +36,7 @@ export function SourceStrip() {
       <button
         onClick={selectSourceImage}
         title="添加参考图"
-        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px] border border-dashed border-zinc-300 text-zinc-500 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] dark:border-zinc-700"
+        className={`flex h-12 w-12 shrink-0 items-center justify-center border border-dashed border-zinc-300 text-zinc-500 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] dark:border-zinc-700 ${isWindows ? "rounded-[10px]" : "rounded-[14px]"}`}
       >
         <Plus className="w-4 h-4" />
       </button>
@@ -77,11 +78,11 @@ function SourceTile({
       }}
       onDragEnd={() => { setDragFrom(null); setOverIdx(null); }}
       title={`${index + 1}. ${source.name}\n${source.path}`}
-      className={`relative group h-12 w-12 shrink-0 cursor-grab overflow-hidden rounded-[14px] border transition-all ${
+      className={`relative group h-12 w-12 shrink-0 cursor-grab overflow-hidden border transition-all ${
         overIdx === index
           ? "scale-105 border-[color:var(--accent)] shadow-[0_0_0_1px_var(--accent)]"
           : "border-black/[0.06] hover:border-[color:var(--accent)]/30 dark:border-white/[0.06]"
-      }`}
+      } ${isWindows ? "rounded-[10px]" : "rounded-[14px]"}`}
     >
       <span className="absolute top-0 left-0 z-10 px-1 text-[9px] bg-zinc-950/70 text-white rounded-br">
         {index + 1}

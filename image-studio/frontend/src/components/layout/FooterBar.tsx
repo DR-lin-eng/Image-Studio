@@ -1,6 +1,7 @@
 import { Folder, Github, MessageSquare } from "lucide-react";
 import { useStudioStore } from "../../state/studioStore";
 import { OpenExternalURL, OpenOutputDir } from "../../../wailsjs/go/backend/Service";
+import { isWindows } from "../../lib/platform";
 
 const REPO_URL = "https://github.com/RoseKhlifa/Image-Studio";
 const ISSUES_URL = "https://github.com/RoseKhlifa/Image-Studio/issues";
@@ -20,7 +21,7 @@ export function FooterBar() {
   }
 
   return (
-    <footer className="flex min-h-10 items-center justify-between border-t border-black/[0.06] bg-[var(--toolbar)] px-4 text-[11px] text-zinc-500 backdrop-blur-2xl dark:border-white/[0.06] dark:text-zinc-400">
+    <footer className={`flex items-center justify-between border-t border-[var(--border)] bg-[var(--toolbar)] px-4 text-[11px] text-zinc-500 backdrop-blur-2xl dark:text-zinc-400 ${isWindows ? "min-h-[36px]" : "min-h-10"}`}>
       <div className="flex items-center gap-1">
         <FooterBtn onClick={() => OpenOutputDir().catch(() => undefined)}>
           <Folder className="h-3 w-3" /> 输出目录
@@ -72,7 +73,7 @@ function FooterBtn({ children, onClick }: { children: React.ReactNode; onClick: 
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 transition-colors hover:bg-black/[0.04] hover:text-zinc-900 dark:hover:bg-white/[0.06] dark:hover:text-zinc-200"
+      className={`platform-pill inline-flex items-center gap-1 px-2.5 py-1 transition-colors hover:bg-black/[0.04] hover:text-zinc-900 dark:hover:bg-white/[0.06] dark:hover:text-zinc-200 ${isWindows ? "rounded-[6px]" : "rounded-full"}`}
     >
       {children}
     </button>

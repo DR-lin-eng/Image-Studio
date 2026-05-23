@@ -72,6 +72,18 @@
   --radius-md: 12px;
   --radius-lg: 16px;
   --radius-xl: 20px;
+  --window-blur: blur(24px);
+  --window-outline: rgb(255 255 255 / 0.42);
+  --window-outline-dark: rgb(255 255 255 / 0.06);
+  --header-height: 58px;
+  --tab-radius: 999px;
+  --card-radius: 18px;
+  --control-radius: 999px;
+  --surface-elevated: rgb(255 255 255 / 0.7);
+  --surface-elevated-dark: rgb(255 255 255 / 0.03);
+  --title-font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "SF Pro SC", "PingFang SC", "HarmonyOS Sans SC", "Segoe UI", sans-serif;
+  --body-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro SC", "PingFang SC", "HarmonyOS Sans SC", "Segoe UI", sans-serif;
+  --mono-font: "JetBrains Mono", ui-monospace, "SFMono-Regular", "Cascadia Code", Menlo, Consolas, "Liberation Mono", monospace;
 }
 
 /* 暗色模式 */
@@ -107,6 +119,89 @@
   --error-border: rgb(255 69 58 / 0.34);
   --shadow-card: 0 18px 46px rgb(0 0 0 / 0.38);
   --shadow-card-hover: 0 24px 60px rgb(0 0 0 / 0.46);
+  --window-outline: rgb(255 255 255 / 0.06);
+}
+
+/* Windows / Fluent design tokens: Segoe typography, subtler rounding,
+   higher border contrast, and layered materials inspired by Mica surfaces. */
+:root[data-ui-family="fluent"] {
+  --accent: #0067c0;
+  --accent-2: #0f7ad6;
+  --accent-soft: rgb(0 103 192 / 0.12);
+  --bg: #f3f3f3;
+  --bg-2: #ededed;
+  --panel: rgb(255 255 255 / 0.88);
+  --panel-2: rgb(250 250 250 / 0.92);
+  --surface: #fbfbfb;
+  --surface-2: #efefef;
+  --sidebar: rgb(248 248 248 / 0.82);
+  --inspector: rgb(244 244 244 / 0.82);
+  --toolbar: rgb(246 246 246 / 0.8);
+  --border: rgb(0 0 0 / 0.09);
+  --border-2: rgb(0 0 0 / 0.18);
+  --text: #1f1f1f;
+  --text-muted: rgb(54 54 54 / 0.78);
+  --text-dim: rgb(96 96 96 / 0.76);
+  --danger: #c42b1c;
+  --danger-soft: rgb(196 43 28 / 0.12);
+  --success: #0f7b0f;
+  --canvas-bg: #ececec;
+  --canvas-tile: #dbdbdb;
+  --on-accent-soft: #005a9e;
+  --btn-secondary-bg: #f6f6f6;
+  --btn-secondary-bg-hover: #ececec;
+  --tool-hover-bg: rgb(0 103 192 / 0.1);
+  --tool-hover-text: #005a9e;
+  --error-text: #8a1010;
+  --error-border: rgb(196 43 28 / 0.22);
+  --shadow-card: 0 14px 34px rgb(0 0 0 / 0.08);
+  --shadow-card-hover: 0 18px 42px rgb(0 0 0 / 0.12);
+  --window-blur: blur(20px);
+  --window-outline: rgb(255 255 255 / 0.7);
+  --header-height: 48px;
+  --tab-radius: 10px;
+  --card-radius: 12px;
+  --control-radius: 8px;
+  --surface-elevated: rgb(255 255 255 / 0.84);
+  --surface-elevated-dark: rgb(32 32 32 / 0.7);
+  --title-font: "Segoe UI Variable Display", "Segoe UI", "HarmonyOS Sans SC", sans-serif;
+  --body-font: "Segoe UI Variable Text", "Segoe UI", "HarmonyOS Sans SC", sans-serif;
+  --mono-font: "Cascadia Code", "JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+
+:root.dark[data-ui-family="fluent"] {
+  --accent: #4cc2ff;
+  --accent-2: #78d3ff;
+  --accent-soft: rgb(76 194 255 / 0.18);
+  --bg: #202020;
+  --bg-2: #1b1b1b;
+  --panel: rgb(42 42 42 / 0.9);
+  --panel-2: rgb(38 38 38 / 0.94);
+  --surface: #2b2b2b;
+  --surface-2: #353535;
+  --sidebar: rgb(35 35 35 / 0.86);
+  --inspector: rgb(31 31 31 / 0.84);
+  --toolbar: rgb(37 37 37 / 0.84);
+  --border: rgb(255 255 255 / 0.08);
+  --border-2: rgb(255 255 255 / 0.18);
+  --text: #f5f5f5;
+  --text-muted: rgb(243 243 243 / 0.76);
+  --text-dim: rgb(215 215 215 / 0.6);
+  --danger: #ff99a4;
+  --danger-soft: rgb(255 153 164 / 0.12);
+  --success: #6ccb5f;
+  --canvas-bg: #252526;
+  --canvas-tile: #343436;
+  --on-accent-soft: #9ddfff;
+  --btn-secondary-bg: #2f2f2f;
+  --btn-secondary-bg-hover: #383838;
+  --tool-hover-bg: rgb(76 194 255 / 0.14);
+  --tool-hover-text: #b7e8ff;
+  --error-text: #ffb4bd;
+  --error-border: rgb(255 153 164 / 0.28);
+  --shadow-card: 0 20px 48px rgb(0 0 0 / 0.34);
+  --shadow-card-hover: 0 24px 56px rgb(0 0 0 / 0.4);
+  --window-outline: rgb(255 255 255 / 0.08);
 }
 
 /* 老 data-theme 选择器映射到 .dark class,平滑过渡。 */
@@ -126,16 +221,23 @@ html, body, #root {
 }
 
 body {
-  font-family:
-    -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro SC",
-    "PingFang SC", "HarmonyOS Sans SC", "Segoe UI", sans-serif;
+  font-family: var(--body-font);
   font-weight: 400;
   background: var(--bg);
   color: var(--text);
   line-height: 1.45;
   user-select: none;
+  background-image:
+    radial-gradient(circle at top left, rgb(255 255 255 / 0.5), transparent 32%),
+    linear-gradient(180deg, rgb(255 255 255 / 0.18), transparent 22%);
+  background-attachment: fixed;
 }
 button, input, textarea, select { font-family: inherit; }
+
+body[data-platform="windows"],
+html[data-platform="windows"] body {
+  text-rendering: optimizeLegibility;
+}
 
 /* 全局滚动条 —— 模仿 fuckwangui 的圆角 thumb */
 *::-webkit-scrollbar { width: 10px; height: 10px; }
@@ -160,8 +262,7 @@ html.dark *::-webkit-scrollbar-thumb:hover { background: rgb(108 108 114); }
 
 /* JetBrains Mono 等宽场景的小工具类,留给数字 / token / 路径用 */
 .font-mono-token {
-  font-family: "JetBrains Mono", ui-monospace, "SFMono-Regular",
-    "Cascadia Code", Menlo, Consolas, "Liberation Mono", monospace;
+  font-family: var(--mono-font);
   font-size: 12px;
   letter-spacing: -0.01em;
 }
@@ -179,6 +280,30 @@ html.dark *::-webkit-scrollbar-thumb:hover { background: rgb(108 108 114); }
 /* Wails desktop drag regions for frameless/hidden-titlebar windows. */
 .drag-region { --wails-draggable: drag; }
 .no-drag { --wails-draggable: no-drag; }
+
+.platform-card {
+  border-radius: var(--card-radius);
+  background: var(--surface-elevated);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-card);
+  backdrop-filter: var(--window-blur);
+}
+
+html.dark .platform-card {
+  background: var(--surface-elevated-dark);
+}
+
+.platform-seg {
+  border-radius: calc(var(--control-radius) + 2px);
+}
+
+.platform-chip,
+.platform-icon-btn,
+.platform-action-btn,
+.platform-pill,
+.platform-tab {
+  border-radius: var(--control-radius);
+}
 
 /* Spin 动画(loader)*/
 @keyframes spin-emerald { to { transform: rotate(360deg); } }

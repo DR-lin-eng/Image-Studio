@@ -5,7 +5,7 @@ import {
 } from "lucide-react";
 import { useStudioStore } from "../../state/studioStore";
 import { ANNOTATION_COLORS } from "../../types/domain";
-import { fullscreenShortcutLabel, redoShortcutLabel, undoShortcutLabel } from "../../lib/platform";
+import { fullscreenShortcutLabel, isWindows, redoShortcutLabel, undoShortcutLabel } from "../../lib/platform";
 
 export function Toolbar() {
   const {
@@ -23,7 +23,7 @@ export function Toolbar() {
   const hasImage = !!currentImage;
 
   return (
-    <div className="flex items-center gap-1.5 overflow-x-auto border-b border-black/[0.06] bg-[var(--toolbar)] px-3 py-2 backdrop-blur-2xl dark:border-white/[0.06]">
+    <div className="flex items-center gap-1.5 overflow-x-auto border-b border-[var(--border)] bg-[var(--toolbar)] px-3 py-2 backdrop-blur-2xl">
       <ToolBtn active={tool === "pan"} disabled={!hasImage} onClick={() => setField("tool", "pan")} title="拖动 / 缩放 (1)">
         <Hand className="w-3.5 h-3.5" />
       </ToolBtn>
@@ -65,7 +65,7 @@ export function Toolbar() {
           <span className="text-[11px] text-zinc-500 min-w-[24px] tabular-nums">{brushSize}</span>
           <button
             onClick={resetMask}
-            className="rounded-full px-2.5 py-1 text-[11px] text-zinc-500 transition-colors hover:bg-red-400/10 hover:text-red-400"
+            className={`px-2.5 py-1 text-[11px] text-zinc-500 transition-colors hover:bg-red-400/10 hover:text-red-400 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
           >
             清空
           </button>
@@ -93,15 +93,15 @@ export function Toolbar() {
                 onClick={() => setField("annotationColor", c)}
                 title={c}
                 style={{ background: c }}
-                className={`h-4 w-4 rounded-full ring-1 transition-all ${
+                className={`h-4 w-4 ring-1 transition-all ${
                   annotationColor === c ? "ring-2 ring-offset-1 ring-[color:var(--accent)]" : "ring-black/10 dark:ring-white/10"
-                }`}
+                } ${isWindows ? "rounded-[6px]" : "rounded-full"}`}
               />
             ))}
           </div>
           <button
             onClick={clearAnnotations}
-            className="rounded-full px-2.5 py-1 text-[11px] text-zinc-500 transition-colors hover:bg-red-400/10 hover:text-red-400"
+            className={`px-2.5 py-1 text-[11px] text-zinc-500 transition-colors hover:bg-red-400/10 hover:text-red-400 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
           >
             清空标注
           </button>
@@ -111,7 +111,7 @@ export function Toolbar() {
         <button
           onClick={() => (window as any).__canvasResetView?.()}
           title="重置视图 (F)"
-          className="rounded-full px-2.5 py-1 text-[11px] text-zinc-600 transition-colors hover:bg-[var(--accent-soft)] hover:text-[var(--accent)] dark:text-zinc-400"
+          className={`px-2.5 py-1 text-[11px] text-zinc-600 transition-colors hover:bg-[var(--accent-soft)] hover:text-[var(--accent)] dark:text-zinc-400 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
         >
           重置视图
         </button>
@@ -136,7 +136,7 @@ export function Toolbar() {
             <button
               onClick={() => cropToRect(selRect.x, selRect.y, selRect.width!, selRect.height!)}
               title="裁出选中矩形"
-              className="inline-flex items-center gap-1 rounded-full border border-[color:var(--accent)]/20 bg-[var(--accent-soft)] px-2.5 py-1 text-[11px] text-[var(--accent)] transition-colors hover:opacity-90"
+              className={`inline-flex items-center gap-1 border border-[color:var(--accent)]/20 bg-[var(--accent-soft)] px-2.5 py-1 text-[11px] text-[var(--accent)] transition-colors hover:opacity-90 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
             >
               <Crop className="w-3.5 h-3.5" /> 裁出
             </button>
@@ -162,7 +162,7 @@ export function Toolbar() {
             <button
               onClick={saveCurrentImageAs}
               title="另存为"
-              className="inline-flex items-center gap-1 rounded-full bg-[var(--accent)] px-3 py-1.5 text-[11px] font-medium text-white transition-colors hover:bg-[var(--accent-2)]"
+              className={`inline-flex items-center gap-1 bg-[var(--accent)] px-3 py-1.5 text-[11px] font-medium text-white transition-colors hover:bg-[var(--accent-2)] ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
             >
               <Save className="w-3.5 h-3.5" /> 另存为
             </button>
@@ -189,11 +189,11 @@ function ToolBtn({ active, disabled, onClick, title, children }: {
       onClick={onClick}
       disabled={disabled}
       title={title}
-      className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-30 ${
+      className={`platform-icon-btn flex h-8 w-8 items-center justify-center transition-colors disabled:cursor-not-allowed disabled:opacity-30 ${
         active
           ? "border border-[color:var(--accent)]/20 bg-[var(--accent-soft)] text-[var(--accent)]"
           : "text-zinc-600 hover:bg-black/[0.04] hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/[0.06] dark:hover:text-zinc-100"
-      }`}
+      } ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
     >
       {children}
     </button>

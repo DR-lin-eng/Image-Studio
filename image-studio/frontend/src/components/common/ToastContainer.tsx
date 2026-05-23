@@ -1,6 +1,7 @@
 import { AlertTriangle, CheckCircle2, Info, X, XCircle } from "lucide-react";
 import { useStudioStore } from "../../state/studioStore";
 import type { Toast } from "../../types/domain";
+import { isWindows } from "../../lib/platform";
 
 export function ToastContainer() {
   const toasts = useStudioStore((s) => s.toasts);
@@ -43,7 +44,7 @@ function ToneIcon({ kind }: { kind: Toast["kind"] }) {
 function ToastItem({ t, onClose }: { t: Toast; onClose: () => void }) {
   return (
     <div
-      className={`flex items-center gap-2 rounded-[18px] border px-3 py-2 backdrop-blur-2xl shadow-[var(--shadow-card-hover)] animate-[toast-in_180ms_ease-out] ${toneClasses(t.kind)}`}
+      className={`flex items-center gap-2 border px-3 py-2 backdrop-blur-2xl shadow-[var(--shadow-card-hover)] animate-[toast-in_180ms_ease-out] ${toneClasses(t.kind)} ${isWindows ? "rounded-[10px]" : "rounded-[18px]"}`}
       style={{ animation: "toast-in 180ms ease-out" }}
     >
       <ToneIcon kind={t.kind} />
@@ -61,7 +62,7 @@ function ToastItem({ t, onClose }: { t: Toast; onClose: () => void }) {
             t.action!.onClick();
             onClose();
           }}
-          className="whitespace-nowrap rounded-full bg-black/[0.04] px-2.5 py-1 text-[11px] font-medium transition-colors hover:bg-black/[0.08] dark:bg-white/[0.06] dark:hover:bg-white/[0.1]"
+          className={`whitespace-nowrap bg-black/[0.04] px-2.5 py-1 text-[11px] font-medium transition-colors hover:bg-black/[0.08] dark:bg-white/[0.06] dark:hover:bg-white/[0.1] ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
         >
           {t.action.label}
         </button>

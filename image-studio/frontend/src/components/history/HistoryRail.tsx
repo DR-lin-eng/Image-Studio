@@ -5,6 +5,7 @@ import type { HistoryItem, Mode } from "../../types/domain";
 import { ContextMenu, MenuItem } from "../common/ContextMenu";
 import { RawResponseModal } from "./RawResponseModal";
 import { useBlobURL } from "../../lib/images";
+import { isWindows } from "../../lib/platform";
 
 const FAQModal = lazy(() => import("../panel/FAQModal").then((m) => ({ default: m.FAQModal })));
 
@@ -100,8 +101,8 @@ export function HistoryRail() {
   if (fullscreen) return null;
 
   return (
-    <aside className="flex w-[292px] shrink-0 flex-col gap-3 overflow-y-auto border-l border-black/[0.06] bg-[var(--inspector)] px-3 py-4 backdrop-blur-2xl dark:border-white/[0.06]">
-      <div className="rounded-[18px] border border-black/[0.05] bg-white/70 p-3 shadow-[var(--shadow-card)] dark:border-white/[0.06] dark:bg-white/[0.03]">
+    <aside className="flex w-[292px] shrink-0 flex-col gap-3 overflow-y-auto border-l border-[var(--border)] bg-[var(--inspector)] px-3 py-4 backdrop-blur-2xl">
+      <div className={`border border-black/[0.05] bg-white/70 p-3 shadow-[var(--shadow-card)] dark:border-white/[0.06] dark:bg-white/[0.03] ${isWindows ? "rounded-[12px]" : "rounded-[18px]"}`}>
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5">
             <h3 className="text-xs font-semibold uppercase tracking-[0.12em] text-zinc-500 dark:text-zinc-400">
@@ -121,7 +122,7 @@ export function HistoryRail() {
           </button>
         </div>
 
-        <div className="mt-3 flex gap-1 rounded-full bg-black/[0.04] p-0.5 ring-1 ring-black/[0.05] dark:bg-white/[0.06] dark:ring-white/[0.06]">
+        <div className={`platform-seg mt-3 flex gap-1 bg-black/[0.04] p-0.5 ring-1 ring-black/[0.05] dark:bg-white/[0.06] dark:ring-white/[0.06] ${isWindows ? "rounded-[10px]" : "rounded-full"}`}>
           {(["responses", "images"] as const).map((m) => {
             const cfg = m === "responses" ? responsesConfig : imagesConfig;
             const ready = cfg.apiKey.trim() && cfg.baseURL.trim();
@@ -131,11 +132,11 @@ export function HistoryRail() {
                 key={m}
                 onClick={() => setField("apiMode", m)}
                 title={ready ? `${m} · 已配置 · ${cfg.baseURL.replace(/^https?:\/\//, "")}` : `${m} · 未配置`}
-                className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                className={`platform-chip flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-[11px] font-medium transition-colors ${
                   active
                     ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-900 dark:text-zinc-100"
                     : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200"
-                }`}
+                } ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
               >
                 {m === "responses" ? "Responses" : "Images"}
                 <span className={`h-1.5 w-1.5 rounded-full ${ready ? "bg-[var(--accent)]" : "bg-zinc-400 dark:bg-zinc-600"}`} />
@@ -147,7 +148,7 @@ export function HistoryRail() {
         <div className="mt-2 flex gap-1.5">
           <button
             onClick={openUpstreamConfig}
-            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-full border border-black/[0.08] px-3 py-2 text-xs text-zinc-700 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] dark:border-white/[0.08] dark:text-zinc-300"
+            className={`platform-action-btn flex-1 inline-flex items-center justify-center gap-1.5 border border-black/[0.08] px-3 py-2 text-xs text-zinc-700 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] dark:border-white/[0.08] dark:text-zinc-300 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
           >
             <Settings className="h-3.5 w-3.5" /> 上游配置
           </button>
@@ -155,7 +156,7 @@ export function HistoryRail() {
             onClick={testAPIKey}
             disabled={!apiKey.trim() || !baseURL.trim() || isTestingKey}
             title="发送一个最小请求验证 BASE_URL + API Key + 分组权限"
-            className="inline-flex items-center gap-1.5 rounded-full border border-black/[0.08] px-3 py-2 text-xs text-zinc-700 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:text-zinc-300"
+            className={`platform-action-btn inline-flex items-center gap-1.5 border border-black/[0.08] px-3 py-2 text-xs text-zinc-700 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:text-zinc-300 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
           >
             <Plug className={`h-3.5 w-3.5 ${isTestingKey ? "animate-spin" : ""}`} /> {isTestingKey ? "测试中..." : "测试"}
           </button>
@@ -168,7 +169,7 @@ export function HistoryRail() {
         </p>
       </div>
 
-      <div className="rounded-[18px] border border-black/[0.05] bg-white/70 p-3 shadow-[var(--shadow-card)] dark:border-white/[0.06] dark:bg-white/[0.03]">
+      <div className={`border border-black/[0.05] bg-white/70 p-3 shadow-[var(--shadow-card)] dark:border-white/[0.06] dark:bg-white/[0.03] ${isWindows ? "rounded-[12px]" : "rounded-[18px]"}`}>
         <div className="flex items-center justify-between">
           <h3 className="text-xs font-semibold uppercase tracking-[0.12em] text-zinc-500 dark:text-zinc-400">
             历史 <span className="font-mono-token text-zinc-500">({filtered.length}{filtered.length !== history.length && `/${history.length}`})</span>
@@ -186,13 +187,13 @@ export function HistoryRail() {
           placeholder="搜索 prompt..."
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          className="focus-ring mt-3 w-full rounded-[14px] border border-black/[0.08] bg-[var(--surface)] px-3 py-2 text-xs text-zinc-900 placeholder:text-zinc-400 dark:border-white/[0.08] dark:text-zinc-100 dark:placeholder:text-zinc-500"
+          className={`focus-ring mt-3 w-full border border-black/[0.08] bg-[var(--surface)] px-3 py-2 text-xs text-zinc-900 placeholder:text-zinc-400 dark:border-white/[0.08] dark:text-zinc-100 dark:placeholder:text-zinc-500 ${isWindows ? "rounded-[10px]" : "rounded-[14px]"}`}
         />
         <div className="mt-2 flex gap-1.5">
           <select
             value={modeF}
             onChange={(e) => setModeF(e.target.value as ModeFilter)}
-            className="focus-ring flex-1 rounded-[14px] border border-black/[0.08] bg-[var(--surface)] px-3 py-2 text-[11px] text-zinc-700 dark:border-white/[0.08] dark:text-zinc-300"
+            className={`focus-ring flex-1 border border-black/[0.08] bg-[var(--surface)] px-3 py-2 text-[11px] text-zinc-700 dark:border-white/[0.08] dark:text-zinc-300 ${isWindows ? "rounded-[10px]" : "rounded-[14px]"}`}
           >
             <option value="all">全部模式</option>
             <option value="generate">文生图</option>
@@ -201,7 +202,7 @@ export function HistoryRail() {
           <select
             value={dateF}
             onChange={(e) => setDateF(e.target.value as DateFilter)}
-            className="focus-ring flex-1 rounded-[14px] border border-black/[0.08] bg-[var(--surface)] px-3 py-2 text-[11px] text-zinc-700 dark:border-white/[0.08] dark:text-zinc-300"
+            className={`focus-ring flex-1 border border-black/[0.08] bg-[var(--surface)] px-3 py-2 text-[11px] text-zinc-700 dark:border-white/[0.08] dark:text-zinc-300 ${isWindows ? "rounded-[10px]" : "rounded-[14px]"}`}
           >
             <option value="all">全部日期</option>
             <option value="today">今天</option>
@@ -217,14 +218,14 @@ export function HistoryRail() {
       {compareB && (
         <button
           onClick={() => setCompareB(null)}
-          className="inline-flex items-center justify-center gap-1.5 rounded-full border border-[color:var(--accent)]/20 bg-[var(--accent-soft)] px-2.5 py-2 text-xs text-[var(--accent)] transition-colors hover:opacity-90"
+          className={`platform-pill inline-flex items-center justify-center gap-1.5 border border-[color:var(--accent)]/20 bg-[var(--accent-soft)] px-2.5 py-2 text-xs text-[var(--accent)] transition-colors hover:opacity-90 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
         >
           <Split className="w-3 h-3" /> 退出对比
         </button>
       )}
 
       {filtered.length === 0 ? (
-        <div className="rounded-[18px] border border-black/[0.05] bg-white/70 py-8 text-center text-xs text-zinc-500 shadow-[var(--shadow-card)] dark:border-white/[0.06] dark:bg-white/[0.03]">
+        <div className={`border border-black/[0.05] bg-white/70 py-8 text-center text-xs text-zinc-500 shadow-[var(--shadow-card)] dark:border-white/[0.06] dark:bg-white/[0.03] ${isWindows ? "rounded-[12px]" : "rounded-[18px]"}`}>
           {q || modeF !== "all" || dateF !== "all" ? "没有匹配项" : "还没有结果"}
         </div>
       ) : (

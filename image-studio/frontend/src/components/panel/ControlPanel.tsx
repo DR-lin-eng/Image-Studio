@@ -5,7 +5,7 @@ import {
 import { useStudioStore } from "../../state/studioStore";
 import { SizeValue, QualityValue, Mode, OutputFormatValue, OUTPUT_FORMAT_OPTIONS } from "../../types/domain";
 import { SettingsPanel } from "./SettingsPanel";
-import { submitShortcutLabel } from "../../lib/platform";
+import { isWindows, submitShortcutLabel } from "../../lib/platform";
 
 const PromptPopover = lazy(() => import("./PromptPopover").then((m) => ({ default: m.PromptPopover })));
 
@@ -52,30 +52,33 @@ export function ControlPanel() {
   const promptLen = prompt.length;
 
   return (
-    <div className="flex w-[336px] shrink-0 flex-col gap-4 overflow-y-auto border-r border-black/[0.06] bg-[var(--sidebar)] px-4 py-4 backdrop-blur-2xl dark:border-white/[0.06]">
-      <section className="rounded-[18px] border border-black/[0.05] bg-white/70 px-4 py-3 shadow-[var(--shadow-card)] dark:border-white/[0.06] dark:bg-white/[0.03]">
+    <div className={`flex w-[336px] shrink-0 flex-col gap-4 overflow-y-auto border-r border-[var(--border)] bg-[var(--sidebar)] px-4 py-4 backdrop-blur-2xl ${isWindows ? "pt-3" : ""}`}>
+      <section className="platform-card px-4 py-3">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-[20px] font-semibold tracking-[-0.02em] text-zinc-900 dark:text-zinc-100">
+            <h2
+              className={`text-zinc-900 dark:text-zinc-100 ${isWindows ? "text-[18px] font-semibold tracking-[0]" : "text-[20px] font-semibold tracking-[-0.02em]"}`}
+              style={{ fontFamily: "var(--title-font)" }}
+            >
               图像工作台
             </h2>
             <p className="mt-1 text-[12px] leading-relaxed text-zinc-500 dark:text-zinc-400">
               保持界面简洁，把注意力留给 prompt、参考图和结果。
             </p>
           </div>
-          <div className="rounded-2xl bg-[var(--accent-soft)] px-2.5 py-1 text-[11px] font-medium text-[var(--accent)]">
+          <div className={`platform-pill bg-[var(--accent-soft)] px-2.5 py-1 text-[11px] font-medium text-[var(--accent)] ${isWindows ? "rounded-[8px]" : "rounded-2xl"}`}>
             {mode === "edit" ? "Edit" : "Generate"}
           </div>
         </div>
       </section>
 
       {errorMessage && (
-        <div className="rounded-[18px] border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-700 shadow-[var(--shadow-card)] dark:text-red-200">
+        <div className={`border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-700 shadow-[var(--shadow-card)] dark:text-red-200 ${isWindows ? "rounded-[12px]" : "rounded-[18px]"}`}>
           <div className="flex items-start gap-2">
             <div className="flex-1 whitespace-pre-wrap leading-relaxed">{errorMessage}</div>
             <button
               onClick={() => setField("errorMessage", null)}
-              className="-m-1 rounded-full p-1 text-red-400 hover:bg-red-500/10 hover:text-red-300"
+              className={`-m-1 p-1 text-red-400 hover:bg-red-500/10 hover:text-red-300 ${isWindows ? "rounded-[6px]" : "rounded-full"}`}
               title="关闭"
             >
               <X className="w-3.5 h-3.5" />
@@ -84,7 +87,7 @@ export function ControlPanel() {
           {lastPayload && !isRunning && (
             <button
               onClick={retryLast}
-              className="mt-2 inline-flex items-center gap-1 rounded-full bg-red-500/15 px-2.5 py-1 text-[11px] transition-colors hover:bg-red-500/25"
+              className={`platform-pill mt-2 inline-flex items-center gap-1 bg-red-500/15 px-2.5 py-1 text-[11px] transition-colors hover:bg-red-500/25 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
             >
               <RotateCw className="w-3 h-3" /> 重试上次请求
             </button>
@@ -108,7 +111,7 @@ export function ControlPanel() {
       </Section>
 
       {/* Prompt */}
-      <section className="relative rounded-[18px] border border-black/[0.05] bg-white/70 p-4 shadow-[var(--shadow-card)] dark:border-white/[0.06] dark:bg-white/[0.03]">
+      <section className="platform-card relative p-4">
         <div className="flex items-center justify-between mb-1.5">
           <label className="text-[11px] uppercase tracking-[0.12em] text-zinc-400 dark:text-zinc-500">
             {mode === "edit" ? "修改要求" : "Prompt 提示词"}
@@ -121,14 +124,14 @@ export function ControlPanel() {
             ? "描述如何修改源图(例如:把背景换成夜空,人物保持不变)..."
             : "描述你想要生成的画面内容,越详细越好..."}
           onChange={(e) => setField("prompt", e.target.value)}
-          className="focus-ring w-full min-h-[124px] resize-y rounded-[14px] border border-black/[0.08] bg-[var(--surface)] px-3 py-3 text-[14px] leading-relaxed text-zinc-900 placeholder:text-zinc-400 dark:border-white/[0.08] dark:text-zinc-100 dark:placeholder:text-zinc-500"
+          className={`focus-ring w-full min-h-[124px] resize-y border border-black/[0.08] bg-[var(--surface)] px-3 py-3 text-[14px] leading-relaxed text-zinc-900 placeholder:text-zinc-400 dark:border-white/[0.08] dark:text-zinc-100 dark:placeholder:text-zinc-500 ${isWindows ? "rounded-[10px]" : "rounded-[14px]"}`}
         />
         <div className="flex items-center justify-between mt-1.5 gap-2">
           <button
             type="button"
             onClick={() => setPromptPopover((v) => !v)}
             title="prompt 模板与历史"
-            className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] text-zinc-500 transition-colors hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]"
+            className={`platform-pill inline-flex items-center gap-1 px-2.5 py-1 text-[11px] text-zinc-500 transition-colors hover:bg-[var(--accent-soft)] hover:text-[var(--accent)] ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
           >
             <ListPlus className="w-3 h-3" /> 模板 / 历史
           </button>
@@ -136,11 +139,11 @@ export function ControlPanel() {
             title={apiMode === "responses"
               ? "勾上后 Responses API 文本模型不会优化你的 prompt,逐字传给图像模型"
               : "Images API 形态本就不优化 prompt,此开关无效"}
-            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] ring-1 transition-colors ${
+            className={`platform-pill inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] ring-1 transition-colors ${
               noPromptRevision
                 ? "bg-[var(--accent-soft)] text-[var(--accent)] ring-[color:var(--accent)]/20"
                 : "text-zinc-500 dark:text-zinc-400 ring-transparent hover:ring-black/[0.08] dark:hover:ring-white/[0.06]"
-            } ${apiMode !== "responses" ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+            } ${apiMode !== "responses" ? "opacity-50 cursor-not-allowed" : "cursor-pointer"} ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
           >
             <input
               type="checkbox"
@@ -180,11 +183,11 @@ export function ControlPanel() {
               <button
                 key={s.id}
                 onClick={() => setField("styleTag", active ? "" : s.id)}
-                className={`rounded-full px-2.5 py-1.5 text-xs ring-1 transition-colors ${
+                className={`platform-chip px-2.5 py-1.5 text-xs ring-1 transition-colors ${
                   active
                     ? "bg-[var(--accent-soft)] text-[var(--accent)] ring-[color:var(--accent)]/20"
                     : "text-zinc-600 dark:text-zinc-400 ring-black/[0.08] dark:ring-white/[0.08] hover:text-zinc-900 dark:hover:text-zinc-200 hover:ring-[color:var(--accent)]/30"
-                }`}
+                } ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
               >
                 {s.label}
               </button>
@@ -203,11 +206,11 @@ export function ControlPanel() {
                 key={a.value}
                 onClick={() => setField("size", a.value)}
                 title={a.auto ? "让上游决定尺寸 / 比例" : a.value}
-                className={`flex flex-col items-center gap-1 rounded-[14px] py-2 ring-1 transition-colors ${
+                className={`flex flex-col items-center gap-1 py-2 ring-1 transition-colors ${
                   active
                     ? "bg-[var(--accent-soft)] ring-[color:var(--accent)]/35"
                     : "ring-black/[0.08] dark:ring-white/[0.08] hover:ring-[color:var(--accent)]/30"
-                }`}
+                } ${isWindows ? "rounded-[10px]" : "rounded-[14px]"}`}
               >
                 <span
                   className={`block rounded-sm border-2 ${a.auto ? "border-dashed" : ""} ${
@@ -244,30 +247,30 @@ export function ControlPanel() {
         >
           <div className="flex flex-col gap-1.5">
             {sources.length === 0 && currentImage?.savedPath && (
-              <div className="rounded-[14px] border border-black/[0.06] bg-[var(--surface)] px-3 py-2 text-xs italic text-zinc-500 dark:border-white/[0.04] dark:text-zinc-500">
+              <div className={`border border-black/[0.06] bg-[var(--surface)] px-3 py-2 text-xs italic text-zinc-500 dark:border-white/[0.04] dark:text-zinc-500 ${isWindows ? "rounded-[10px]" : "rounded-[14px]"}`}>
                 (画板当前图 · 隐式源图)
               </div>
             )}
             {sources.map((src, i) => (
-              <div key={src.path} className="flex items-center gap-1 rounded-[14px] border border-black/[0.06] bg-[var(--surface)] px-2.5 py-2 dark:border-white/[0.06]">
+              <div key={src.path} className={`flex items-center gap-1 border border-black/[0.06] bg-[var(--surface)] px-2.5 py-2 dark:border-white/[0.06] ${isWindows ? "rounded-[10px]" : "rounded-[14px]"}`}>
                 <span className="flex-1 text-xs text-zinc-700 dark:text-zinc-300 truncate" title={src.path}>
                   {i + 1}. {src.name}
                 </span>
                 <button
                   onClick={() => removeSource(i)}
                   title="移除"
-                  className="-m-1 rounded-full p-1 text-zinc-400 hover:bg-red-500/10 hover:text-red-400"
+                  className={`-m-1 p-1 text-zinc-400 hover:bg-red-500/10 hover:text-red-400 ${isWindows ? "rounded-[6px]" : "rounded-full"}`}
                 >
                   <X className="w-3 h-3" />
                 </button>
               </div>
             ))}
             <div className="flex gap-1.5">
-              <button onClick={selectSourceImage} className="flex-1 inline-flex items-center justify-center gap-1 rounded-full border border-black/[0.08] px-3 py-2 text-xs text-zinc-700 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] dark:border-white/[0.08] dark:text-zinc-300">
+              <button onClick={selectSourceImage} className={`platform-action-btn flex-1 inline-flex items-center justify-center gap-1 border border-black/[0.08] px-3 py-2 text-xs text-zinc-700 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] dark:border-white/[0.08] dark:text-zinc-300 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}>
                 <ImagePlus className="w-3.5 h-3.5" /> 添加图片
               </button>
               {sources.length > 0 && (
-                <button onClick={clearSources} className="inline-flex items-center gap-1 rounded-full border border-black/[0.08] px-3 py-2 text-xs text-zinc-500 transition-colors hover:border-red-400/40 hover:text-red-400 dark:border-white/[0.08]">
+                <button onClick={clearSources} className={`platform-action-btn inline-flex items-center gap-1 border border-black/[0.08] px-3 py-2 text-xs text-zinc-500 transition-colors hover:border-red-400/40 hover:text-red-400 dark:border-white/[0.08] ${isWindows ? "rounded-[8px]" : "rounded-full"}`}>
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
               )}
@@ -281,18 +284,18 @@ export function ControlPanel() {
         <button
           onClick={() => setAdvancedOpen((v) => !v)}
           type="button"
-          className="flex w-full items-center justify-between rounded-[14px] border border-black/[0.05] bg-white/70 px-4 py-3 text-xs text-zinc-500 transition-colors hover:text-zinc-900 dark:border-white/[0.06] dark:bg-white/[0.03] dark:hover:text-zinc-200"
+          className={`flex w-full items-center justify-between border border-black/[0.05] bg-white/70 px-4 py-3 text-xs text-zinc-500 transition-colors hover:text-zinc-900 dark:border-white/[0.06] dark:bg-white/[0.03] dark:hover:text-zinc-200 ${isWindows ? "rounded-[10px]" : "rounded-[14px]"}`}
         >
           <span className="uppercase tracking-[0.12em]">高级参数</span>
           <span className="text-[10px] opacity-60">{advancedOpen ? "收起 ▾" : "展开 ▸"}</span>
         </button>
         {advancedOpen && (
-          <div className="mt-2 flex flex-col gap-2 rounded-[18px] border border-black/[0.05] bg-white/70 p-4 shadow-[var(--shadow-card)] dark:border-white/[0.06] dark:bg-white/[0.03]">
+          <div className={`mt-2 flex flex-col gap-2 border border-black/[0.05] bg-white/70 p-4 shadow-[var(--shadow-card)] dark:border-white/[0.06] dark:bg-white/[0.03] ${isWindows ? "rounded-[12px]" : "rounded-[18px]"}`}>
             <textarea
               value={negativePrompt}
               placeholder="负向提示词(不希望出现的元素)..."
               onChange={(e) => setField("negativePrompt", e.target.value)}
-              className="focus-ring min-h-[56px] w-full resize-y rounded-[14px] border border-black/[0.08] bg-[var(--surface)] px-3 py-2 text-xs text-zinc-900 placeholder:text-zinc-400 dark:border-white/[0.08] dark:text-zinc-100 dark:placeholder:text-zinc-500"
+              className={`focus-ring min-h-[56px] w-full resize-y border border-black/[0.08] bg-[var(--surface)] px-3 py-2 text-xs text-zinc-900 placeholder:text-zinc-400 dark:border-white/[0.08] dark:text-zinc-100 dark:placeholder:text-zinc-500 ${isWindows ? "rounded-[10px]" : "rounded-[14px]"}`}
             />
             <div>
               <label className="mb-1 block text-[10px] uppercase tracking-[0.12em] text-zinc-400 dark:text-zinc-500">输出格式</label>
@@ -316,12 +319,12 @@ export function ControlPanel() {
                 placeholder="seed (留空=随机)"
                 min={0}
                 onChange={(e) => setField("seed", Number(e.target.value) || 0)}
-                className="focus-ring flex-1 rounded-[14px] border border-black/[0.08] bg-[var(--surface)] px-3 py-2 text-xs font-mono-token text-zinc-900 placeholder:text-zinc-400 dark:border-white/[0.08] dark:text-zinc-100 dark:placeholder:text-zinc-500"
+                className={`focus-ring flex-1 border border-black/[0.08] bg-[var(--surface)] px-3 py-2 text-xs font-mono-token text-zinc-900 placeholder:text-zinc-400 dark:border-white/[0.08] dark:text-zinc-100 dark:placeholder:text-zinc-500 ${isWindows ? "rounded-[10px]" : "rounded-[14px]"}`}
               />
               <button
                 onClick={() => setField("seed", Math.floor(Math.random() * 2_000_000_000))}
                 title="随机 seed"
-                className="rounded-full border border-black/[0.08] px-2.5 py-2 text-zinc-600 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] dark:border-white/[0.08] dark:text-zinc-400"
+                className={`platform-action-btn border border-black/[0.08] px-2.5 py-2 text-zinc-600 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] dark:border-white/[0.08] dark:text-zinc-400 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
               >
                 <Dices className="w-3.5 h-3.5" />
               </button>
@@ -329,7 +332,7 @@ export function ControlPanel() {
                 <button
                   onClick={() => setField("seed", 0)}
                   title="清除"
-                  className="rounded-full border border-black/[0.08] px-2.5 py-2 text-zinc-500 transition-colors hover:border-red-400/40 hover:text-red-400 dark:border-white/[0.08]"
+                  className={`platform-action-btn border border-black/[0.08] px-2.5 py-2 text-zinc-500 transition-colors hover:border-red-400/40 hover:text-red-400 dark:border-white/[0.08] ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -344,7 +347,7 @@ export function ControlPanel() {
         {isRunning ? (
           <button
             onClick={cancel}
-            className="w-full rounded-full border border-red-500/30 bg-red-500/10 py-3 font-medium text-red-500 transition-colors hover:bg-red-500/16"
+            className={`w-full border border-red-500/30 bg-red-500/10 py-3 font-medium text-red-500 transition-colors hover:bg-red-500/16 ${isWindows ? "rounded-[10px]" : "rounded-full"}`}
           >
             取消生成
           </button>
@@ -352,7 +355,7 @@ export function ControlPanel() {
           <button
             onClick={submit}
             disabled={!apiKey || !prompt}
-            className="w-full rounded-full bg-[var(--accent)] py-3 font-semibold text-white transition-colors hover:bg-[var(--accent-2)] disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500 dark:disabled:bg-zinc-800"
+            className={`w-full bg-[var(--accent)] py-3 font-semibold text-white transition-colors hover:bg-[var(--accent-2)] disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500 dark:disabled:bg-zinc-800 ${isWindows ? "rounded-[10px]" : "rounded-full"}`}
           >
             {mode === "edit" ? "编辑" : "生成"}
           </button>
@@ -379,7 +382,7 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-[18px] border border-black/[0.05] bg-white/70 p-4 shadow-[var(--shadow-card)] dark:border-white/[0.06] dark:bg-white/[0.03]">
+    <section className={`border border-black/[0.05] bg-white/70 p-4 shadow-[var(--shadow-card)] dark:border-white/[0.06] dark:bg-white/[0.03] ${isWindows ? "rounded-[12px]" : "rounded-[18px]"}`}>
       <div className="flex items-center justify-between mb-1.5">
         <label className="text-[11px] uppercase tracking-[0.12em] text-zinc-400 dark:text-zinc-500">{label}</label>
         {trailing}
@@ -391,7 +394,7 @@ function Section({
 
 function Seg({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex gap-1 rounded-full bg-black/[0.04] p-0.5 ring-1 ring-black/[0.05] dark:bg-white/[0.06] dark:ring-white/[0.06]">
+    <div className={`platform-seg flex gap-1 bg-black/[0.04] p-0.5 ring-1 ring-black/[0.05] dark:bg-white/[0.06] dark:ring-white/[0.06] ${isWindows ? "rounded-[10px]" : "rounded-full"}`}>
       {children}
     </div>
   );
@@ -406,11 +409,11 @@ function SegItem({ active, onClick, children }: {
     <button
       type="button"
       onClick={onClick}
-      className={`flex-1 rounded-full px-2 py-1.5 text-xs font-medium transition-colors ${
+      className={`platform-chip flex-1 px-2 py-1.5 text-xs font-medium transition-colors ${
         active
           ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-900 dark:text-zinc-100"
           : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200"
-      }`}
+      } ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
     >
       {children}
     </button>

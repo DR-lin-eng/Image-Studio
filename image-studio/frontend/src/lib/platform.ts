@@ -1,6 +1,68 @@
-export const isMac =
-  typeof navigator !== "undefined" &&
-  /mac|iphone|ipad|ipod/i.test(navigator.platform || navigator.userAgent);
+export type UIPlatform = "macos" | "windows" | "linux" | "ios" | "android" | "web";
+export type UIFamily = "apple" | "fluent" | "generic";
+
+function fromOverride(raw?: string): UIPlatform | null {
+  switch ((raw ?? "").trim().toLowerCase()) {
+    case "mac":
+    case "macos":
+    case "darwin":
+      return "macos";
+    case "windows":
+    case "win":
+    case "win32":
+      return "windows";
+    case "linux":
+      return "linux";
+    case "ios":
+      return "ios";
+    case "android":
+      return "android";
+    case "web":
+      return "web";
+    default:
+      return null;
+  }
+}
+
+function detectPlatform(): UIPlatform {
+  const override = fromOverride(import.meta.env.VITE_TARGET_PLATFORM);
+  if (override) return override;
+  if (typeof navigator === "undefined") return "web";
+
+  const uaDataPlatform = (navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform ?? "";
+  const platform = navigator.platform ?? "";
+  const userAgent = navigator.userAgent ?? "";
+  const source = `${uaDataPlatform} ${platform} ${userAgent}`.toLowerCase();
+
+  if (/iphone|ipad|ipod|ios/.test(source)) return "ios";
+  if (/android/.test(source)) return "android";
+  if (/mac/.test(source)) return "macos";
+  if (/win/.test(source)) return "windows";
+  if (/linux|x11/.test(source)) return "linux";
+  return "web";
+}
+
+function familyForPlatform(value: UIPlatform): UIFamily {
+  switch (value) {
+    case "macos":
+    case "ios":
+      return "apple";
+    case "windows":
+      return "fluent";
+    default:
+      return "generic";
+  }
+}
+
+export const platform = detectPlatform();
+export const uiFamily = familyForPlatform(platform);
+export const isMac = platform === "macos" || platform === "ios";
+export const isWindows = platform === "windows";
+
+export function applyPlatformAttributes(root: HTMLElement = document.documentElement) {
+  root.dataset.platform = platform;
+  root.dataset.uiFamily = uiFamily;
+}
 
 export const primaryModifierLabel = isMac ? "⌘" : "Ctrl";
 export const redoShortcutLabel = isMac ? "⇧⌘Z" : "Ctrl+Shift+Z";
@@ -14,9 +76,12 @@ export const fullscreenShortcutLabel = isMac ? "⌃⌘F" : "F11";
 
 export function platformOutputRootLabel() {
   if (isMac) return "~/Pictures/Image Studio";
-  return "%APPDATA%\\image-studio";
+  if (isWindows) return "%APPDATA%\\image-studio";
+  return "~/.config/image-studio";
 }
 
 export function platformRuntimeLabel() {
-  return isMac ? "Wails v2 / WKWebView" : "Wails v2 / WebView2";
+  if (isMac) return "Wails v2 / WKWebView";
+  if (isWindows) return "Wails v2 / WebView2";
+  return "Wails v2 / WebKitGTK";
 }

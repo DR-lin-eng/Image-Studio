@@ -5,7 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:windows": "vite --mode windows",
+    "dev:macos": "vite --mode macos",
+    "dev:linux": "vite --mode linux",
     "build": "tsc --noEmit && vite build",
+    "build:windows": "tsc --noEmit && vite build --mode windows",
+    "build:macos": "tsc --noEmit && vite build --mode macos",
+    "build:linux": "tsc --noEmit && vite build --mode linux",
     "preview": "vite preview"
   },
   "dependencies": {

@@ -96,7 +96,6 @@ export namespace backend {
 	    static createFrom(source: any = {}) {
 	        return new PromptOptimizeOptions(source);
 	    }
-
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.apiKey = source["apiKey"];

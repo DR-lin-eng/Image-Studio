@@ -330,6 +330,10 @@ func (s *Service) runJob(ctx context.Context, jobID string, opts GenerateOptions
 		return
 	}
 
+	// ★ 文件名时间戳精度只到秒,9 并发 batch 同一秒触发 → 9 个 savedPath 完全
+	// 一样,os.WriteFile 互相覆盖,前 8 张图被最后一个 job 写的覆盖掉,前端拿
+	// HistoryItem.savedPath 去磁盘读永远是同一张图。塞 6 字符 jobID 后缀让 PNG
+	// 和 sse-response/images-response 日志文件都唯一。
 	timestamp := time.Now().Format("20060102-150405")
 	if len(jobID) >= 6 {
 		timestamp = timestamp + "-" + jobID[:6]

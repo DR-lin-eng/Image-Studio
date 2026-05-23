@@ -1978,6 +1978,10 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       const previewB64 = await createPreviewB64(b64);
       const previewBlob = base64ToBlob(previewB64);
       const fullBlob = base64ToBlob(b64);
+      // 仅用于当前画布显示 + 后续 edit 调用时定位源图;不入历史(导入图不是
+      // 「生成结果」,塞历史栏会污染用户的画廊 + 把「今日已生图」计数搞错)。
+      // 文件本身已由 ImportImageFromB64 写入 imports/ 目录,workspace.sources
+      // 记得路径,丢失内存里这个 HistoryItem 也能从磁盘再读。
       const transientItem: HistoryItem = {
         id: genId(),
         imageB64: b64,
@@ -1994,6 +1998,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       const alreadyIn = existingSources.some((s) => s.path === result.path);
       set({
         currentImage: transientItem,
+        // 注意:这里不动 history / batchResults,导入是 transient 操作。
         batchResults: [],
         resultGridOpen: false,
         mode: "edit",

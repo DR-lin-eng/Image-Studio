@@ -36,7 +36,7 @@ function useImageFromSource(blob: Blob | null | undefined, b64: string | undefin
       el.onerror = null;
       URL.revokeObjectURL(objectURL);
     };
-  }, [b64]);
+  }, [blob, b64]);
   return img;
 }
 

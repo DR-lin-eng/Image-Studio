@@ -1,4 +1,4 @@
-import { Suspense, lazy, useDeferredValue, useMemo, useState } from "react";
+import { Suspense, lazy, useDeferredValue, useMemo, useRef, useState } from "react";
 import { Clipboard, Copy, FileText, HelpCircle, Info, ListRestart, Plug, RotateCw, Settings, Sparkles, Split, Trash2, X } from "lucide-react";
 import { useStudioStore } from "../../state/studioStore";
 import type { HistoryItem, Mode } from "../../types/domain";
@@ -40,6 +40,7 @@ export function HistoryRail() {
   const [menu, setMenu] = useState<{ x: number; y: number; h: HistoryItem } | null>(null);
   const [rawPath, setRawPath] = useState<string | null>(null);
   const [faqOpen, setFaqOpen] = useState(false);
+  const selectEpochRef = useRef(0);
 
   const filtered = useMemo(() => {
     const needle = deferredQ.trim().toLowerCase();
@@ -53,16 +54,21 @@ export function HistoryRail() {
   }, [history, deferredQ, modeF, dateF]);
 
   async function selectCurrent(h: HistoryItem) {
+    const myEpoch = ++selectEpochRef.current;
+    setField("currentImage", h);
+    if (useStudioStore.getState().resultGridOpen) {
+      useStudioStore.getState().closeResultGrid();
+    }
     if (h.savedPath && h.previewOnly) {
       try {
         const full = await useStudioStore.getState().materializeCurrentImage?.(h);
-        setField("currentImage", full ?? h);
-        return;
+        if (selectEpochRef.current === myEpoch && full) {
+          setField("currentImage", full);
+        }
       } catch {
-        // fallback to preview
+        // keep preview fallback
       }
     }
-    setField("currentImage", h);
   }
 
   function buildMenu(h: HistoryItem): MenuItem[] {

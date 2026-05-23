@@ -1978,7 +1978,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       const previewB64 = await createPreviewB64(b64);
       const previewBlob = base64ToBlob(previewB64);
       const fullBlob = base64ToBlob(b64);
-      const fullItem: HistoryItem = {
+      const transientItem: HistoryItem = {
         id: genId(),
         imageB64: b64,
         imageBlob: fullBlob,
@@ -1990,19 +1990,10 @@ export const useStudioStore = create<StudioState>((set, get) => ({
         createdAt: Date.now(),
         savedPath: result.path,
       };
-      const item: HistoryItem = {
-        ...fullItem,
-        imageB64: previewB64,
-        previewOnly: previewB64 !== b64,
-      };
-      await persistHistoryItem(item);
-      await persistHistoryFullImage(item.id, b64).catch(() => undefined);
       const existingSources = get().sources;
       const alreadyIn = existingSources.some((s) => s.path === result.path);
-      const trimmed = trimHistory([item, ...get().history]);
       set({
-        currentImage: fullItem,
-        history: trimmed,
+        currentImage: transientItem,
         batchResults: [],
         resultGridOpen: false,
         mode: "edit",
@@ -2012,7 +2003,6 @@ export const useStudioStore = create<StudioState>((set, get) => ({
         errorMessage: null,
         errorRawPath: null,
       });
-      persistTrimmedHistory(trimmed);
     } catch (e: any) {
       set({ errorMessage: `导入失败:${e?.message ?? e}`, errorRawPath: null });
     }

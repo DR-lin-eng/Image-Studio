@@ -331,6 +331,9 @@ func (s *Service) runJob(ctx context.Context, jobID string, opts GenerateOptions
 	}
 
 	timestamp := time.Now().Format("20060102-150405")
+	if len(jobID) >= 6 {
+		timestamp = timestamp + "-" + jobID[:6]
+	}
 	logFn := func(msg string) {
 		runtime.EventsEmit(s.ctx, "log:"+jobID, msg)
 	}

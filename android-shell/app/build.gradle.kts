@@ -91,7 +91,8 @@ androidComponents {
         val capBuild = variant.buildType?.replaceFirstChar { it.uppercaseChar() } ?: "Release"
         val frontendTaskName = "sync${capFlavor}${capBuild}FrontendAssets"
         val frontendDist = frontendRoot.resolve("dist")
-        val assetsDir = layout.projectDirectory.dir("src/main/assets/web")
+        val sharedAssetsDir = layout.projectDirectory.dir("src/main/assets/web")
+        val assetsDir = layout.projectDirectory.dir("src/$flavorName/assets/web")
         val variantCapName = variant.name.replaceFirstChar { it.uppercaseChar() }
 
         val syncTask = tasks.register(frontendTaskName) {
@@ -103,6 +104,7 @@ androidComponents {
                     environment("npm_config_cache", npmCacheDir.absolutePath)
                     commandLine("npm", "run", "build:$mode")
                 }
+                delete(sharedAssetsDir)
                 delete(assetsDir)
                 copy {
                     from(frontendDist)

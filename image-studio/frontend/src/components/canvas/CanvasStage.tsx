@@ -36,7 +36,10 @@ function useImageFromSource(blob: Blob | null | undefined, b64: string | undefin
       el.onerror = null;
       URL.revokeObjectURL(objectURL);
     };
-  }, [b64]);
+    // ★ 必须把 blob 也放 deps,否则历史项点击切换时 b64 都是 undefined,
+    // effect 不重跑,画板就卡在第一次加载的图上 —— 这是「历史栏连点几张图
+    // 卡住前一两张」的真凶。
+  }, [blob, b64]);
   return img;
 }
 

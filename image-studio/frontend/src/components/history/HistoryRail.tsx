@@ -1,4 +1,4 @@
-import { Suspense, lazy, useDeferredValue, useMemo, useState } from "react";
+import { Suspense, lazy, useDeferredValue, useMemo, useRef, useState } from "react";
 import { Clipboard, Copy, FileText, HelpCircle, Info, ListRestart, Plug, RotateCw, Settings, Sparkles, Split, Trash2, X } from "lucide-react";
 import { useStudioStore } from "../../state/studioStore";
 import type { HistoryItem, Mode } from "../../types/domain";
@@ -52,17 +52,33 @@ export function HistoryRail() {
     });
   }, [history, deferredQ, modeF, dateF]);
 
+  // 防快速连点产生竞态:每次点击递增 epoch,后台 materialize 全图 resolve
+  // 时跟当前 epoch 比对,过时的就丢弃。之前的写法是先 await 再 setField,
+  // 慢的请求会在用户已经点了另一张图之后把画布盖回去。
+  const selectEpochRef = useRef(0);
   async function selectCurrent(h: HistoryItem) {
+    const myEpoch = ++selectEpochRef.current;
+    // 1) 立即把(可能只是预览的)项摆上画布 —— 给用户即时反馈,不等磁盘 IO
+    setField("currentImage", h);
+    // 2) 关键:从历史栏选图 = 显式单图选择,退出批量结果网格 overlay。否则
+    //    刚生成完 9 张批量,grid 一直罩在画板上,用户在历史栏怎么点都只是
+    //    切 grid 里的高亮项,视觉上像「卡在第一张」。grid 可以从工具栏的
+    //    openResultGrid 重新打开。
+    if (useStudioStore.getState().resultGridOpen) {
+      useStudioStore.getState().closeResultGrid();
+    }
+    // 3) previewOnly 需要后台从磁盘 / IndexedDB 读全图;读完只在 epoch 没变
+    //    时才提交全图替换。epoch 变了说明用户已经点了别的图,这次结果作废。
     if (h.savedPath && h.previewOnly) {
       try {
         const full = await useStudioStore.getState().materializeCurrentImage?.(h);
-        setField("currentImage", full ?? h);
-        return;
+        if (selectEpochRef.current === myEpoch && full) {
+          setField("currentImage", full);
+        }
       } catch {
-        // fallback to preview
+        // 读不出来就维持预览,用户可以再点一次
       }
     }
-    setField("currentImage", h);
   }
 
   function buildMenu(h: HistoryItem): MenuItem[] {

@@ -3,10 +3,10 @@ import { useStudioStore } from "../../state/studioStore";
 import { OpenExternalURL, OpenOutputDir } from "../../../wailsjs/go/backend/Service";
 import { isAndroid, isWindows, usesAppleUI } from "../../lib/platform";
 import { androidTarget, openExternalURLForPlatform, openOutputLocationForPlatform } from "../../lib/androidBridge";
+import { appVersion } from "../../lib/version";
 
 const REPO_URL = "https://github.com/RoseKhlifa/Image-Studio";
 const ISSUES_URL = "https://github.com/RoseKhlifa/Image-Studio/issues";
-const VERSION = "0.1.4";
 
 export function FooterBar() {
   const { fullscreen, history, runningJobs, isRunning, workspaces, pushToast } = useStudioStore();
@@ -71,7 +71,7 @@ export function FooterBar() {
               : "bg-zinc-400 dark:bg-zinc-600"
           }`}
         />
-        <span className="font-mono-token text-zinc-400 dark:text-zinc-600">v{VERSION}</span>
+        <span className="font-mono-token text-zinc-400 dark:text-zinc-600">v{appVersion}</span>
       </div>
     </footer>
   );

@@ -135,7 +135,7 @@ func RequestImagesAPI(
 	req.Header.Set("Content-Type", contentType)
 	req.Header.Set("Authorization", "Bearer "+opts.APIKey)
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", UserAgent)
+	req.Header.Set("User-Agent", UserAgent())
 
 	httpClient := &http.Client{
 		Timeout: 8 * time.Minute,

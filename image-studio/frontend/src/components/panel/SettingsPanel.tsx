@@ -12,6 +12,7 @@ import { Modal } from "../common/Modal";
 import { rememberTrustedOutputRoot } from "../../lib/storage";
 import { isWindows, platformOutputRootLabel, platformRuntimeLabel, undoShortcutLabel } from "../../lib/platform";
 import { androidSaveHint, androidTarget, openExternalURLForPlatform, openOutputLocationForPlatform } from "../../lib/androidBridge";
+import { appVersion } from "../../lib/version";
 
 const REPO_URL = "https://github.com/RoseKhlifa/Image-Studio";
 const MIT_URL = "https://opensource.org/licenses/MIT";
@@ -272,7 +273,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
           </div>
           <div className="text-lg font-bold">Image Studio</div>
           <div className="text-[11px] text-zinc-500 mt-0.5">
-            v0.1.4 · <span onClick={() => openExternal(MIT_URL)} className="cursor-pointer text-[var(--accent)] hover:opacity-80">MIT License</span>
+            v{appVersion} · <span onClick={() => openExternal(MIT_URL)} className="cursor-pointer text-[var(--accent)] hover:opacity-80">MIT License</span>
           </div>
         </div>
         <p className="text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">

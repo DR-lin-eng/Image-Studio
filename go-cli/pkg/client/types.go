@@ -11,16 +11,20 @@ const (
 	OutputFormat       = "png"
 	MaxInputImageBytes = 50 * 1024 * 1024
 	MaxAttempts        = 3
-	// 所有出站请求的 User-Agent。sub2api / 中转站后台会把这串当客户端标识展示。
-	// 改这里就同时影响 NativeTransport / CurlTransport / Images API 路径。
-	UserAgent = "image-studio/0.1.0"
 )
 
 // Tunable knobs (exposed as vars so tests can shrink them).
 var (
 	RetryBackoffSeconds  = 15
 	StatusIntervalSecond = 10
+	// Version 在构建时通过 ldflags 注入;本地未注入时回退到开发标识。
+	Version = "0.1.5"
 )
+
+// UserAgent 返回所有上游请求统一使用的客户端标识。
+func UserAgent() string {
+	return "image-studio/" + Version
+}
 
 var SupportedImageMime = map[string]string{
 	".png":  "image/png",

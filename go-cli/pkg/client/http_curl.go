@@ -24,7 +24,7 @@ func BuildCurlConfig(apiKey string) string {
 		"Accept: */*",
 		"Content-Type: application/json",
 		"Authorization: Bearer " + apiKey,
-		"User-Agent: " + UserAgent,
+		"User-Agent: " + UserAgent(),
 	}
 	var b strings.Builder
 	for _, header := range headers {

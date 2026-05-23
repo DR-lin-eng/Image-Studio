@@ -345,7 +345,8 @@ func (s *Service) runJob(ctx context.Context, jobID string, opts GenerateOptions
 		ctx, transport, clientOpts, logDir, timestamp, logFn, progressFn,
 	)
 	if err != nil {
-		s.emitError(jobID, err)
+		// 即使失败也把 rawPath 透给前端,「查看日志」按钮直接打开它。
+		s.emitErrorWithRaw(jobID, err, rawPath)
 		return
 	}
 
@@ -369,6 +370,21 @@ func (s *Service) runJob(ctx context.Context, jobID string, opts GenerateOptions
 
 func (s *Service) emitError(jobID string, err error) {
 	runtime.EventsEmit(s.ctx, "error:"+jobID, ErrorPayload{Message: err.Error()})
+}
+
+// emitErrorWithRaw 跟 emitError 一样,但额外带上原始响应日志的绝对路径,
+// 前端「查看日志」按钮用它一键打开。请求都没发出去的早期失败走 emitError 即可。
+func (s *Service) emitErrorWithRaw(jobID string, err error, rawPath string) {
+	abs := rawPath
+	if rawPath != "" {
+		if a, e := filepath.Abs(rawPath); e == nil {
+			abs = a
+		}
+	}
+	runtime.EventsEmit(s.ctx, "error:"+jobID, ErrorPayload{
+		Message: err.Error(),
+		RawPath: abs,
+	})
 }
 
 func normaliseAPIMode(mode string) string {

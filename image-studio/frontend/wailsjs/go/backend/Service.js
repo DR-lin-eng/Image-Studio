@@ -46,12 +46,12 @@ export function ImportImageFromB64(arg1, arg2) {
   return window['go']['backend']['Service']['ImportImageFromB64'](arg1, arg2);
 }
 
-export function OptimizePrompt(arg1) {
-  return window['go']['backend']['Service']['OptimizePrompt'](arg1);
-}
-
 export function OpenExternalURL(arg1) {
   return window['go']['backend']['Service']['OpenExternalURL'](arg1);
+}
+
+export function OpenFile(arg1) {
+  return window['go']['backend']['Service']['OpenFile'](arg1);
 }
 
 export function OpenImageDialog() {
@@ -60,6 +60,10 @@ export function OpenImageDialog() {
 
 export function OpenOutputDir() {
   return window['go']['backend']['Service']['OpenOutputDir']();
+}
+
+export function OptimizePrompt(arg1) {
+  return window['go']['backend']['Service']['OptimizePrompt'](arg1);
 }
 
 export function ReadImageAsBase64(arg1) {

@@ -86,8 +86,12 @@ type ResultPayload struct {
 }
 
 // ErrorPayload is emitted as `error:<jobId>` when a run fails.
+// RawPath 指向 sse-response-*.txt / images-response-*.json,前端用「查看日志」
+// 按钮调 OpenFile 把它在系统默认应用里打开。请求还没真正发出去就失败时(例如
+// 参数校验阶段)RawPath 为空。
 type ErrorPayload struct {
 	Message string `json:"message"`
+	RawPath string `json:"rawPath,omitempty"`
 }
 
 // SelectFileResponse is returned by OpenImageDialog.

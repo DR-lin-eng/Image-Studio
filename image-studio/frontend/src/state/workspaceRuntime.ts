@@ -21,6 +21,7 @@ export interface WorkspaceRuntimeState {
   progress: ProgressInfo | null;
   lastLogLine: string;
   errorMessage: string | null;
+  errorRawPath: string | null;
   lastPayload: backend.GenerateOptions | null;
   workspaces: Workspace[];
 }
@@ -32,6 +33,7 @@ export interface WorkspaceRuntimeMirror {
   progress: ProgressInfo | null;
   lastLogLine: string;
   errorMessage: string | null;
+  errorRawPath: string | null;
   lastPayload: backend.GenerateOptions | null;
   isRunning: boolean;
 }
@@ -70,6 +72,7 @@ export function patchWorkspaceRuntime(workspaces: Workspace[], workspaceId: stri
     if (patch.progress !== undefined) next.progress = patch.progress;
     if (patch.lastLogLine !== undefined) next.lastLogLine = patch.lastLogLine;
     if (patch.errorMessage !== undefined) next.errorMessage = patch.errorMessage;
+    if (patch.errorRawPath !== undefined) next.errorRawPath = patch.errorRawPath;
     if (patch.lastPayload !== undefined) next.lastPayload = patch.lastPayload;
     return next;
   });
@@ -87,6 +90,7 @@ export function workspaceRuntimeFromState(
       progress: s.progress,
       lastLogLine: s.lastLogLine,
       errorMessage: s.errorMessage,
+      errorRawPath: s.errorRawPath,
       lastPayload: s.lastPayload,
       isRunning: s.runningJobs.length > 0,
     };
@@ -100,6 +104,7 @@ export function workspaceRuntimeFromState(
     progress: w?.progress ?? null,
     lastLogLine: w?.lastLogLine ?? "",
     errorMessage: w?.errorMessage ?? null,
+    errorRawPath: w?.errorRawPath ?? null,
     lastPayload: w?.lastPayload ?? null,
     isRunning: runningJobs.length > 0,
   };
@@ -120,6 +125,7 @@ export function activeRuntimePatch(patch: WorkspacePatch): Partial<WorkspaceRunt
   if (patch.progress !== undefined) out.progress = patch.progress;
   if (patch.lastLogLine !== undefined) out.lastLogLine = patch.lastLogLine;
   if (patch.errorMessage !== undefined) out.errorMessage = patch.errorMessage;
+  if (patch.errorRawPath !== undefined) out.errorRawPath = patch.errorRawPath;
   if (patch.lastPayload !== undefined) out.lastPayload = patch.lastPayload;
   return out;
 }

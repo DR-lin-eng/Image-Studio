@@ -24,13 +24,15 @@ export function ImportHistoryFromFile():Promise<string>;
 
 export function ImportImageFromB64(arg1:string,arg2:string):Promise<backend.ImportedImage>;
 
-export function OptimizePrompt(arg1:backend.PromptOptimizeOptions):Promise<string>;
-
 export function OpenExternalURL(arg1:string):Promise<void>;
+
+export function OpenFile(arg1:string):Promise<void>;
 
 export function OpenImageDialog():Promise<backend.SelectFileResponse>;
 
 export function OpenOutputDir():Promise<void>;
+
+export function OptimizePrompt(arg1:backend.PromptOptimizeOptions):Promise<string>;
 
 export function ReadImageAsBase64(arg1:string):Promise<string>;
 

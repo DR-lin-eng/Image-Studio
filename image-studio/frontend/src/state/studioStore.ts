@@ -222,6 +222,10 @@ interface StudioState {
   progress: ProgressInfo | null;
   lastLogLine: string;
   errorMessage: string | null;
+  // 失败时上游原始响应文件的绝对路径(SSE 文本 / Images API JSON)。前端
+  // 错误条幅上的「查看日志」按钮用它调 OpenFile 让系统默认应用打开。
+  // 请求都没发出就失败的早期错误(参数校验、transport 初始化)RawPath 为空。
+  errorRawPath: string | null;
   isRunning: boolean;
   // Snapshot of the last successfully-built payload, used by the retry button
   // on the error banner. Null when there's nothing to retry.
@@ -296,6 +300,9 @@ interface StudioState {
   setField: <K extends keyof StudioState>(key: K, value: StudioState[K]) => void;
   setAPIKey: (v: string) => Promise<void>;
   saveModeConfig: (mode: APIModeValue, cfg: ModeConfig) => Promise<void>;
+  // 一次性清掉错误条幅相关的两个字段(errorMessage + errorRawPath)。
+  // 比单独 setField 两次更不容易漏一边。
+  clearError: () => void;
   selectSourceImage: () => Promise<void>;
   removeSource: (index: number) => void;
   clearSources: () => void;
@@ -515,6 +522,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   progress: null,
   lastLogLine: "",
   errorMessage: null,
+  errorRawPath: null,
   isRunning: false,
   lastPayload: null,
   runningJobMeta: {},
@@ -607,6 +615,8 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       });
     } else if (key === "errorMessage") {
       set({ workspaces: patchWorkspaceRuntime(get().workspaces, get().activeWorkspaceId, { errorMessage: value as string | null }) });
+    } else if (key === "errorRawPath") {
+      set({ workspaces: patchWorkspaceRuntime(get().workspaces, get().activeWorkspaceId, { errorRawPath: value as string | null }) });
     } else if (key === "lastPayload") {
       set({ workspaces: patchWorkspaceRuntime(get().workspaces, get().activeWorkspaceId, { lastPayload: value as backend.GenerateOptions | null }) });
     }
@@ -655,6 +665,18 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     await SetStoredAPIKey(mode, normalized.apiKey);
   },
 
+  clearError: () => {
+    const wsId = get().activeWorkspaceId;
+    set({
+      errorMessage: null,
+      errorRawPath: null,
+      workspaces: patchWorkspaceRuntime(get().workspaces, wsId, {
+        errorMessage: null,
+        errorRawPath: null,
+      }),
+    });
+  },
+
   selectSourceImage: async () => {
     try {
       const res = await OpenImageDialog();
@@ -662,16 +684,17 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       const baseName = res.path.split(/[\\/]/).pop() ?? res.path;
       const existing = get().sources;
       if (existing.some((s) => s.path === res.path)) {
-        set({ mode: "edit", errorMessage: null });
+        set({ mode: "edit", errorMessage: null, errorRawPath: null });
         return;
       }
       set({
         sources: [...existing, { path: res.path, name: baseName, size: res.size }],
         mode: "edit",
         errorMessage: null,
+        errorRawPath: null,
       });
     } catch (e: any) {
-      set({ errorMessage: `选择图片失败:${e?.message ?? e}` });
+      set({ errorMessage: `选择图片失败:${e?.message ?? e}`, errorRawPath: null });
     }
   },
 
@@ -694,21 +717,21 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     const s = get();
     if (s.isRunning) return;
     if (!s.apiKey.trim()) {
-      set({ errorMessage: "请填写 API Key" });
+      set({ errorMessage: "请填写 API Key", errorRawPath: null });
       return;
     }
     if (!s.prompt.trim()) {
-      set({ errorMessage: "请填写提示词" });
+      set({ errorMessage: "请填写提示词", errorRawPath: null });
       return;
     }
     if (!s.baseURL.trim()) {
-      set({ errorMessage: "请在右侧工作栏顶部的「上游配置」中填入你的中转站地址(必须兼容 OpenAI Responses API + image_generation 工具)" });
+      set({ errorMessage: "请在右侧工作栏顶部的「上游配置」中填入你的中转站地址(必须兼容 OpenAI Responses API + image_generation 工具)", errorRawPath: null });
       return;
     }
     const cleanedBaseURL = cleanBaseURL(s.baseURL);
     const baseURLError = validateBaseURL(cleanedBaseURL);
     if (baseURLError) {
-      set({ errorMessage: baseURLError });
+      set({ errorMessage: baseURLError, errorRawPath: null });
       return;
     }
     const batchCount = normalizeBatchCount(s.batchCount);
@@ -719,7 +742,10 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       const available = concurrencyLimit - activeCount;
       if (available < batchCount) {
         const apiLabel = s.apiMode === "responses" ? "Responses API" : "Images API";
-        set({ errorMessage: `${apiLabel} 并发限制 ${concurrencyLimit},当前还可提交 ${Math.max(0, available)} 个,本次需要 ${batchCount} 个。` });
+        set({
+          errorMessage: `${apiLabel} 并发限制 ${concurrencyLimit},当前还可提交 ${Math.max(0, available)} 个,本次需要 ${batchCount} 个。`,
+          errorRawPath: null,
+        });
         return;
       }
     }
@@ -733,7 +759,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
         }
       }
       if (editSourcePaths.length === 0) {
-        set({ errorMessage: "图生图模式需要先添加源图(或从文件管理器拖图到画板)" });
+        set({ errorMessage: "图生图模式需要先添加源图(或从文件管理器拖图到画板)", errorRawPath: null });
         return;
       }
     }
@@ -741,6 +767,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     const workspaceId = s.activeWorkspaceId;
     const runPatch = {
       errorMessage: null,
+      errorRawPath: null,
       progress: null,
       lastLogLine: "",
       isRunning: true,
@@ -871,7 +898,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
 
   reuseAsSource: async (item) => {
     const localItem = await materializeHistoryItem(item).catch((e: any) => {
-      set({ errorMessage: `源图准备失败:${e?.message ?? e}` });
+      set({ errorMessage: `源图准备失败:${e?.message ?? e}`, errorRawPath: null });
       return null;
     });
     if (!localItem?.savedPath) return;
@@ -916,7 +943,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       if (saved) get().pushToast(`已保存:${saved.split(/[\\/]/).pop()}`, "success");
     } catch (e: any) {
       const msg = `保存失败:${e?.message ?? e}`;
-      set({ errorMessage: msg });
+      set({ errorMessage: msg, errorRawPath: null });
       get().pushToast(msg, "error");
     }
   },
@@ -1051,6 +1078,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       progress: null,
       lastLogLine: "",
       errorMessage: null,
+      errorRawPath: null,
       lastPayload: null,
     };
     set({
@@ -1458,7 +1486,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     if (s.mode === "edit" && sourcePaths.length === 0 && s.currentImage?.savedPath) {
       sourcePaths.push(s.currentImage.savedPath);
     }
-    set({ isOptimizingPrompt: true, errorMessage: null });
+    set({ isOptimizingPrompt: true, errorMessage: null, errorRawPath: null });
     try {
       const optimized = await wailsOptimizePrompt({
         apiKey: optimizeAPIKey,
@@ -1477,7 +1505,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       s.pushToast("已优化提示词", "success");
     } catch (e: any) {
       const msg = `优化失败:${e?.message ?? e}`;
-      set({ errorMessage: msg });
+      set({ errorMessage: msg, errorRawPath: null });
       s.pushToast(msg, "error", 6000);
     } finally {
       set({ isOptimizingPrompt: false });
@@ -1510,6 +1538,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       progress: null,
       lastLogLine: "",
       errorMessage: null,
+      errorRawPath: null,
       lastPayload: null,
     };
     set({
@@ -1537,6 +1566,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       progress: null,
       lastLogLine: "",
       errorMessage: null,
+      errorRawPath: null,
       isRunning: false,
       lastPayload: null,
     });
@@ -1577,6 +1607,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       progress: target.progress ?? null,
       lastLogLine: target.lastLogLine ?? "",
       errorMessage: target.errorMessage ?? null,
+      errorRawPath: target.errorRawPath ?? null,
       isRunning: runningJobs.length > 0,
       lastPayload: target.lastPayload ?? null,
     });
@@ -1629,6 +1660,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
         progress: next.progress ?? null,
         lastLogLine: next.lastLogLine ?? "",
         errorMessage: next.errorMessage ?? null,
+        errorRawPath: next.errorRawPath ?? null,
         isRunning: runningJobs.length > 0,
         lastPayload: next.lastPayload ?? null,
       });
@@ -1679,7 +1711,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   retryLast: async () => {
     const s = get();
     if (!s.lastPayload || s.isRunning) return;
-    set({ errorMessage: null });
+    set({ errorMessage: null, errorRawPath: null });
     // Re-invoke submit, which will rebuild the payload from current state.
     // (We don't reuse lastPayload verbatim so any tweaks the user made
     // after the failure — different seed, different prompt — take effect.)
@@ -1689,7 +1721,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   importImageFile: async (file) => {
     try {
       if (!/^image\/(png|jpe?g|webp)$/.test(file.type)) {
-        set({ errorMessage: `不支持的图片类型:${file.type || "(未知)"},请用 PNG/JPG/WebP` });
+        set({ errorMessage: `不支持的图片类型:${file.type || "(未知)"},请用 PNG/JPG/WebP`, errorRawPath: null });
         return;
       }
       const b64 = await fileToBase64(file);
@@ -1729,10 +1761,11 @@ export const useStudioStore = create<StudioState>((set, get) => ({
           ? existingSources
           : [...existingSources, { path: result.path, name: file.name, size: file.size, imageB64: b64 }],
         errorMessage: null,
+        errorRawPath: null,
       });
       persistTrimmedHistory(trimmed);
     } catch (e: any) {
-      set({ errorMessage: `导入失败:${e?.message ?? e}` });
+      set({ errorMessage: `导入失败:${e?.message ?? e}`, errorRawPath: null });
     }
   },
 }));
@@ -2009,7 +2042,10 @@ async function launchOneJob(
         );
         removeFromRunning();
       } catch (err: any) {
-        const patch: WorkspacePatch = { errorMessage: `处理结果失败:${err?.message ?? err}` };
+        const patch: WorkspacePatch = {
+          errorMessage: `处理结果失败:${err?.message ?? err}`,
+          errorRawPath: null,
+        };
         store.setState((state) => ({
           workspaces: patchWorkspaceRuntime(state.workspaces, snapshot.workspaceId, patch),
           ...(state.activeWorkspaceId === snapshot.workspaceId ? activeRuntimePatch(patch) : {}),
@@ -2018,9 +2054,12 @@ async function launchOneJob(
       }
       })();
     });
-    offError = EventsOn(`error:${jobId}`, (e: { message: string }) => {
+    offError = EventsOn(`error:${jobId}`, (e: { message: string; rawPath?: string }) => {
       cleanup();
-      const patch: WorkspacePatch = { errorMessage: e?.message ?? "未知错误" };
+      const patch: WorkspacePatch = {
+        errorMessage: e?.message ?? "未知错误",
+        errorRawPath: (typeof e?.rawPath === "string" && e.rawPath) ? e.rawPath : null,
+      };
       store.setState((state) => ({
         workspaces: patchWorkspaceRuntime(state.workspaces, snapshot.workspaceId, patch),
         ...(state.activeWorkspaceId === snapshot.workspaceId ? activeRuntimePatch(patch) : {}),
@@ -2028,7 +2067,10 @@ async function launchOneJob(
       removeFromRunning();
     });
   } catch (e: any) {
-    const patch: WorkspacePatch = { errorMessage: `提交失败:${e?.message ?? e}` };
+    const patch: WorkspacePatch = {
+      errorMessage: `提交失败:${e?.message ?? e}`,
+      errorRawPath: null,
+    };
     store.setState((state) => {
       const runtime = workspaceRuntimeFromState(state, snapshot.workspaceId);
       const nextPatch: WorkspacePatch = {

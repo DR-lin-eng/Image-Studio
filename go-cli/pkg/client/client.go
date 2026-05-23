@@ -175,8 +175,9 @@ func responsesAPIWithRetries(
 				}
 				continue
 			}
-			abs, _ := filepath.Abs(rawPath)
-			return ImageResult{}, lastPath, fmt.Errorf("%s\n原始返回已保存:%s", reason, abs)
+			// 路径不再拼进 error message;调用方通过返回值里的 lastPath
+			// 单独拿,前端用「查看日志」按钮直接打开。
+			return ImageResult{}, lastPath, fmt.Errorf("%s", reason)
 		}
 
 		// Transport-level error (network, curl exit). Retry up to MaxAttempts.
@@ -192,11 +193,10 @@ func responsesAPIWithRetries(
 		return ImageResult{}, lastPath, reqErr
 	}
 
-	abs, _ := filepath.Abs(lastPath)
 	if lastErr != nil {
-		return ImageResult{}, lastPath, fmt.Errorf("多次请求后仍未成功。最后一次原始返回:%s: %w", abs, lastErr)
+		return ImageResult{}, lastPath, fmt.Errorf("多次请求后仍未成功:%w", lastErr)
 	}
-	return ImageResult{}, lastPath, fmt.Errorf("多次请求后仍未成功。最后一次原始返回:%s", abs)
+	return ImageResult{}, lastPath, fmt.Errorf("多次请求后仍未成功")
 }
 
 func sleepCtx(ctx context.Context, d time.Duration) bool {
@@ -262,12 +262,11 @@ func imagesAPIWithRetries(
 			}
 			continue
 		}
-		abs, _ := filepath.Abs(rawPath)
-		return ImageResult{}, lastPath, fmt.Errorf("%v\n原始返回已保存:%s", reqErr, abs)
+		// 同上,raw 路径靠返回值带,不再嵌进 error message。
+		return ImageResult{}, lastPath, reqErr
 	}
 
-	abs, _ := filepath.Abs(lastPath)
-	return ImageResult{}, lastPath, fmt.Errorf("多次请求后仍未成功。最后一次原始返回:%s: %w", abs, lastErr)
+	return ImageResult{}, lastPath, fmt.Errorf("多次请求后仍未成功:%w", lastErr)
 }
 
 // isTransportishError treats common transport-layer failures as retryable.

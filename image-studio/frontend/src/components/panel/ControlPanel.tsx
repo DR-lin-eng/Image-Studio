@@ -1,8 +1,9 @@
 import { lazy, Suspense, useState } from "react";
 import {
-  Dices, ImagePlus, ListPlus, RotateCw, Sparkles, Trash2, X,
+  Dices, FileText, ImagePlus, ListPlus, RotateCw, Sparkles, Trash2, X,
 } from "lucide-react";
 import { useStudioStore } from "../../state/studioStore";
+import { OpenFile } from "../../../wailsjs/go/backend/Service";
 import { SizeValue, QualityValue, Mode, OutputFormatValue, OUTPUT_FORMAT_OPTIONS } from "../../types/domain";
 import { isWindows, submitShortcutLabel, usesAppleUI } from "../../lib/platform";
 
@@ -38,10 +39,10 @@ export function ControlPanel() {
     apiKey, mode, prompt, negativePrompt, size, quality, seed, styleTag,
     outputFormat, batchCount,
     sources, currentImage,
-    errorMessage, isRunning, lastPayload, isTestingKey, isOptimizingPrompt,
+    errorMessage, errorRawPath, isRunning, lastPayload, isTestingKey, isOptimizingPrompt,
     apiMode, baseURL, responsesConfig,
     noPromptRevision,
-    setField,
+    setField, clearError, pushToast,
     selectSourceImage, removeSource, clearSources,
     submit, cancel, retryLast, optimizePrompt,
   } = useStudioStore();
@@ -83,21 +84,38 @@ export function ControlPanel() {
           <div className="flex items-start gap-2">
             <div className="flex-1 whitespace-pre-wrap leading-relaxed">{errorMessage}</div>
             <button
-              onClick={() => setField("errorMessage", null)}
+              onClick={clearError}
               className={`-m-1 p-1 text-red-400 hover:bg-red-500/10 hover:text-red-300 ${isWindows ? "rounded-[6px]" : "rounded-full"}`}
               title="关闭"
             >
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
-          {lastPayload && !isRunning && (
-            <button
-              onClick={retryLast}
-              className={`platform-pill mt-2 inline-flex items-center gap-1 bg-red-500/15 px-2.5 py-1 text-[11px] transition-colors hover:bg-red-500/25 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
-            >
-              <RotateCw className="w-3 h-3" /> 重试上次请求
-            </button>
-          )}
+          {(lastPayload && !isRunning) || errorRawPath ? (
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              {lastPayload && !isRunning && (
+                <button
+                  onClick={retryLast}
+                  className={`platform-pill inline-flex items-center gap-1 bg-red-500/15 px-2.5 py-1 text-[11px] transition-colors hover:bg-red-500/25 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
+                >
+                  <RotateCw className="w-3 h-3" /> 重试上次请求
+                </button>
+              )}
+              {errorRawPath && (
+                <button
+                  onClick={() =>
+                    OpenFile(errorRawPath).catch((e: any) =>
+                      pushToast(`无法打开日志:${e?.message ?? e}`, "error")
+                    )
+                  }
+                  title={errorRawPath}
+                  className={`platform-pill inline-flex items-center gap-1 px-2.5 py-1 text-[11px] ring-1 ring-red-500/30 transition-colors hover:bg-red-500/10 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
+                >
+                  <FileText className="w-3 h-3" /> 查看日志
+                </button>
+              )}
+            </div>
+          ) : null}
         </div>
       )}
 

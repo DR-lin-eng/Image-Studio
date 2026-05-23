@@ -6,6 +6,7 @@ import (
 	"fmt"
 	neturl "net/url"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -92,6 +93,19 @@ func (s *Service) OpenExternalURL(rawURL string) error {
 		return errors.New("unsupported external url scheme")
 	}
 	return openInExplorer(rawURL)
+}
+
+// OpenFile 在系统默认应用里打开一个本地文件 —— 前端「查看日志」按钮调用,
+// 让用户拿系统记事本 / TextEdit / xdg-open 关联程序读 sse-response-*.txt
+// 这类原始上游响应。文件不存在就返回错误。
+func (s *Service) OpenFile(path string) error {
+	if strings.TrimSpace(path) == "" {
+		return errors.New("path is empty")
+	}
+	if _, err := os.Stat(path); err != nil {
+		return fmt.Errorf("文件不存在或无法访问:%w", err)
+	}
+	return openInExplorer(path)
 }
 
 // ReadImageAsBase64 loads an image file from disk and returns its bytes as

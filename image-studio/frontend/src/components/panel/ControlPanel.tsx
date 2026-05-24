@@ -182,7 +182,7 @@ export function ControlPanel() {
       )}
 
       {/* Prompt */}
-      <section className={`platform-card relative ${isAndroidPhone ? "p-3" : "p-4"}`}>
+      <section className={`platform-card relative overflow-visible ${promptPopover ? "z-30" : "z-0"} ${isAndroidPhone ? "p-3" : "p-4"}`}>
         <div className="flex items-center justify-between mb-1">
           <label className="text-[10px] uppercase tracking-[0.12em] text-zinc-400 dark:text-zinc-500">
             {mode === "edit" ? "修改要求" : compactPhoneConfigured ? "提示词" : "提示词"}
@@ -212,15 +212,32 @@ export function ControlPanel() {
           onChange={(e) => setField("prompt", e.target.value)}
           className={`focus-ring w-full resize-y border border-black/[0.08] bg-[var(--surface)] px-3 py-3 leading-relaxed text-zinc-900 placeholder:text-zinc-400 dark:border-white/[0.08] dark:text-zinc-100 dark:placeholder:text-zinc-500 ${compactPhoneConfigured ? "min-h-[78px] text-[13px]" : "min-h-[124px] text-[14px]"} ${isWindows ? "rounded-[10px]" : "rounded-[14px]"}`}
         />
-        <div className="flex items-center justify-between mt-1.5 gap-2">
-          <button
-            type="button"
-            onClick={() => setPromptPopover((v) => !v)}
-            title="prompt 模板与历史"
-            className={`platform-pill inline-flex items-center gap-1 px-2.5 py-1 text-[10px] text-zinc-500 transition-colors hover:bg-[var(--accent-soft)] hover:text-[var(--accent)] ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
-          >
-            <ListPlus className="w-3 h-3" /> {compactPhoneConfigured ? "模板" : "模板 / 历史"}
-          </button>
+        <div className="mt-1.5 flex items-center justify-between gap-2">
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => setPromptPopover((v) => !v)}
+              title="prompt 模板与历史"
+              className={`platform-pill inline-flex items-center gap-1 px-2.5 py-1 text-[10px] transition-colors ${
+                promptPopover
+                  ? "bg-[var(--accent-soft)] text-[var(--accent)] ring-1 ring-[color:var(--accent)]/20"
+                  : "text-zinc-500 hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]"
+              } ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
+            >
+              <ListPlus className="w-3 h-3" /> {compactPhoneConfigured ? "模板" : "模板 / 历史"}
+            </button>
+            {promptPopover && (
+              <Suspense fallback={null}>
+                <PromptPopover
+                  onClose={() => setPromptPopover(false)}
+                  onPick={(text) => {
+                    const current = useStudioStore.getState().prompt;
+                    setField("prompt", current ? `${current}\n${text}` : text);
+                  }}
+                />
+              </Suspense>
+            )}
+          </div>
           <button
             type="button"
             onClick={optimizePrompt}
@@ -259,17 +276,6 @@ export function ControlPanel() {
           </label>
           {!isAndroidPhone && <span className="text-[10px] text-zinc-400 dark:text-zinc-600">{submitShortcutLabel}</span>}
         </div>
-        {promptPopover && (
-          <Suspense fallback={null}>
-            <PromptPopover
-              onClose={() => setPromptPopover(false)}
-              onPick={(text) => {
-                const current = useStudioStore.getState().prompt;
-                setField("prompt", current ? `${current}\n${text}` : text);
-              }}
-            />
-          </Suspense>
-        )}
       </section>
 
       {/* 风格 */}

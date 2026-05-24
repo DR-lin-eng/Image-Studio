@@ -13,7 +13,9 @@
 ---
 
 <p align="center">
-  <img src="./docs/screenshot.png" alt="Image Studio 主界面" width="880">
+  <img src="./docs/screenshot1.png" alt="Image Studio 主界面 - 截图 1" width="880">
+  <br />
+  <img src="./docs/screenshot2.png" alt="Image Studio 主界面 - 截图 2" width="880">
   <br />
   <sub>左侧:控制面板(模式 / prompt / 风格 / 比例 / 质量) · 中:画板 + 工具栏 + 状态栏 · 右:历史记录</sub>
 </p>

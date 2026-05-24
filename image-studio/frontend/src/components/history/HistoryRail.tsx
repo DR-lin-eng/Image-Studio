@@ -116,19 +116,20 @@ export function HistoryRail() {
   if (fullscreen) return null;
 
   return (
-    <aside className={`history-rail flex w-[292px] shrink-0 flex-col gap-3 overflow-y-auto border-l border-[var(--border)] bg-[var(--inspector)] px-3 py-4 backdrop-blur-2xl ${usesAppleUI ? "liquid-sidebar" : ""} ${usesAndroidUI && !isAndroidPhone ? "android-surface-pane" : ""}`}>
-      <div className={`platform-card border border-black/[0.05] bg-white/70 shadow-[var(--shadow-card)] dark:border-white/[0.06] dark:bg-white/[0.03] ${isAndroidPhone ? "p-2.5" : "p-3"} ${isWindows ? "rounded-[12px]" : "rounded-[18px]"}`}>
+    <aside className={`history-rail flex w-[304px] shrink-0 flex-col overflow-y-auto border-l border-[var(--border)] bg-[var(--inspector)] px-4 py-4 backdrop-blur-2xl ${usesAppleUI ? "liquid-sidebar" : ""} ${usesAndroidUI && !isAndroidPhone ? "android-surface-pane" : ""}`}>
+      <div className="mx-auto flex w-full max-w-[264px] flex-col gap-3">
+      <div className={`platform-card border border-black/[0.05] bg-white/70 shadow-[var(--shadow-card)] dark:border-white/[0.06] dark:bg-white/[0.03] ${isAndroidPhone ? "p-2.5" : "p-3.5"} ${isWindows ? "rounded-[12px]" : "rounded-[18px]"}`}>
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5">
-            <h3 className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500 dark:text-zinc-400">
+            <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-zinc-500 dark:text-zinc-300">
               上游
             </h3>
             <span className={`h-1.5 w-1.5 rounded-full ${apiKey && baseURL ? "bg-[var(--accent)] shadow-[0_0_6px_rgb(0_122_255_/_0.55)]" : "bg-red-500"}`} />
-            <span className={`text-[10px] ${apiKey && baseURL ? "text-[var(--accent)]" : "text-red-400"}`}>
+            <span className={`text-[11px] ${apiKey && baseURL ? "text-[var(--accent)]" : "text-red-400"}`}>
               {apiKey && baseURL ? "已配置" : "未配置"}
             </span>
           </div>
-          <span className="text-[10px] text-zinc-500">当前连接</span>
+          <span className="text-[11px] text-zinc-500 dark:text-zinc-400">当前连接</span>
         </div>
 
         {/* v0.1.6: profile dropdown 替换原来的 [Responses | Images] 二选一 chip。
@@ -145,7 +146,7 @@ export function HistoryRail() {
                 }
                 if (id) void setActiveProfile(id);
               }}
-              className={`focus-ring w-full border border-black/[0.08] bg-[var(--surface)] px-3 py-1.5 text-[11px] font-medium text-zinc-800 dark:border-white/[0.08] dark:text-zinc-100 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
+              className={`focus-ring w-full border border-black/[0.08] bg-[var(--surface)] px-3 py-2 text-[12px] font-medium text-zinc-800 dark:border-white/[0.08] dark:text-zinc-100 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
               title="切换上游配置 / 管理"
             >
               {profiles.map((p) => (
@@ -157,7 +158,7 @@ export function HistoryRail() {
             </select>
           </div>
         ) : (
-          <p className="mt-3 text-[11px] leading-relaxed text-zinc-500">
+          <p className="mt-3 text-[12px] leading-relaxed text-zinc-500 dark:text-zinc-300">
             还没有上游配置，先建一条再开始生成。
           </p>
         )}
@@ -165,7 +166,7 @@ export function HistoryRail() {
         <div className={`mt-2 flex ${isAndroidPhone ? "gap-1" : "gap-1.5"}`}>
           <button
             onClick={openUpstreamConfig}
-            className={`platform-action-btn flex-1 inline-flex items-center justify-center gap-1.5 border border-black/[0.08] px-3 text-xs text-zinc-700 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] dark:border-white/[0.08] dark:text-zinc-300 ${isAndroidPhone ? "py-1.5" : "py-2"} ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
+            className={`platform-action-btn flex-1 inline-flex items-center justify-center gap-1.5 border border-black/[0.08] px-3 text-[12px] text-zinc-700 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] dark:border-white/[0.08] dark:text-zinc-300 ${isAndroidPhone ? "py-1.5" : "py-2"} ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
           >
             <Settings className="h-3.5 w-3.5" /> {isAndroidPhone ? "配置" : "上游配置"}
           </button>
@@ -173,15 +174,15 @@ export function HistoryRail() {
             onClick={testAPIKey}
             disabled={!apiKey.trim() || !baseURL.trim() || isTestingKey}
             title="验证当前配置是否可连通"
-            className={`platform-action-btn inline-flex items-center gap-1.5 border border-black/[0.08] px-3 text-xs text-zinc-700 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:text-zinc-300 ${isAndroidPhone ? "py-1.5" : "py-2"} ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
+            className={`platform-action-btn inline-flex items-center gap-1.5 border border-black/[0.08] px-3 text-[12px] text-zinc-700 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:text-zinc-300 ${isAndroidPhone ? "py-1.5" : "py-2"} ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
           >
             <Plug className={`h-3.5 w-3.5 ${isTestingKey ? "animate-spin" : ""}`} /> {isTestingKey ? "检查中..." : isAndroidPhone ? "连通性" : "测试"}
           </button>
         </div>
 
         {!isAndroidPhone ? (
-          <div className="mt-1.5 flex items-center justify-between gap-2">
-            <p className="min-w-0 text-[10px] leading-relaxed text-zinc-500 dark:text-zinc-500">
+          <div className="mt-2 flex items-center justify-between gap-2">
+            <p className="min-w-0 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-300">
               {apiMode === "responses"
                 ? "Responses API"
                 : "Images API"}
@@ -190,16 +191,16 @@ export function HistoryRail() {
         ) : null}
       </div>
 
-      <div className={`platform-card border border-black/[0.05] bg-white/70 shadow-[var(--shadow-card)] dark:border-white/[0.06] dark:bg-white/[0.03] ${isAndroidPhone ? "p-2.5" : "p-3"} ${isWindows ? "rounded-[12px]" : "rounded-[18px]"}`}>
+      <div className={`platform-card border border-black/[0.05] bg-white/70 shadow-[var(--shadow-card)] dark:border-white/[0.06] dark:bg-white/[0.03] ${isAndroidPhone ? "p-2.5" : "p-3.5"} ${isWindows ? "rounded-[12px]" : "rounded-[18px]"}`}>
         <div className="flex items-center justify-between">
-          <h3 className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500 dark:text-zinc-400">
-            历史 <span className="font-mono-token text-zinc-500">({filtered.length}{filtered.length !== history.length && `/${history.length}`})</span>
+          <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-zinc-500 dark:text-zinc-300">
+            历史 <span className="font-mono-token text-zinc-500 dark:text-zinc-400">({filtered.length}{filtered.length !== history.length && `/${history.length}`})</span>
           </h3>
           {currentImage && (
             <button
               onClick={() => setField("currentImage", null)}
               title="清空画板(不删历史)"
-              className="text-[10px] text-zinc-500 transition-colors hover:text-[var(--accent)]"
+              className="text-[11px] text-zinc-500 transition-colors hover:text-[var(--accent)] dark:text-zinc-300"
             >
               {isAndroidPhone ? "清空" : "清空画板"}
             </button>
@@ -212,13 +213,13 @@ export function HistoryRail() {
               placeholder="搜索 prompt..."
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              className={`focus-ring ${isAndroidPhone ? "mt-1.5" : "mt-3"} w-full border border-black/[0.08] bg-[var(--surface)] px-3 py-2 text-[11px] text-zinc-900 placeholder:text-zinc-400 dark:border-white/[0.08] dark:text-zinc-100 dark:placeholder:text-zinc-500 ${isWindows ? "rounded-[10px]" : "rounded-[14px]"}`}
+              className={`focus-ring ${isAndroidPhone ? "mt-1.5" : "mt-3"} w-full border border-black/[0.08] bg-[var(--surface)] px-3 py-2 text-[12px] text-zinc-900 placeholder:text-zinc-400 dark:border-white/[0.08] dark:text-zinc-100 dark:placeholder:text-zinc-500 ${isWindows ? "rounded-[10px]" : "rounded-[14px]"}`}
             />
             <div className={`mt-2 flex ${isAndroidPhone ? "gap-1" : "gap-1.5"}`}>
               <select
                 value={modeF}
                 onChange={(e) => setModeF(e.target.value as ModeFilter)}
-                className={`focus-ring flex-1 border border-black/[0.08] bg-[var(--surface)] px-3 ${isAndroidPhone ? "py-1.5" : "py-2"} text-[10px] text-zinc-700 dark:border-white/[0.08] dark:text-zinc-300 ${isWindows ? "rounded-[10px]" : "rounded-[14px]"}`}
+                className={`focus-ring flex-1 border border-black/[0.08] bg-[var(--surface)] px-3 ${isAndroidPhone ? "py-1.5" : "py-2"} text-[11px] text-zinc-700 dark:border-white/[0.08] dark:text-zinc-300 ${isWindows ? "rounded-[10px]" : "rounded-[14px]"}`}
               >
                 <option value="all">全部模式</option>
                 <option value="generate">文生图</option>
@@ -227,7 +228,7 @@ export function HistoryRail() {
               <select
                 value={dateF}
                 onChange={(e) => setDateF(e.target.value as DateFilter)}
-                className={`focus-ring flex-1 border border-black/[0.08] bg-[var(--surface)] px-3 ${isAndroidPhone ? "py-1.5" : "py-2"} text-[10px] text-zinc-700 dark:border-white/[0.08] dark:text-zinc-300 ${isWindows ? "rounded-[10px]" : "rounded-[14px]"}`}
+                className={`focus-ring flex-1 border border-black/[0.08] bg-[var(--surface)] px-3 ${isAndroidPhone ? "py-1.5" : "py-2"} text-[11px] text-zinc-700 dark:border-white/[0.08] dark:text-zinc-300 ${isWindows ? "rounded-[10px]" : "rounded-[14px]"}`}
               >
                 <option value="all">全部日期</option>
                 <option value="today">今天</option>
@@ -238,7 +239,7 @@ export function HistoryRail() {
         )}
 
         {!isAndroidPhone && !isMac && (
-          <p className="mt-2 text-[10px] leading-relaxed text-zinc-500">
+          <p className="mt-2 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-300">
             点击查看 · Shift+点击对比 · 双击设源图 · 右键更多
           </p>
         )}
@@ -254,11 +255,11 @@ export function HistoryRail() {
       )}
 
       {filtered.length === 0 ? (
-        <div className={`platform-card border border-black/[0.05] bg-white/70 text-center text-xs text-zinc-500 shadow-[var(--shadow-card)] dark:border-white/[0.06] dark:bg-white/[0.03] ${isAndroidPhone ? "py-4" : "py-8"} ${isWindows ? "rounded-[12px]" : "rounded-[18px]"}`}>
+        <div className={`platform-card border border-black/[0.05] bg-white/70 text-center text-[12px] text-zinc-500 shadow-[var(--shadow-card)] dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-zinc-300 ${isAndroidPhone ? "py-4" : "py-8"} ${isWindows ? "rounded-[12px]" : "rounded-[18px]"}`}>
           {q || modeF !== "all" || dateF !== "all" ? "没有匹配项" : "还没有结果"}
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid w-full grid-cols-2 gap-2.5 place-content-start">
           {filtered.map((h) => (
             <HistoryTile
               key={h.id}
@@ -281,6 +282,7 @@ export function HistoryRail() {
       <Clipboard className="hidden" /><Copy className="hidden" /><FileText className="hidden" />
       <Info className="hidden" /><ListRestart className="hidden" /><RotateCw className="hidden" /><Sparkles className="hidden" />
       <Trash2 className="hidden" />
+      </div>
     </aside>
   );
 }
@@ -344,11 +346,11 @@ function HistoryTile({
         decoding="async"
         className="h-full w-full object-cover"
       />
-      <span className={`absolute left-1.5 top-1.5 bg-black/55 px-1.5 py-0.5 text-[9px] text-white backdrop-blur-sm ${isWindows ? "rounded-[6px]" : "rounded-full"}`}>
+      <span className={`absolute left-1.5 top-1.5 bg-black/58 px-1.5 py-0.5 text-[10px] text-white backdrop-blur-sm ${isWindows ? "rounded-[6px]" : "rounded-full"}`}>
         {item.mode === "edit" ? "图生图" : "文生图"}
       </span>
       {isCompare && (
-        <span className={`absolute right-1.5 top-1.5 bg-blue-500 px-1.5 py-0.5 text-[9px] text-white ${isWindows ? "rounded-[6px]" : "rounded-full"}`}>B</span>
+        <span className={`absolute right-1.5 top-1.5 bg-blue-500 px-1.5 py-0.5 text-[10px] text-white ${isWindows ? "rounded-[6px]" : "rounded-full"}`}>B</span>
       )}
       <button
         onClick={(e) => { e.stopPropagation(); void onDelete(item.id); }}

@@ -113,13 +113,13 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
             <select
               value={transport}
               onChange={(e) => setField("transport", e.target.value as TransportKind)}
-              className={`focus-ring w-full border border-black/[0.08] bg-[var(--surface)] px-3 py-2 text-[11px] text-zinc-900 dark:border-white/[0.08] dark:text-zinc-100 ${isWindows ? "rounded-[10px]" : "rounded-[14px]"}`}
+              className={`focus-ring w-full border border-black/[0.08] bg-[var(--surface)] px-3 py-2.5 text-[12px] text-zinc-900 dark:border-white/[0.08] dark:text-zinc-100 ${isWindows ? "rounded-[10px]" : "rounded-[14px]"}`}
             >
               <option value="auto">auto(原生 HTTP)</option>
               <option value="native">native(强制原生)</option>
               <option value="curl">curl(子进程兜底)</option>
             </select>
-            <p className="text-[10px] text-zinc-500 mt-0.5">
+            <p className="mt-1 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-300">
               如果遇到网络问题(Cloudflare TLS / 公司代理),试 curl
             </p>
           </Row>
@@ -128,13 +128,13 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
             <select
               value={kernelRuntimeMode}
               onChange={(e) => setField("kernelRuntimeMode", e.target.value as KernelRuntimeMode)}
-              className={`focus-ring w-full border border-black/[0.08] bg-[var(--surface)] px-3 py-2 text-[11px] text-zinc-900 dark:border-white/[0.08] dark:text-zinc-100 ${isWindows ? "rounded-[10px]" : "rounded-[14px]"}`}
+              className={`focus-ring w-full border border-black/[0.08] bg-[var(--surface)] px-3 py-2.5 text-[12px] text-zinc-900 dark:border-white/[0.08] dark:text-zinc-100 ${isWindows ? "rounded-[10px]" : "rounded-[14px]"}`}
             >
               <option value="auto">auto(按宿主自动选择)</option>
               <option value="local">local(桌面 Go/Wails)</option>
               <option value="remote">remote(共享远程内核)</option>
             </select>
-            <p className="text-[10px] text-zinc-500 mt-0.5">
+            <p className="mt-1 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-300">
               桌面可切到 remote 验证与 Android / Worker 是否走同一套共享请求内核
             </p>
           </Row>
@@ -142,7 +142,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
           {/* 输出目录 */}
           <Row label={androidTarget.isAndroid ? "保存位置" : "输出目录"}>
             <div className={`flex items-center gap-1 border border-black/[0.08] bg-[var(--surface)] px-3 py-2 dark:border-white/[0.08] ${isWindows ? "rounded-[10px]" : "rounded-[14px]"}`}>
-              <span title={outputDir} className="flex-1 text-[10px] font-mono-token text-zinc-700 dark:text-zinc-300 truncate">
+              <span title={outputDir} className="flex-1 text-[11px] font-mono-token text-zinc-700 dark:text-zinc-200 truncate">
                 {androidTarget.isAndroid ? platformOutputRootLabel() : (outputDir || "...")}
               </span>
               <button
@@ -154,7 +154,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
               </button>
             </div>
             {androidTarget.isAndroid ? (
-              <p className="mt-0.5 text-[10px] leading-relaxed text-zinc-500">{androidSaveHint()}</p>
+              <p className="mt-1 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-300">{androidSaveHint()}</p>
             ) : (
               <div className="flex gap-1.5 mt-1.5">
                 <button
@@ -171,7 +171,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
                       pushToast(`切换失败:${e?.message ?? e}`, "error", 5000);
                     }
                   }}
-                  className={`flex-1 inline-flex items-center justify-center gap-1.5 border border-black/[0.08] px-3 py-2 text-xs text-zinc-700 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] dark:border-white/[0.08] dark:text-zinc-300 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
+                  className={`flex-1 inline-flex items-center justify-center gap-1.5 border border-black/[0.08] px-3 py-2 text-[12px] text-zinc-700 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] dark:border-white/[0.08] dark:text-zinc-300 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
                 >
                   <FolderEdit className="w-3 h-3" /> 修改
                 </button>
@@ -189,7 +189,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
                     }
                   }}
                   title={`清除自定义路径,回到 ${platformOutputRootLabel()}/images`}
-                  className={`inline-flex items-center gap-1 border border-black/[0.08] px-3 py-2 text-xs text-zinc-500 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] dark:border-white/[0.08] ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
+                  className={`inline-flex items-center gap-1 border border-black/[0.08] px-3 py-2 text-[12px] text-zinc-500 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] dark:border-white/[0.08] dark:text-zinc-300 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
                 >
                   <RotateCw className="w-3 h-3" /> 默认
                 </button>
@@ -233,14 +233,14 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
             <button
               onClick={exportHistory}
               title="导出全部历史为 JSON"
-              className={`flex-1 inline-flex items-center justify-center gap-1.5 border border-black/[0.08] px-3 py-2 text-xs text-zinc-700 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] dark:border-white/[0.08] dark:text-zinc-300 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
+              className={`flex-1 inline-flex items-center justify-center gap-1.5 border border-black/[0.08] px-3 py-2 text-[12px] text-zinc-700 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] dark:border-white/[0.08] dark:text-zinc-300 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
             >
               <Upload className="w-3 h-3" /> 导出历史
             </button>
             <button
               onClick={importHistory}
               title="从 JSON 文件导入"
-              className={`flex-1 inline-flex items-center justify-center gap-1.5 border border-black/[0.08] px-3 py-2 text-xs text-zinc-700 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] dark:border-white/[0.08] dark:text-zinc-300 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
+              className={`flex-1 inline-flex items-center justify-center gap-1.5 border border-black/[0.08] px-3 py-2 text-[12px] text-zinc-700 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] dark:border-white/[0.08] dark:text-zinc-300 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
             >
               <Download className="w-3 h-3" /> 导入历史
             </button>
@@ -250,13 +250,13 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
           <div className="flex gap-1.5">
             <button
               onClick={clearAPIKey}
-              className={`flex-1 inline-flex items-center justify-center gap-1.5 border border-black/[0.08] px-3 py-2 text-xs text-zinc-500 transition-colors hover:border-red-400/40 hover:text-red-400 dark:border-white/[0.08] ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
+              className={`flex-1 inline-flex items-center justify-center gap-1.5 border border-black/[0.08] px-3 py-2 text-[12px] text-zinc-500 transition-colors hover:border-red-400/40 hover:text-red-400 dark:border-white/[0.08] dark:text-zinc-300 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
             >
               <KeyRound className="w-3 h-3" /> 清除 API Key
             </button>
             <button
               onClick={clearHistory}
-              className={`flex-1 inline-flex items-center justify-center gap-1.5 border border-black/[0.08] px-3 py-2 text-xs text-zinc-500 transition-colors hover:border-red-400/40 hover:text-red-400 dark:border-white/[0.08] ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
+              className={`flex-1 inline-flex items-center justify-center gap-1.5 border border-black/[0.08] px-3 py-2 text-[12px] text-zinc-500 transition-colors hover:border-red-400/40 hover:text-red-400 dark:border-white/[0.08] dark:text-zinc-300 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
             >
               <Trash2 className="w-3 h-3" /> 清空历史
             </button>
@@ -264,7 +264,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
 
           <button
             onClick={() => setAboutOpen(true)}
-            className={`inline-flex items-center justify-center gap-1.5 border border-black/[0.08] px-3 py-2 text-xs text-zinc-500 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] dark:border-white/[0.08] ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
+            className={`inline-flex items-center justify-center gap-1.5 border border-black/[0.08] px-3 py-2 text-[12px] text-zinc-500 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] dark:border-white/[0.08] dark:text-zinc-300 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
           >
             <Info className="w-3 h-3" /> 关于 Image Studio
           </button>
@@ -273,13 +273,13 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
             <div className="flex gap-1.5">
               <button
                 onClick={() => openExternal(REPO_URL)}
-                className={`flex-1 inline-flex items-center justify-center gap-1.5 border border-black/[0.08] px-3 py-2 text-xs text-zinc-700 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] dark:border-white/[0.08] dark:text-zinc-300 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
+                className={`flex-1 inline-flex items-center justify-center gap-1.5 border border-black/[0.08] px-3 py-2 text-[12px] text-zinc-700 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] dark:border-white/[0.08] dark:text-zinc-300 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
               >
                 <Github className="w-3 h-3" /> GitHub
               </button>
               <button
                 onClick={() => openExternal(ISSUES_URL)}
-                className={`flex-1 inline-flex items-center justify-center gap-1.5 border border-black/[0.08] px-3 py-2 text-xs text-zinc-700 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] dark:border-white/[0.08] dark:text-zinc-300 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
+                className={`flex-1 inline-flex items-center justify-center gap-1.5 border border-black/[0.08] px-3 py-2 text-[12px] text-zinc-700 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] dark:border-white/[0.08] dark:text-zinc-300 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
               >
                 <MessageSquare className="w-3 h-3" /> 反馈
               </button>
@@ -361,8 +361,8 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
 
 function Row({ label, children }: { label: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div>
-      <label className="mb-1 block text-[10px] uppercase tracking-[0.12em] text-zinc-400 dark:text-zinc-500">{label}</label>
+    <div className={`platform-card border border-black/[0.05] bg-white/72 px-4 py-3.5 shadow-[var(--shadow-card)] dark:border-white/[0.06] dark:bg-[rgb(29_32_40_/_0.88)] ${isWindows ? "rounded-[12px]" : "rounded-[18px]"}`}>
+      <label className="mb-2 block text-[11px] font-semibold tracking-[0.04em] text-zinc-700 dark:text-zinc-200">{label}</label>
       {children}
     </div>
   );
@@ -376,10 +376,10 @@ function SegBtn({ active, onClick, children }: {
   return (
     <button
       onClick={onClick}
-      className={`platform-chip flex-1 inline-flex items-center justify-center gap-1 px-2 py-1.5 text-[10px] font-medium transition-colors ${
+      className={`platform-chip flex-1 inline-flex items-center justify-center gap-1 px-2 py-2 text-[11px] font-medium transition-colors ${
         active
           ? "active bg-white text-zinc-900 shadow-sm dark:bg-zinc-900 dark:text-zinc-100"
-          : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200"
+          : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100"
       } ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
     >
       {children}

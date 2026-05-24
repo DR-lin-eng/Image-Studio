@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useRef, useState } from "react";
 import {
   Dices, FileText, ImagePlus, ListPlus, RotateCw, Sparkles, Trash2, X,
 } from "lucide-react";
@@ -48,6 +48,8 @@ export function ControlPanel() {
   } = useStudioStore();
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [promptPopover, setPromptPopover] = useState(false);
+  // PromptPopover 走 portal 挂到 body,需要从触发按钮算锚点位置。
+  const promptPopoverAnchorRef = useRef<HTMLButtonElement | null>(null);
 
   const promptLen = prompt.length;
   // 优化按钮只要有任一可用的 Responses profile 或当前 active 已配置就启用。
@@ -156,6 +158,7 @@ export function ControlPanel() {
         />
         <div className="flex items-center justify-between mt-1.5 gap-2">
           <button
+            ref={promptPopoverAnchorRef}
             type="button"
             onClick={() => setPromptPopover((v) => !v)}
             title="prompt 模板与历史"
@@ -204,6 +207,7 @@ export function ControlPanel() {
         {promptPopover && (
           <Suspense fallback={null}>
             <PromptPopover
+              anchorRef={promptPopoverAnchorRef}
               onClose={() => setPromptPopover(false)}
               onPick={(text) => {
                 const current = useStudioStore.getState().prompt;

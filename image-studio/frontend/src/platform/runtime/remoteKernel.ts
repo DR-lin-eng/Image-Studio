@@ -1,16 +1,16 @@
 import {
   detectImageMimeTypeFromBase64,
   imageExtensionForMimeType,
-} from "./images.ts";
+} from "../../lib/images.ts";
 import {
   readVirtualText,
   registerVirtualText,
   sourceToDataURL,
-} from "./virtualHostStore.ts";
+} from "../../lib/virtualHostStore.ts";
 import {
   hasAndroidInvokeBridge,
   invokeAndroidNative,
-} from "./androidNativeInvoke.ts";
+} from "../android/nativeInvoke.ts";
 
 export type KernelImageSource = {
   path?: string;
@@ -964,3 +964,8 @@ export async function probeUpstreamConnection(
     throw new RemoteKernelError(`${response.status}${text ? ` ${text.slice(0, 160)}` : ""}`);
   }
 }
+
+export {
+  MAX_ATTEMPTS,
+  RETRY_BACKOFF_MS,
+};

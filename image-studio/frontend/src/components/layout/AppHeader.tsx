@@ -1,9 +1,9 @@
 import { Github, Monitor, Moon, Plus, Settings, Star, Sun } from "lucide-react";
 import { useStudioStore } from "../../state/studioStore";
-import { OpenExternalURL } from "../../lib/runtimeHost";
+import { OpenExternalURL } from "../../platform/runtime/host";
 import { HitokotoStrip } from "./HitokotoStrip";
-import { usePlatform } from "../../lib/platformContext";
-import { openExternalURLForPlatform } from "../../lib/androidBridge";
+import { usePlatform } from "../../platform/context";
+import { openExternalURLForPlatform } from "../../platform/android/bridge";
 
 const REPO_URL = "https://github.com/RoseKhlifa/Image-Studio";
 

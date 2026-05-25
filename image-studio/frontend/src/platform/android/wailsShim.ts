@@ -1,6 +1,6 @@
-import { base64ToBlob, blobToBase64 } from "./images";
-import { targetPlatform } from "./platform";
-import type { AndroidBridge } from "./androidBridge";
+import type { AndroidBridge } from "./bridge";
+import { targetPlatform } from "..";
+import { base64ToBlob, blobToBase64 } from "../../lib/images";
 
 type AnyFn = (...args: any[]) => any;
 
@@ -27,22 +27,26 @@ function isAndroidShellTarget() {
 }
 
 function ensureWindowRuntime() {
-  if (typeof window === "undefined") return;
-  if (window.runtime) return;
+  if (typeof window === "undefined" || window.runtime) return;
 
   const listeners = new Map<string, Set<(...args: any[]) => void>>();
 
   const emit = (eventName: string, ...args: any[]) => {
     const bucket = listeners.get(eventName);
     if (!bucket) return;
-    for (const cb of Array.from(bucket)) {
-      try { cb(...args); } catch { /* ignore */ }
+    for (const callback of Array.from(bucket)) {
+      try {
+        callback(...args);
+      } catch {
+        // Ignore callback failures in the shim layer.
+      }
     }
   };
 
   const on = (eventName: string, callback: (...args: any[]) => void, maxCallbacks = -1) => {
     const bucket = listeners.get(eventName) ?? new Set<(...args: any[]) => void>();
     listeners.set(eventName, bucket);
+
     let wrapped = callback;
     if (maxCallbacks > 0) {
       let seen = 0;
@@ -52,6 +56,7 @@ function ensureWindowRuntime() {
         if (seen >= maxCallbacks) bucket.delete(wrapped);
       };
     }
+
     bucket.add(wrapped);
     return () => bucket.delete(wrapped);
   };
@@ -64,6 +69,7 @@ function ensureWindowRuntime() {
     nativeCalls.delete(requestId);
     entry.resolve(payload);
   };
+
   window.__imageStudioNativeReject = (requestId, message) => {
     const entry = nativeCalls.get(requestId);
     if (!entry) return;
@@ -84,14 +90,16 @@ function ensureWindowRuntime() {
         }
       });
     }
+
     if (fallback) return Promise.resolve(fallback());
     return Promise.reject(new Error(`${method} is unavailable in this environment`));
   };
 
-  window.runtime = window.runtime ?? {
+  window.runtime = {
+    ...(window.runtime ?? {}),
     EventsOnMultiple: on,
     EventsOff: (...eventNames: string[]) => {
-      for (const name of eventNames) listeners.delete(name);
+      for (const eventName of eventNames) listeners.delete(eventName);
     },
     EventsOffAll: () => listeners.clear(),
     EventsEmit: emit,
@@ -113,4 +121,24 @@ if (typeof window !== "undefined" && isAndroidShellTarget()) {
 
 export async function readBlobAsBase64ForShell(blob: Blob): Promise<string> {
   return blobToBase64(blob);
+}
+
+export async function readBase64AsBlobForShell(imageB64: string): Promise<Blob> {
+  return base64ToBlob(imageB64);
+}
+
+export function getAndroidShellOutputDir(): string {
+  try {
+    return localStorage.getItem(OUTPUT_DIR_KEY) || DEFAULT_OUTPUT_DIR;
+  } catch {
+    return DEFAULT_OUTPUT_DIR;
+  }
+}
+
+export function setAndroidShellOutputDir(outputDir: string) {
+  try {
+    localStorage.setItem(OUTPUT_DIR_KEY, outputDir);
+  } catch {
+    // Ignore storage failures in the preview shim.
+  }
 }

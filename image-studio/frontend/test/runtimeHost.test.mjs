@@ -122,7 +122,7 @@ async function withPatchedGlobals(setup, run) {
 }
 
 function loadRuntimeHost() {
-  return import(`../src/lib/runtimeHost.ts?runtime-host-test=${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  return import(`../src/platform/runtime/host.ts?runtime-host-test=${Date.now()}-${Math.random().toString(36).slice(2)}`);
 }
 
 test("runtimeHost remote mode emits job lifecycle events", async () => {

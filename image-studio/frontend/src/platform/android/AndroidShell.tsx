@@ -26,7 +26,7 @@ export function AndroidShell({
         data-android-view={androidView}
         data-android-target={isPad ? "android-pad" : "android"}
       >
-        {isPad && !fullscreen && <AndroidRail active={androidView} onChange={onChangeView} />}
+        {isPad && !fullscreen ? <AndroidRail active={androidView} onChange={onChangeView} /> : null}
         <ControlPanel />
         <div className="canvas-shell">
           <Toolbar />
@@ -36,7 +36,7 @@ export function AndroidShell({
         </div>
         <HistoryRail />
       </div>
-      {!isPad && !fullscreen && <AndroidBottomNav active={androidView} onChange={onChangeView} />}
+      {!isPad && !fullscreen ? <AndroidBottomNav active={androidView} onChange={onChangeView} /> : null}
     </>
   );
 }

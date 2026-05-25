@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { X } from "lucide-react";
 import { useStudioStore } from "../../state/studioStore";
-import { usePlatform } from "../../lib/platformContext";
+import { usePlatform } from "../../platform/context";
 
 const PROMPT_TEMPLATES: { label: string; text: string }[] = [
   { label: "写实摄影", text: "photorealistic, professional photography, 35mm, natural lighting, sharp focus, high detail" },

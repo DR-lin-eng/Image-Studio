@@ -46,7 +46,7 @@ async function withPlatformEnv(env, run) {
 }
 
 function loadPlatformModule() {
-  return import(`../src/lib/platform.ts?platform-test=${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  return import(`../src/platform/index.ts?platform-test=${Date.now()}-${Math.random().toString(36).slice(2)}`);
 }
 
 test("Android compact portrait stays on phone target", async () => {

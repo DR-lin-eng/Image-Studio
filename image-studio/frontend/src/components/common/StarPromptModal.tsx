@@ -1,8 +1,8 @@
 import { Github, Heart, Sparkles, Star } from "lucide-react";
 import { Modal } from "./Modal";
-import { OpenExternalURL } from "../../lib/runtimeHost";
+import { OpenExternalURL } from "../../platform/runtime/host";
 import { useStudioStore } from "../../state/studioStore";
-import { usePlatform } from "../../lib/platformContext";
+import { usePlatform } from "../../platform/context";
 
 const REPO_URL = "https://github.com/RoseKhlifa/Image-Studio";
 

@@ -1,4 +1,4 @@
-import { targetPlatform } from "./platform.ts";
+import { targetPlatform } from "../index.ts";
 import {
   probeUpstreamConnection,
   RemoteKernelError,
@@ -8,7 +8,7 @@ import {
 import {
   hasAndroidInvokeBridge,
   invokeAndroidNative,
-} from "./androidNativeInvoke.ts";
+} from "../android/nativeInvoke.ts";
 import {
   cropVirtualImage,
   flipVirtualImage,
@@ -20,7 +20,7 @@ import {
   registerVirtualImage,
   registerVirtualText,
   rotateVirtualImage,
-} from "./virtualHostStore.ts";
+} from "../../lib/virtualHostStore.ts";
 
 type AnyFn = (...args: any[]) => any;
 type ServiceBinding = Record<string, AnyFn>;
@@ -110,11 +110,6 @@ function getRuntime(): RuntimeBinding | null {
   return (window as BrowserWindow).runtime ?? null;
 }
 
-function getAndroidBridge() {
-  if (typeof window === "undefined") return null;
-  return (window as BrowserWindow).AndroidImageStudio ?? null;
-}
-
 function hasServiceMethod(name: string): boolean {
   return typeof getService()?.[name] === "function";
 }
@@ -198,19 +193,14 @@ function clearLocalEvents(...eventNames: string[]) {
 
 function saveByDownload(blob: Blob, suggestedName: string): string {
   const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = suggestedName;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = suggestedName;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
   globalThis.setTimeout(() => URL.revokeObjectURL(url), 15_000);
   return suggestedName;
-}
-
-function base64SizeBytes(b64: string): number {
-  const clean = b64.replace(/=+$/, "");
-  return Math.floor((clean.length * 3) / 4);
 }
 
 function browserStoredAPIKey(user: string): string {

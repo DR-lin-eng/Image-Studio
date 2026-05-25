@@ -1,4 +1,4 @@
-import { readRuntimePlatformState } from "./platform";
+import { readRuntimePlatformState } from "..";
 
 export type AndroidBridge = {
   invoke?: (requestId: string, method: string, payloadJson: string) => void;
@@ -33,19 +33,19 @@ function bridge(): AndroidBridge | null {
 function byteStringToBlobURL(imageB64: string, type = "image/png"): string {
   const bin = atob(imageB64);
   const bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
   return URL.createObjectURL(new Blob([bytes], { type }));
 }
 
 function triggerDownload(imageB64: string, suggestedName: string): string {
   const objectURL = byteStringToBlobURL(imageB64);
-  const a = document.createElement("a");
-  a.href = objectURL;
-  a.download = suggestedName || "image-studio.png";
-  a.rel = "noopener";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
+  const anchor = document.createElement("a");
+  anchor.href = objectURL;
+  anchor.download = suggestedName || "image-studio.png";
+  anchor.rel = "noopener";
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
   window.setTimeout(() => URL.revokeObjectURL(objectURL), 1000);
   return suggestedName;
 }
@@ -80,9 +80,9 @@ export async function saveImageForPlatform(
   const platform = readRuntimePlatformState();
   if (!platform.isAndroid) return desktopSave(imageB64, filename);
 
-  const b = bridge();
-  if (b?.saveImage) {
-    const saved = await b.saveImage(imageB64, filename);
+  const nativeBridge = bridge();
+  if (nativeBridge?.saveImage) {
+    const saved = await nativeBridge.saveImage(imageB64, filename);
     return String(saved || filename);
   }
 
@@ -96,26 +96,26 @@ export async function saveImageForPlatform(
         return filename;
       }
     } catch {
-      // Fall back to download below.
+      // Fall back to direct download below.
     }
   }
 
   return triggerDownload(imageB64, filename);
 }
 
-export async function openOutputLocationForPlatform(
-  desktopOpen: () => Promise<void>,
-): Promise<void> {
+export async function openOutputLocationForPlatform(desktopOpen: () => Promise<void>): Promise<void> {
   const platform = readRuntimePlatformState();
   if (!platform.isAndroid) {
     await desktopOpen();
     return;
   }
-  const b = bridge();
-  if (b?.openOutputDir) {
-    await b.openOutputDir();
+
+  const nativeBridge = bridge();
+  if (nativeBridge?.openOutputDir) {
+    await nativeBridge.openOutputDir();
     return;
   }
+
   throw new Error(platform.isAndroidPad ? "Android Pad 壳层未提供打开图片目录接口" : "手机版请从系统下载或分享记录里查看保存图片");
 }
 
@@ -125,40 +125,37 @@ export async function exportHistoryForPlatform(
 ): Promise<string> {
   if (!readRuntimePlatformState().isAndroid) return desktopExport(jsonContent);
   const suggested = `image-studio-history-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
-  const b = bridge();
-  if (b?.exportHistory) {
-    const exported = await b.exportHistory(jsonContent, suggested);
+  const nativeBridge = bridge();
+  if (nativeBridge?.exportHistory) {
+    const exported = await nativeBridge.exportHistory(jsonContent, suggested);
     return String(exported || suggested);
   }
+
   const objectURL = URL.createObjectURL(new Blob([jsonContent], { type: "application/json" }));
-  const a = document.createElement("a");
-  a.href = objectURL;
-  a.download = suggested;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
+  const anchor = document.createElement("a");
+  anchor.href = objectURL;
+  anchor.download = suggested;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
   window.setTimeout(() => URL.revokeObjectURL(objectURL), 1000);
   return suggested;
 }
 
-export async function openExternalURLForPlatform(
-  url: string,
-  desktopOpen: (url: string) => Promise<void>,
-): Promise<void> {
+export async function openExternalURLForPlatform(url: string, desktopOpen: (url: string) => Promise<void>): Promise<void> {
   if (!readRuntimePlatformState().isAndroid) {
     await desktopOpen(url);
     return;
   }
+
   const opened = window.open(url, "_blank", "noopener,noreferrer");
   if (!opened) window.location.href = url;
 }
 
-export async function importHistoryForPlatform(
-  desktopImport: () => Promise<string>,
-): Promise<string> {
+export async function importHistoryForPlatform(desktopImport: () => Promise<string>): Promise<string> {
   if (!readRuntimePlatformState().isAndroid) return desktopImport();
-  const b = bridge();
-  if (b?.importHistory) return String((await b.importHistory()) || "");
+  const nativeBridge = bridge();
+  if (nativeBridge?.importHistory) return String((await nativeBridge.importHistory()) || "");
   return "";
 }
 

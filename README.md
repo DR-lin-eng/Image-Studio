@@ -18,7 +18,7 @@
   <sub>左侧:控制面板(模式 / prompt / 风格 / 比例 / 质量) · 中:画板 + 工具栏 + 状态栏 · 右:历史记录</sub>
 </p>
 
-> **v0.1.2** 重塑了整套 UI:Tailwind v4 + lucide-react 图标,字体 HarmonyOS Sans SC Medium + JetBrains Mono;每日一言条幅、动态画板棋盘格、白底黑线条新图标;输出目录拆分 `/images/` + `/log/`;Responses API 加「不优化提示词」开关让模型逐字使用你的 prompt。
+> **v0.1.2** 重塑了整套 UI:Tailwind v4 + lucide-react 图标、平台化主题字体栈;每日一言条幅、动态画板棋盘格、白底黑线条新图标;输出目录拆分 `/images/` + `/log/`;Responses API 加「不优化提示词」开关让模型逐字使用你的 prompt。
 >
 > **v0.1.3** 新功能:比例与质量都加 **Auto** 档让上游决定;高级参数加 **输出图片格式**(PNG / JPEG / WebP);画笔/橡皮/自由画笔 **逐点跟手**(修了 react-konva 数组引用 bug);**旋转 / 翻转 / 裁剪改为就地编辑**,不再每点一次就刷一条历史。底栏数据改为 `今日已生图 / 总生图`。
 >
@@ -63,7 +63,7 @@
 | 🔧 **首次启动引导** | apiKey / baseURL 缺失时自动弹「上游配置」窗口,5 字段一次填完(API 形态、BASE_URL、API Key、文本模型、图像模型) |
 | ✏️ **不优化提示词开关** | Responses API 默认让文本模型把你的 prompt 重写一遍。勾上后顶层加 instructions 让模型逐字使用,适合已经精修过的 prompt |
 | 🪟 **首次启动配置 + 详情抽屉** | 生成成功后的 toast 带「查看详情」按钮,弹出右抽屉显示图片预览 + 全部参数 + 原/优化版 prompt + 文件路径,可一键复制 / 用作下次 prompt |
-| 🎨 **现代 UI**(v0.1.2) | Tailwind v4 + Apple 风格的浅深色语义 + lucide-react 图标;HarmonyOS Sans SC Medium 中文字体 + JetBrains Mono 等宽数字;暗色启动无白闪 |
+| 🎨 **现代 UI**(v0.1.2) | Tailwind v4 + Apple 风格的浅深色语义 + lucide-react 图标;按平台切换系统字体栈和主题 token;暗色启动无白闪 |
 | 💾 **100% 本地数据** | 无遥测、无云端账户、无内购;API key、历史、生成图都在你的机器上 |
 
 ---
@@ -72,7 +72,7 @@
 
 ### 方式 1:下载预编译版本(推荐)
 
-到 [Releases](https://github.com/RoseKhlifa/Image-Studio/releases) 页面下载对应平台的预编译版本(均内嵌 HarmonyOS Sans SC Regular + Medium + JetBrains Mono):
+到 [Releases](https://github.com/RoseKhlifa/Image-Studio/releases) 页面下载对应平台的预编译版本:
 
 | 平台 | 产物 | 大小 | 首次启动 |
 |---|---|---|---|
@@ -270,7 +270,7 @@ macOS 推荐直接 `bash scripts/package-local-macos-app.sh`，产物在 `image-
 - 历史导入 / 导出 JSON
 - 清除 API Key / 清空历史
 - 关于:版本号、MIT 协议链接、GitHub 仓库 / Issues 一键跳转
-- **字体**:UI 用 HarmonyOS Sans SC(中文)+ JetBrains Mono(英文 / 数字 / 等宽),已嵌入 exe 免下载
+- **字体**:UI 统一走平台原生字体栈,减少打包体积并保持各平台本地观感
 
 ---
 
@@ -381,16 +381,17 @@ Android 保存逻辑与桌面端不同:前端会优先调用壳层注入的 `win
 │   │   ├── paths.go              # 目录解析 + 文件名构造
 │   │   └── open.go               # 跨平台 OS 打开
 │   ├── frontend/src/             # React + TS · Tailwind v4 + lucide-react
+│   │   ├── app/                  # 顶层装配:App / hooks / gates / 平台工作区入口
 │   │   ├── components/
 │   │   │   ├── layout/           # AppHeader / HitokotoStrip(每日一言) / WorkspaceBar / FooterBar
 │   │   │   ├── panel/            # ControlPanel / SettingsPanel / PromptPopover / FAQModal / UpstreamConfigModal
 │   │   │   ├── canvas/           # CanvasStage / Toolbar / SourceStrip / StatusBar / EmptyState(棋盘格滚动)
 │   │   │   ├── history/          # HistoryRail / RawResponseModal
 │   │   │   └── common/           # Modal / ToastContainer / ContextMenu
+│   │   ├── platform/             # 平台检测 / context / runtime host / android / desktop
 │   │   ├── state/                # zustand store
-│   │   ├── styles/               # index.css(Tailwind v4 入口 + @font-face)+ _canvas.css(画板动画)
-│   │   ├── assets/fonts/         # HarmonyOS Sans SC Regular/Medium + JetBrains Mono(嵌入 exe)
-│   │   ├── lib/                  # localStorage / idb-keyval 工具
+│   │   ├── styles/               # index.css(Tailwind v4 入口)+ _canvas.css(画板动画)
+│   │   ├── lib/                  # 平台无关工具:存储 / 安全 / 图像 / 远程内核辅助
 │   │   └── types/                # 领域类型
 │   ├── build/                    # Wails 资源:appicon.png(白底黑线条)+ windows/icon.ico
 │   └── build/bin/                # 生产 .exe 输出

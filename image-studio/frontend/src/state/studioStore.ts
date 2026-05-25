@@ -26,7 +26,7 @@ import {
   SetOutputDir,
   probeCurrentUpstream,
   setKernelRuntimeMode,
-} from "../lib/runtimeHost";
+} from "../platform/runtime/host";
 import type { backend } from "../../wailsjs/go/models";
 import {
   APIMode,
@@ -78,8 +78,8 @@ import {
   tryParseProfile,
 } from "../lib/profiles";
 import { base64ToBlob, blobToBase64, createPreviewBlob, getImageDimensionsFromBase64 } from "../lib/images";
-import { isMac, isWindows } from "../lib/platform";
-import { exportHistoryForPlatform, saveImageForPlatform } from "../lib/androidBridge";
+import { isMac, isWindows } from "../platform";
+import { exportHistoryForPlatform, saveImageForPlatform } from "../platform/android/bridge";
 import {
   activeRuntimePatch,
   apiModeLabel,

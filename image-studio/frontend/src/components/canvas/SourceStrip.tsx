@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Plus, X } from "lucide-react";
 import { useStudioStore } from "../../state/studioStore";
 import { useBlobURL } from "../../lib/images";
-import { usePlatform } from "../../lib/platformContext";
+import { usePlatform } from "../../platform/context";
 
 export function SourceStrip() {
   const sources = useStudioStore((s) => s.sources);

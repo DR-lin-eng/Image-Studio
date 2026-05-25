@@ -1,5 +1,5 @@
 import { createContext, useContext } from "react";
-import { useRuntimePlatform } from "./platform";
+import { useRuntimePlatform } from ".";
 
 type PlatformState = ReturnType<typeof useRuntimePlatform>;
 

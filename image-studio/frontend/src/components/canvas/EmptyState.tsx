@@ -1,6 +1,6 @@
 import { ImageIcon, Upload } from "lucide-react";
 import { useStudioStore } from "../../state/studioStore";
-import { usePlatform } from "../../lib/platformContext";
+import { usePlatform } from "../../platform/context";
 
 // EmptyState 中间的提示卡。背景动效不在这里实现 —— 它是 stage-host 自带的
 // 棋盘格 + CSS keyframes 在 _canvas.css 里。这里只负责中央内容。

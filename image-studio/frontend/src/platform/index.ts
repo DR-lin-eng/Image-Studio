@@ -134,23 +134,28 @@ export function applyPlatformAttributes(root: HTMLElement = document.documentEle
 
 export function useRuntimePlatform() {
   const [state, setState] = useState(() => readRuntimePlatformState());
+
   useEffect(() => {
     if (rawTargetPlatform !== "android") return;
+
     const update = () => {
       applyPlatformAttributes();
       setState(readRuntimePlatformState());
     };
+
     const viewport = window.visualViewport;
     update();
     window.addEventListener("resize", update);
     window.addEventListener("orientationchange", update);
     viewport?.addEventListener("resize", update);
+
     return () => {
       window.removeEventListener("resize", update);
       window.removeEventListener("orientationchange", update);
       viewport?.removeEventListener("resize", update);
     };
   }, []);
+
   return state;
 }
 

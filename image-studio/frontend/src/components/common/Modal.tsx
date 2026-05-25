@@ -1,6 +1,6 @@
 import { ReactNode, useEffect } from "react";
 import { X } from "lucide-react";
-import { usePlatform } from "../../lib/platformContext";
+import { usePlatform } from "../../platform/context";
 
 // 居中 modal:点击背景 / Esc 关闭。
 export function Modal({

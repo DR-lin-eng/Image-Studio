@@ -3,10 +3,10 @@ import {
   Dices, FileText, ImagePlus, ListPlus, RotateCw, Settings, Sparkles, Trash2, X,
 } from "lucide-react";
 import { useStudioStore } from "../../state/studioStore";
-import { OpenFile } from "../../lib/runtimeHost";
+import { OpenFile } from "../../platform/runtime/host";
 import { SizeValue, QualityValue, Mode, OutputFormatValue, OUTPUT_FORMAT_OPTIONS } from "../../types/domain";
-import { submitShortcutLabel } from "../../lib/platform";
-import { usePlatform } from "../../lib/platformContext";
+import { submitShortcutLabel } from "../../platform";
+import { usePlatform } from "../../platform/context";
 
 const PromptPopover = lazy(() => import("./PromptPopover").then((m) => ({ default: m.PromptPopover })));
 

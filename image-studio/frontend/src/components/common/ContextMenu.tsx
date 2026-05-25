@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { usePlatform } from "../../lib/platformContext";
+import { usePlatform } from "../../platform/context";
 
 export interface MenuItem {
   label: string;

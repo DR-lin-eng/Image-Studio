@@ -5,8 +5,8 @@ import {
 } from "lucide-react";
 import { useStudioStore } from "../../state/studioStore";
 import { ANNOTATION_COLORS } from "../../types/domain";
-import { fullscreenShortcutLabel, redoShortcutLabel, undoShortcutLabel } from "../../lib/platform";
-import { usePlatform } from "../../lib/platformContext";
+import { fullscreenShortcutLabel, redoShortcutLabel, undoShortcutLabel } from "../../platform";
+import { usePlatform } from "../../platform/context";
 
 export function Toolbar() {
   const {

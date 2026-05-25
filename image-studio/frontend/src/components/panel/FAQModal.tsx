@@ -1,6 +1,6 @@
 import { Modal } from "../common/Modal";
-import { OpenExternalURL } from "../../lib/runtimeHost";
-import { openExternalURLForPlatform } from "../../lib/androidBridge";
+import { OpenExternalURL } from "../../platform/runtime/host";
+import { openExternalURLForPlatform } from "../../platform/android/bridge";
 import {
   closeTabShortcutLabel,
   copyShortcutLabel,
@@ -11,7 +11,7 @@ import {
   redoShortcutLabel,
   submitShortcutLabel,
   undoShortcutLabel,
-} from "../../lib/platform";
+} from "../../platform";
 
 export function FAQModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   return (

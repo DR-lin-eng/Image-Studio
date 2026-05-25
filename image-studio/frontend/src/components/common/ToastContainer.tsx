@@ -1,7 +1,7 @@
 import { AlertTriangle, CheckCircle2, Info, X, XCircle } from "lucide-react";
 import { useStudioStore } from "../../state/studioStore";
 import type { Toast } from "../../types/domain";
-import { usePlatform } from "../../lib/platformContext";
+import { usePlatform } from "../../platform/context";
 
 export function ToastContainer() {
   const toasts = useStudioStore((s) => s.toasts);

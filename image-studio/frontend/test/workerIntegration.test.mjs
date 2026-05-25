@@ -76,7 +76,7 @@ async function startMockUpstream() {
 }
 
 function loadRemoteKernel() {
-  return import(`../src/lib/remoteKernel.ts?worker-test=${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  return import(`../src/platform/runtime/remoteKernel.ts?worker-test=${Date.now()}-${Math.random().toString(36).slice(2)}`);
 }
 
 async function withWorkerProxy(upstreamBaseURL, fn) {

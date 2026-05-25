@@ -3,29 +3,7 @@
 /* 启用 class-based 暗色模式(挂在 <html> 上)。 */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* 自托管字体:中文 HarmonyOS Sans SC(Regular + Medium)、英文/等宽 JetBrains Mono。
-   macOS 会优先走 SF Pro / PingFang SC,其他平台再回退到仓库自带字体。 */
-@font-face {
-  font-family: "JetBrains Mono";
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url("../assets/fonts/JetBrainsMono-Regular.ttf") format("truetype");
-}
-@font-face {
-  font-family: "HarmonyOS Sans SC";
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url("../assets/fonts/HarmonyOS_SansSC_Regular.ttf") format("truetype");
-}
-@font-face {
-  font-family: "HarmonyOS Sans SC";
-  font-style: normal;
-  font-weight: 500 700;
-  font-display: swap;
-  src: url("../assets/fonts/HarmonyOS_SansSC_Medium.ttf") format("truetype");
-}
+/* 改走系统字体栈,避免把大体积 TTF 一起打进 Wails 产物。 */
 
 /* 兼容旧 CSS 模块里残留的 var(--accent) / var(--text) 等(逐文件改 utility 之前先有 fallback)。
    等所有组件改完,这些变量会变成无人引用的 dead code,可以删。
@@ -96,9 +74,9 @@
   --lg-prism-blue: rgb(0 122 255 / 0.16);
   --lg-prism-teal: rgb(90 200 250 / 0.13);
   --lg-prism-pink: rgb(255 45 85 / 0.1);
-  --title-font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "SF Pro SC", "PingFang SC", "HarmonyOS Sans SC", "Segoe UI", sans-serif;
-  --body-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro SC", "PingFang SC", "HarmonyOS Sans SC", "Segoe UI", sans-serif;
-  --mono-font: "JetBrains Mono", ui-monospace, "SFMono-Regular", "Cascadia Code", Menlo, Consolas, "Liberation Mono", monospace;
+  --title-font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "SF Pro SC", "PingFang SC", "Hiragino Sans GB", "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+  --body-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro SC", "PingFang SC", "Hiragino Sans GB", "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+  --mono-font: "SFMono-Regular", "Cascadia Code", Menlo, Consolas, "Liberation Mono", monospace;
 }
 
 /* 暗色模式 */
@@ -294,9 +272,9 @@ textarea {
   --control-radius: 8px;
   --surface-elevated: rgb(255 255 255 / 0.84);
   --surface-elevated-dark: rgb(32 32 32 / 0.7);
-  --title-font: "Segoe UI Variable Display", "Segoe UI", "HarmonyOS Sans SC", sans-serif;
-  --body-font: "Segoe UI Variable Text", "Segoe UI", "HarmonyOS Sans SC", sans-serif;
-  --mono-font: "Cascadia Code", "JetBrains Mono", ui-monospace, Consolas, monospace;
+  --title-font: "Segoe UI Variable Display", "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+  --body-font: "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+  --mono-font: "Cascadia Code", "SFMono-Regular", ui-monospace, Consolas, monospace;
 }
 
 :root.dark[data-ui-family="fluent"] {
@@ -376,9 +354,9 @@ textarea {
   --control-radius: 20px;
   --surface-elevated: #ffffff;
   --surface-elevated-dark: #202523;
-  --title-font: "Roboto Flex", "Google Sans", "HarmonyOS Sans SC", "Noto Sans CJK SC", "Segoe UI", sans-serif;
-  --body-font: "Roboto", "HarmonyOS Sans SC", "Noto Sans CJK SC", "Segoe UI", sans-serif;
-  --mono-font: "JetBrains Mono", ui-monospace, "Roboto Mono", Consolas, monospace;
+  --title-font: "Roboto Flex", "Google Sans", "Roboto", "Noto Sans CJK SC", "Source Han Sans SC", "Droid Sans Fallback", "Segoe UI", sans-serif;
+  --body-font: "Roboto", "Noto Sans CJK SC", "Source Han Sans SC", "Droid Sans Fallback", "Segoe UI", sans-serif;
+  --mono-font: "Roboto Mono", "SFMono-Regular", ui-monospace, Consolas, monospace;
 }
 
 :root.dark[data-ui-family="android"] {

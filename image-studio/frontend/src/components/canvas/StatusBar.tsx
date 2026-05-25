@@ -1,6 +1,6 @@
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { useStudioStore } from "../../state/studioStore";
-import { usePlatform } from "../../lib/platformContext";
+import { usePlatform } from "../../platform/context";
 
 function fmtBytes(b: number): string {
   if (b < 1024) return `${b} B`;

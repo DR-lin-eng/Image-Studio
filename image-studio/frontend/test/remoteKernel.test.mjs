@@ -134,7 +134,7 @@ async function withPatchedGlobals(setup, run) {
 }
 
 function loadRemoteKernel() {
-  return import(`../src/lib/remoteKernel.ts?test=${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  return import(`../src/platform/runtime/remoteKernel.ts?test=${Date.now()}-${Math.random().toString(36).slice(2)}`);
 }
 
 test("runRemoteImageJob retries retryable responses and returns parsed SSE image", async () => {

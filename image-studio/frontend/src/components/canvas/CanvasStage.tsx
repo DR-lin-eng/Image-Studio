@@ -4,7 +4,7 @@ import Konva from "konva";
 import { useStudioStore } from "../../state/studioStore";
 import { Annotation, HistoryItem } from "../../types/domain";
 import { blobToObjectURL, useBlobURL } from "../../lib/images";
-import { usePlatform } from "../../lib/platformContext";
+import { usePlatform } from "../../platform/context";
 
 async function copyImageToClipboard(b64: string): Promise<boolean> {
   try {

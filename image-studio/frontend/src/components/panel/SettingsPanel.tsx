@@ -6,14 +6,14 @@ import {
 import { useStudioStore } from "../../state/studioStore";
 import {
   GetOutputDir, OpenOutputDir, OpenExternalURL, ChooseOutputDir, SetOutputDir,
-} from "../../lib/runtimeHost";
+} from "../../platform/runtime/host";
 import type { KernelRuntimeMode, TransportKind } from "../../types/domain";
 import { Modal } from "../common/Modal";
 import { rememberTrustedOutputRoot } from "../../lib/storage";
-import { platformOutputRootLabel, platformRuntimeLabel } from "../../lib/platform";
-import { androidSaveHint, androidTarget, openExternalURLForPlatform, openOutputLocationForPlatform } from "../../lib/androidBridge";
+import { platformOutputRootLabel, platformRuntimeLabel } from "../../platform";
+import { androidSaveHint, androidTarget, openExternalURLForPlatform, openOutputLocationForPlatform } from "../../platform/android/bridge";
 import { appVersion } from "../../lib/version";
-import { usePlatform } from "../../lib/platformContext";
+import { usePlatform } from "../../platform/context";
 
 const REPO_URL = "https://github.com/RoseKhlifa/Image-Studio";
 const ISSUES_URL = "https://github.com/RoseKhlifa/Image-Studio/issues";

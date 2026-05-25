@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { Copy } from "lucide-react";
 import { Modal } from "../common/Modal";
-import { ReadTextFile } from "../../lib/runtimeHost";
+import { ReadTextFile } from "../../platform/runtime/host";
 import { useStudioStore } from "../../state/studioStore";
-import { usePlatform } from "../../lib/platformContext";
+import { usePlatform } from "../../platform/context";
 
 const MAX_PREVIEW = 200_000; // chars
 

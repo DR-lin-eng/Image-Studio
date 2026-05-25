@@ -1,12 +1,12 @@
 import { ClipboardCopy, Folder, RotateCw, Save, Sparkles } from "lucide-react";
 import { useStudioStore } from "../../state/studioStore";
 import type { HistoryItem, SizeValue } from "../../types/domain";
-import { SaveImageAs, OpenOutputDir } from "../../lib/runtimeHost";
-import { submitShortcutLabel } from "../../lib/platform";
+import { SaveImageAs, OpenOutputDir } from "../../platform/runtime/host";
+import { submitShortcutLabel } from "../../platform";
 import { useBlobURL } from "../../lib/images";
-import { androidSaveHint, androidTarget, openOutputLocationForPlatform, saveImageForPlatform } from "../../lib/androidBridge";
+import { androidSaveHint, androidTarget, openOutputLocationForPlatform, saveImageForPlatform } from "../../platform/android/bridge";
 import { Modal } from "../common/Modal";
-import { usePlatform } from "../../lib/platformContext";
+import { usePlatform } from "../../platform/context";
 
 const ASPECT_LABEL: Record<SizeValue, string> = {
   auto: "auto",

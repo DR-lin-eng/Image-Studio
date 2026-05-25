@@ -1,10 +1,10 @@
 import React from 'react'
 import {createRoot} from 'react-dom/client'
 import './styles/index.css'
-import App from './App'
-import { applyPlatformAttributes } from './lib/platform'
-import { PlatformProvider } from './lib/platformContext'
-import './lib/androidWailsShim'
+import App from './app/App'
+import { applyPlatformAttributes } from './platform'
+import { PlatformProvider } from './platform/context'
+import './platform/android/wailsShim'
 
 const container = document.getElementById('root')
 applyPlatformAttributes()

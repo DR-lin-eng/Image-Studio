@@ -3,9 +3,12 @@ export const DEFAULT_IMAGE_MODEL = "gpt-image-2";
 export const DEFAULT_SIZE = "1024x1024";
 export const DEFAULT_QUALITY = "auto";
 export const DEFAULT_OUTPUT_FORMAT = "png";
+export const DEFAULT_REQUEST_POLICY = "openai";
 export const MAX_ATTEMPTS = 3;
 export const RETRY_BACKOFF_MS = 15_000;
 export const STATUS_INTERVAL_MS = 10_000;
+
+const NO_PROMPT_REVISION_INSTRUCTIONS = "You are a tool runner. Pass the user prompt to image_generation VERBATIM. DO NOT rewrite, expand, polish, or revise it in any way. Use the exact text the user gave.";
 
 export function normalizeBaseURL(raw) {
   return String(raw || "").trim().replace(/\/+$/, "");
@@ -13,6 +16,10 @@ export function normalizeBaseURL(raw) {
 
 export function normalizeAPIMode(apiMode) {
   return apiMode === "images" ? "images" : "responses";
+}
+
+export function normalizeRequestPolicy(requestPolicy) {
+  return requestPolicy === "compat" ? "compat" : DEFAULT_REQUEST_POLICY;
 }
 
 export function normalizeTextModel(modelID) {
@@ -23,19 +30,61 @@ export function normalizeImageModel(modelID) {
   return String(modelID || "").trim() || DEFAULT_IMAGE_MODEL;
 }
 
+export function normalizePromptText(prompt) {
+  return String(prompt || "").trim();
+}
+
+export function normalizeNegativePrompt(negativePrompt) {
+  return String(negativePrompt || "").trim();
+}
+
+export function isCompatRequestPolicy(requestPolicy) {
+  return normalizeRequestPolicy(requestPolicy) === "compat";
+}
+
+export function classifyImageModel(modelID) {
+  const normalized = normalizeImageModel(modelID).toLowerCase();
+  if (normalized.startsWith("dall-e-2")) return "dalle2";
+  if (normalized.startsWith("dall-e-3")) return "dalle3";
+  if (normalized.startsWith("gpt-image") || normalized.startsWith("chatgpt-image")) return "gpt-image";
+  return "other";
+}
+
+export function supportsImagesResponseFormat(imageModelID, mode = "generate") {
+  const family = classifyImageModel(imageModelID);
+  if (mode === "edit") return family === "dalle2";
+  return family === "dalle2" || family === "dalle3";
+}
+
+export function shouldSendExtendedImageParameters(requestPolicy) {
+  return isCompatRequestPolicy(requestPolicy);
+}
+
 export function fileNameFromPath(path) {
   if (!path) return "image.png";
   return String(path).split(/[\\/]/).pop() || "image.png";
 }
 
-export function buildResponsesPayload(payload, sourceDataURLs) {
-  const size = payload.size || DEFAULT_SIZE;
-  const quality = payload.quality || DEFAULT_QUALITY;
-  const outputFormat = payload.outputFormat || DEFAULT_OUTPUT_FORMAT;
-  const content = [{ type: "input_text", text: payload.prompt }];
+export function dataURLFromBase64Image(b64, mimeType = "image/png") {
+  const encoded = String(b64 || "").trim();
+  if (!encoded) return "";
+  return `data:${mimeType};base64,${encoded}`;
+}
+
+export function buildResponsesInputContent(prompt, sourceDataURLs) {
+  const content = [{ type: "input_text", text: normalizePromptText(prompt) }];
   for (const dataURL of sourceDataURLs) {
     content.push({ type: "input_image", image_url: dataURL });
   }
+  return content;
+}
+
+export function buildResponsesImageTool(payload, sourceDataURLs, options = {}) {
+  const size = payload.size || DEFAULT_SIZE;
+  const quality = payload.quality || DEFAULT_QUALITY;
+  const outputFormat = payload.outputFormat || DEFAULT_OUTPUT_FORMAT;
+  const negativePrompt = normalizeNegativePrompt(payload.negativePrompt);
+  const compatExtensions = shouldSendExtendedImageParameters(payload.requestPolicy);
   const tool = {
     type: "image_generation",
     model: normalizeImageModel(payload.imageModelID),
@@ -46,9 +95,23 @@ export function buildResponsesPayload(payload, sourceDataURLs) {
     moderation: "low",
     partial_images: 0,
   };
-  if (payload.maskB64) tool.mask = payload.maskB64;
-  if (payload.seed) tool.seed = payload.seed;
-  if (String(payload.negativePrompt || "").trim()) tool.negative_prompt = String(payload.negativePrompt).trim();
+  if (compatExtensions && payload.seed) tool.seed = payload.seed;
+  if (compatExtensions && negativePrompt) tool.negative_prompt = negativePrompt;
+
+  const maskMimeType = String(options.maskMimeType || "image/png").trim() || "image/png";
+  if (payload.maskB64) {
+    tool.input_image_mask = {
+      image_url: dataURLFromBase64Image(payload.maskB64, maskMimeType),
+    };
+  }
+  return tool;
+}
+
+export function buildResponsesPayload(payload, sourceDataURLs, options = {}) {
+  const content = buildResponsesInputContent(payload.prompt, sourceDataURLs);
+  const tool = {
+    ...buildResponsesImageTool(payload, sourceDataURLs, options),
+  };
 
   const request = {
     model: normalizeTextModel(payload.textModelID),
@@ -60,7 +123,7 @@ export function buildResponsesPayload(payload, sourceDataURLs) {
     stream: true,
   };
   if (payload.noPromptRevision) {
-    request.instructions = "You are a tool runner. Pass the user prompt to image_generation VERBATIM. DO NOT rewrite, expand, polish, or revise it in any way. Use the exact text the user gave.";
+    request.instructions = NO_PROMPT_REVISION_INSTRUCTIONS;
   }
   return request;
 }
@@ -70,7 +133,7 @@ export function buildPromptOptimizePayload(input, sourceDataURLs) {
   if (String(input.mode || "").trim() === "edit") {
     instruction += " Treat any attached images as reference context and preserve edit intent.";
   }
-  const content = [{ type: "input_text", text: `Original prompt:\n${String(input.prompt || "").trim()}` }];
+  const content = [{ type: "input_text", text: `Original prompt:\n${normalizePromptText(input.prompt)}` }];
   for (const dataURL of sourceDataURLs) {
     content.push({ type: "input_image", image_url: dataURL });
   }
@@ -181,4 +244,3 @@ export function describeProblem(raw) {
   }
   return "接口已返回内容,但没有发现 image_generation_call.result。";
 }
-

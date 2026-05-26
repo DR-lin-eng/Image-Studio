@@ -37,6 +37,7 @@ import {
   Preset,
   ProgressInfo,
   QualityValue,
+  RequestPolicy,
   SizeValue,
   SourceImage,
   ThemeMode,
@@ -257,6 +258,10 @@ interface StudioState {
   //   "responses" — POST /v1/responses + SSE 流式保活(防 CF 524)
   //   "images"    — 标准 OpenAI Images API,POST /v1/images/generations + /v1/images/edits
   apiMode: APIMode;
+  // 请求策略(active profile 的字段镜像):
+  //   "openai" — 默认,只发 OpenAI 官方公开字段
+  //   "compat" — 兼容常见 relay 扩展字段
+  requestPolicy: RequestPolicy;
   // 关掉 Responses API 的 prompt 改写(顶层加 instructions 让模型逐字使用)。
   // 对 Images API 无效但留着不影响。全局偏好,不分 profile。
   noPromptRevision: boolean;
@@ -368,7 +373,7 @@ interface StudioState {
   // createProfile:新建一个 profile,自动给它分配 id,并(如果 apiKey 非空)写 keyring。
   //   返回新建 profile 的 id,UpstreamConfigModal 用它定位刚建的项。
   createProfile: (input: { name: string; apiMode: APIMode; baseURL?: string;
-    textModelID?: string; imageModelID?: string; concurrencyLimit?: number;
+    requestPolicy?: RequestPolicy; textModelID?: string; imageModelID?: string; concurrencyLimit?: number;
     apiKey?: string; setActive?: boolean }) => Promise<string>;
   // updateProfile:就地改一个 profile 的字段。apiKey 若传入,同步写 keyring。
   //   返回 true 当且仅当 profile 存在并被修改。
@@ -607,6 +612,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   textModelID: "",
   imageModelID: "",
   apiMode: "responses",
+  requestPolicy: "openai",
   noPromptRevision: false,
   profiles: [],
   activeProfileId: "",
@@ -756,6 +762,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       id,
       name: input.name.trim() || (input.apiMode === "images" ? "新配置 · Images" : "新配置 · Responses"),
       apiMode: input.apiMode,
+      requestPolicy: input.requestPolicy ?? "openai",
       baseURL: cleanBaseURL(input.baseURL ?? ""),
       textModelID: (input.textModelID ?? "").trim(),
       imageModelID: (input.imageModelID ?? "").trim(),
@@ -786,6 +793,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       ...cur,
       name: patch.name !== undefined ? patch.name.trim() : cur.name,
       apiMode: patch.apiMode ?? cur.apiMode,
+      requestPolicy: patch.requestPolicy ?? cur.requestPolicy,
       baseURL: patch.baseURL !== undefined ? cleanBaseURL(patch.baseURL) : cur.baseURL,
       textModelID: patch.textModelID !== undefined ? patch.textModelID.trim() : cur.textModelID,
       imageModelID: patch.imageModelID !== undefined ? patch.imageModelID.trim() : cur.imageModelID,
@@ -807,6 +815,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       const apiKey = patch.apiKey !== undefined ? patch.apiKey.trim() : get().apiKey;
       set({
         apiMode: next.apiMode,
+        requestPolicy: next.requestPolicy,
         baseURL: next.baseURL,
         textModelID: next.textModelID,
         imageModelID: next.imageModelID,
@@ -843,6 +852,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
           textModelID: "",
           imageModelID: "",
           apiMode: "responses",
+          requestPolicy: "openai",
           upstreamModalOpen: false,
           settingsOpen: true,
           upstreamReturnTarget: "settings",
@@ -882,6 +892,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       profiles: nextProfiles,
       activeProfileId: id,
       apiMode: profile.apiMode,
+      requestPolicy: profile.requestPolicy,
       baseURL: profile.baseURL,
       textModelID: profile.textModelID,
       imageModelID: profile.imageModelID,
@@ -1039,6 +1050,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       baseURL: cleanedBaseURL,
       textModelID: s.textModelID,
       imageModelID: s.imageModelID,
+      requestPolicy: s.requestPolicy,
       apiMode: s.apiMode,
       noPromptRevision: s.noPromptRevision,
       concurrencyLimit,
@@ -1256,6 +1268,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
           id,
           name: "Responses · 默认",
           apiMode: "responses",
+          requestPolicy: "openai",
           baseURL: legacyResponses.baseURL,
           textModelID: legacyResponses.textModelID,
           imageModelID: legacyResponses.imageModelID,
@@ -1273,6 +1286,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
           id,
           name: "Images · 默认",
           apiMode: "images",
+          requestPolicy: "openai",
           baseURL: legacyImages.baseURL,
           textModelID: legacyImages.textModelID,
           imageModelID: legacyImages.imageModelID,
@@ -1306,6 +1320,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       persistActiveProfileId(activeProfileId);
     }
     const apiMode: APIMode = activeProfile?.apiMode ?? "responses";
+    const requestPolicy: RequestPolicy = activeProfile?.requestPolicy ?? "openai";
     const baseURL = activeProfile?.baseURL ?? "";
     const textModelID = activeProfile?.textModelID ?? "";
     const imageModelID = activeProfile?.imageModelID ?? "";
@@ -1361,7 +1376,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       : !activeProfile || !activeKey.trim() || !baseURL.trim();
     set({
       apiKey: activeKey, history: trimHistory(items), promptHistory, presets, theme, fontScale,
-      apiMode, baseURL, textModelID, imageModelID, kernelRuntimeMode, noPromptRevision,
+      apiMode, requestPolicy, baseURL, textModelID, imageModelID, kernelRuntimeMode, noPromptRevision,
       outputFormat,
       profiles,
       activeProfileId,

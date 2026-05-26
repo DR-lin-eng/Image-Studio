@@ -233,6 +233,167 @@ test("runRemoteImageJob parses Images API JSON mode", async () => {
   });
 });
 
+test("runRemoteImageJob sends Responses API mask as input_image_mask data URL", async () => {
+  let captured = null;
+  await withPatchedGlobals(async () => {
+    globalThis.fetch = async (_url, init) => {
+      captured = JSON.parse(init.body);
+      return new Response(
+        'data: {"type":"response.output_item.done","item":{"type":"image_generation_call","result":"YWJj","revised_prompt":"rev"}}\n',
+        { status: 200, headers: { "content-type": "text/event-stream" } },
+      );
+    };
+  }, async () => {
+    const kernel = await loadRemoteKernel();
+    await kernel.runRemoteImageJob(
+      {
+        payload: {
+          apiKey: "key",
+          mode: "edit",
+          prompt: "cat",
+          size: "1024x1024",
+          quality: "low",
+          outputFormat: "png",
+          imagePaths: [],
+          imagePath: "",
+          maskB64: "iVBORw0KGgp0ZXN0",
+          seed: 0,
+          negativePrompt: "",
+          baseURL: "https://upstream.example",
+          textModelID: "gpt-5.5",
+          imageModelID: "gpt-image-2",
+          apiMode: "responses",
+          requestPolicy: "openai",
+          noPromptRevision: false,
+        },
+        sourceImages: [
+          { imageB64: "iVBORw0KGgpzb3VyY2U=", name: "source.png", mimeType: "image/png" },
+        ],
+      },
+      { signal: new AbortController().signal },
+    );
+    assert.equal(captured.tools[0].input_image_mask.image_url, "data:image/png;base64,iVBORw0KGgp0ZXN0");
+    assert.equal(captured.tools[0].action, "edit");
+  });
+});
+
+test("runRemoteImageJob sends Images API edit mask with image MIME type", async () => {
+  let captured = null;
+  await withPatchedGlobals(async () => {
+    globalThis.fetch = async (url, init) => {
+      captured = {
+        url: String(url),
+        body: init.body,
+      };
+      return new Response('{"data":[{"b64_json":"img-data","revised_prompt":"img-rev"}]}', {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    };
+  }, async () => {
+    const kernel = await loadRemoteKernel();
+    await kernel.runRemoteImageJob(
+      {
+        payload: {
+          apiKey: "key",
+          mode: "edit",
+          prompt: "bird",
+          size: "1024x1024",
+          quality: "medium",
+          outputFormat: "png",
+          imagePaths: [],
+          imagePath: "",
+          maskB64: "iVBORw0KGgpmYWtl",
+          seed: 0,
+          negativePrompt: "",
+          baseURL: "https://upstream.example",
+          textModelID: "",
+          imageModelID: "gpt-image-2",
+          apiMode: "images",
+          requestPolicy: "openai",
+          noPromptRevision: false,
+        },
+        sourceImages: [
+          { imageB64: "iVBORw0KGgpzb3VyY2U=", name: "source.png", mimeType: "image/png" },
+        ],
+      },
+      { signal: new AbortController().signal },
+    );
+    assert.equal(captured.url, "https://upstream.example/v1/images/edits");
+    assert.ok(captured.body instanceof FormData);
+    const mask = captured.body.get("mask");
+    assert.ok(mask instanceof Blob);
+    assert.equal(mask.type, "image/png");
+  });
+});
+
+test("runRemoteImageJob omits relay-only fields by default and includes them in compat mode", async () => {
+  const capturedBodies = [];
+  await withPatchedGlobals(async () => {
+    globalThis.fetch = async (_url, init) => {
+      capturedBodies.push(JSON.parse(init.body));
+      return new Response(
+        'data: {"type":"response.output_item.done","item":{"type":"image_generation_call","result":"YWJj","revised_prompt":"rev"}}\n',
+        { status: 200, headers: { "content-type": "text/event-stream" } },
+      );
+    };
+  }, async () => {
+    const kernel = await loadRemoteKernel();
+    await kernel.runRemoteImageJob(
+      {
+        payload: {
+          apiKey: "key",
+          mode: "generate",
+          prompt: "cat",
+          size: "1024x1024",
+          quality: "low",
+          outputFormat: "png",
+          imagePaths: [],
+          imagePath: "",
+          maskB64: "",
+          seed: 123,
+          negativePrompt: "avoid blur",
+          baseURL: "https://upstream.example",
+          textModelID: "gpt-5.5",
+          imageModelID: "gpt-image-2",
+          apiMode: "responses",
+          requestPolicy: "openai",
+          noPromptRevision: false,
+        },
+      },
+      { signal: new AbortController().signal },
+    );
+    await kernel.runRemoteImageJob(
+      {
+        payload: {
+          apiKey: "key",
+          mode: "generate",
+          prompt: "cat",
+          size: "1024x1024",
+          quality: "low",
+          outputFormat: "png",
+          imagePaths: [],
+          imagePath: "",
+          maskB64: "",
+          seed: 123,
+          negativePrompt: "avoid blur",
+          baseURL: "https://upstream.example",
+          textModelID: "gpt-5.5",
+          imageModelID: "gpt-image-2",
+          apiMode: "responses",
+          requestPolicy: "compat",
+          noPromptRevision: false,
+        },
+      },
+      { signal: new AbortController().signal },
+    );
+    assert.equal(capturedBodies[0].tools[0].seed, undefined);
+    assert.equal(capturedBodies[0].tools[0].negative_prompt, undefined);
+    assert.equal(capturedBodies[1].tools[0].seed, 123);
+    assert.equal(capturedBodies[1].tools[0].negative_prompt, "avoid blur");
+  });
+});
+
 test("optimizePromptRemote extracts output_text", async () => {
   await withPatchedGlobals(async () => {
     globalThis.fetch = async () => new Response('{"output_text":"optimized prompt"}', {

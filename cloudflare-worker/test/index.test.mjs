@@ -224,3 +224,47 @@ test("prompt optimize endpoint forwards shared prompt-optimize payload", async (
     assert.equal(captured.body.input[0].content[1].type, "input_image");
   });
 });
+
+test("kernel generate keeps requestPolicy for shared payload building", async () => {
+  let captured = null;
+  await withPatchedGlobals(async () => {
+    globalThis.fetch = async (url, init) => {
+      captured = {
+        url: String(url),
+        body: JSON.parse(await readBodyText(init.body)),
+      };
+      return new Response(
+        'data: {"type":"response.output_item.done","item":{"type":"image_generation_call","result":"abc"}}\n',
+        {
+          status: 200,
+          headers: { "content-type": "text/event-stream" },
+        },
+      );
+    };
+  }, async () => {
+    const request = new Request("https://worker.example/kernel/generate", {
+      method: "POST",
+      headers: {
+        authorization: "Bearer test-key",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        apiMode: "responses",
+        requestPolicy: "compat",
+        prompt: "a red cat",
+        size: "1024x1024",
+        quality: "low",
+        outputFormat: "png",
+        seed: 123,
+        negativePrompt: "avoid blur",
+      }),
+    });
+    const response = await worker.fetch(request, {
+      IMAGE_STUDIO_UPSTREAM_BASE_URL: "https://upstream.example",
+    });
+    assert.equal(response.status, 200);
+    assert.equal(captured.url, "https://upstream.example/v1/responses");
+    assert.equal(captured.body.tools[0].seed, 123);
+    assert.equal(captured.body.tools[0].negative_prompt, "avoid blur");
+  });
+});

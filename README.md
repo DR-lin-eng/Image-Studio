@@ -342,10 +342,23 @@ Android 保存逻辑与桌面端不同:前端会优先调用壳层注入的 `win
 
 ### 多参考图 / 蒙版 / seed 没生效
 
-这些字段在 payload 里都正确发送,**但上游是否真正使用取决于中转站和模型实现**。两种 API 形态的字段映射:
+这些字段是否发送,取决于当前 profile 的「参数策略」:
 
-- Responses 模式:`mask` / `seed` / `negative_prompt` 作为 `image_generation` 工具参数
-- Images Edits 模式:`mask` 作为单独的 multipart file,`seed` / `negative_prompt` 作为 form 字段
+- `OpenAI 标准`:
+  - 默认只发送 OpenAI 官方公开字段
+  - 更适合 OpenAI 直连或严格兼容实现
+- `兼容中转扩展`:
+  - 会额外发送部分 relay 常见扩展字段
+  - 适合明确知道你的中转站支持这些扩展时使用
+
+两种 API 形态的字段映射:
+
+- Responses 模式:
+  - `mask` 走 OpenAI 官方 `input_image_mask`
+  - `seed` / `negative_prompt` 仅在 `兼容中转扩展` 下附带发送
+- Images Edits 模式:
+  - `mask` 作为标准 multipart file
+  - `seed` / `negative_prompt` 仅在 `兼容中转扩展` 下附带发送
 
 不同模型 / 中转站对这些字段的支持程度不一。Images 模式下多张参考图的支持取决于 relay —— 标准 OpenAI 接口只接受一张 `image`,本应用第二张及之后用 `image[]` 兼容字段发送(可能被忽略)。
 

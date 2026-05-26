@@ -4,8 +4,8 @@ import { Modal } from "../common/Modal";
 import { useStudioStore } from "../../state/studioStore";
 import { GetStoredAPIKey } from "../../platform/runtime/host";
 import { validateBaseURL } from "../../lib/security";
-import { keyringUserFor } from "../../lib/profiles";
-import type { APIMode, UpstreamProfile } from "../../types/domain";
+import { keyringUserFor, requestPolicyLabel } from "../../lib/profiles";
+import type { APIMode, RequestPolicy, UpstreamProfile } from "../../types/domain";
 import { FAQModal } from "./FAQModal";
 import { usePlatform } from "../../platform/context";
 
@@ -78,6 +78,7 @@ export function UpstreamConfigModal({
     const id = await createProfile({
       name: apiMode === "responses" ? "主配置" : "图片配置",
       apiMode,
+      requestPolicy: "openai",
       setActive: profiles.length === 0, // 第一个自动 active,后续手动切
     });
     setSelectedId(id);
@@ -104,6 +105,7 @@ export function UpstreamConfigModal({
     await updateProfile(draft.id, {
       name: draft.name,
       apiMode: draft.apiMode,
+      requestPolicy: draft.requestPolicy,
       baseURL: draft.baseURL,
       textModelID: draft.textModelID,
       imageModelID: draft.imageModelID,
@@ -326,6 +328,35 @@ export function UpstreamConfigModal({
                   ) : (
                     <>使用标准 Images API,key 用 image-2 / image API 分组,兼容性最广。</>
                   )}
+                </Hint>
+              </Field>
+
+              <Field label="参数策略">
+                <div className="grid gap-2">
+                  {([
+                    { id: "openai" as RequestPolicy, title: requestPolicyLabel("openai"), sub: "默认。只发送 OpenAI 官方公开字段。" },
+                    { id: "compat" as RequestPolicy, title: requestPolicyLabel("compat"), sub: "兼容部分 relay 扩展字段，例如 seed / negative_prompt。" },
+                  ]).map((o) => {
+                    const active = draft.requestPolicy === o.id;
+                    return (
+                      <button
+                        key={o.id}
+                        type="button"
+                        onClick={() => patchDraft({ requestPolicy: o.id })}
+                        className={`platform-card flex flex-col items-start gap-0.5 border p-2.5 text-left transition-colors ${
+                          active
+                            ? "active border-[color:var(--accent)]/25 bg-[var(--accent-soft)] text-[var(--accent)]"
+                            : "border-black/[0.08] text-zinc-700 hover:border-[color:var(--accent)]/30 dark:border-white/[0.06] dark:text-zinc-300"
+                        } ${isWindows ? "rounded-[8px]" : "rounded-[14px]"}`}
+                      >
+                        <span className="text-[12px] font-semibold">{o.title}</span>
+                        <span className={`text-[10px] ${active ? "text-[var(--accent)]/80" : "text-zinc-500"}`}>{o.sub}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <Hint>
+                  `OpenAI 标准` 更适合直连 OpenAI 或严格兼容实现。`兼容中转扩展` 会额外发送一些 relay 常见扩展字段。
                 </Hint>
               </Field>
 

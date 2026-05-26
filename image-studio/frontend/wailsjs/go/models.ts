@@ -16,6 +16,7 @@ export namespace backend {
 	    textModelID: string;
 	    imageModelID: string;
 	    apiMode: string;
+	    requestPolicy: string;
 	    noPromptRevision: boolean;
 	    concurrencyLimit: number;
 
@@ -40,6 +41,7 @@ export namespace backend {
 	        this.textModelID = source["textModelID"];
 	        this.imageModelID = source["imageModelID"];
 	        this.apiMode = source["apiMode"];
+	        this.requestPolicy = source["requestPolicy"];
 	        this.noPromptRevision = source["noPromptRevision"];
 	        this.concurrencyLimit = source["concurrencyLimit"];
 	    }

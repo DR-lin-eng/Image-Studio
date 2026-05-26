@@ -280,6 +280,7 @@ func (s *Service) runJob(ctx context.Context, jobID string, opts GenerateOptions
 		TextModelID:      opts.TextModelID,
 		ImageModelID:     opts.ImageModelID,
 		APIMode:          apiMode,
+		RequestPolicy:    client.RequestPolicy(strings.TrimSpace(opts.RequestPolicy)),
 		NoPromptRevision: opts.NoPromptRevision,
 	}
 	if mode == client.ModeEdit {

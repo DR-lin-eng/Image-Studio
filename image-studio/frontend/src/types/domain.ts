@@ -6,6 +6,7 @@ export type Mode = "generate" | "edit";
 // 上游 API 形态 —— Responses (`/v1/responses` + SSE) 或标准 Images API。
 // 老代码里以前是顶层全局二选一,v0.1.6 起降级成 profile 的字段。
 export type APIMode = "responses" | "images";
+export type RequestPolicy = "openai" | "compat";
 
 // UpstreamProfile 是一组完整可用于生成的上游配置。用户可以保存多个,例如
 // 「gptcodex 主号 / gptcodex 备号 / OpenAI 直连」,在 UI 里下拉切换 active。
@@ -17,6 +18,7 @@ export interface UpstreamProfile {
   id: string;
   name: string;
   apiMode: APIMode;
+  requestPolicy: RequestPolicy;
   baseURL: string;
   textModelID: string;
   imageModelID: string;

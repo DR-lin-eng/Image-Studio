@@ -118,6 +118,7 @@ function sanitizePayload(input) {
     textModelID: String(input?.textModelID || ""),
     imageModelID: String(input?.imageModelID || ""),
     apiMode: String(input?.apiMode || ""),
+    requestPolicy: input?.requestPolicy === "compat" ? "compat" : "openai",
     noPromptRevision: !!input?.noPromptRevision,
   };
 }

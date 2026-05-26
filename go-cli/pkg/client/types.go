@@ -107,6 +107,13 @@ const (
 	APIModeImages    APIMode = "images"
 )
 
+type RequestPolicy string
+
+const (
+	RequestPolicyOpenAI RequestPolicy = "openai"
+	RequestPolicyCompat RequestPolicy = "compat"
+)
+
 // Options drives a single image request.
 type Options struct {
 	APIKey  string
@@ -138,6 +145,11 @@ type Options struct {
 	// APIMode selects between Responses API (default) and Images API.
 	// Empty string is treated as APIModeResponses for back-compat.
 	APIMode APIMode
+
+	// RequestPolicy selects whether to send only OpenAI-documented fields
+	// ("openai", default) or also include relay-oriented extension fields
+	// such as seed / negative_prompt ("compat").
+	RequestPolicy RequestPolicy
 
 	MaskB64 string // optional, reserved for Phase 3 GUI; omitted from payload when empty
 

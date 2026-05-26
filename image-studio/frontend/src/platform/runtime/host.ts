@@ -5,6 +5,7 @@ import {
   runRemoteImageJob,
   optimizePromptRemote,
 } from "./remoteKernel.ts";
+import { normalizeRequestPolicy } from "../../../../../shared/kernel/requestModel.js";
 import {
   hasAndroidInvokeBridge,
   invokeAndroidNative,
@@ -48,6 +49,7 @@ type GenerateOptionsLike = {
   textModelID: string;
   imageModelID: string;
   apiMode: string;
+  requestPolicy: string;
   noPromptRevision: boolean;
   concurrencyLimit?: number;
 };
@@ -285,7 +287,10 @@ async function startRemoteJob(options: GenerateOptionsLike): Promise<JobStartedL
   remoteJobControllers.set(jobId, controller);
   void (async () => {
     try {
-      const result = await runRemoteImageJob({ payload: options }, {
+      const result = await runRemoteImageJob({ payload: {
+        ...options,
+        requestPolicy: normalizeRequestPolicy(options.requestPolicy),
+      } }, {
         signal: controller.signal,
         onLog: (line) => emitLocalEvent(`log:${jobId}`, line),
         onProgress: (stage, elapsed, bytes) => emitLocalEvent(`progress:${jobId}`, { stage, elapsed, bytes }),

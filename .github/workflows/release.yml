@@ -99,6 +99,12 @@ jobs:
           IMAGE_STUDIO_FRONTEND_VERSION: ${{ needs.prepare-version.outputs.frontend_version }}
         run: node ./scripts/sync-version-metadata.mjs
 
+      - name: Install frontend dependencies
+        if: matrix.goos == 'darwin'
+        working-directory: image-studio/frontend
+        shell: bash
+        run: npm ci
+
       - name: Install Linux build dependencies
         if: matrix.goos == 'linux'
         run: |

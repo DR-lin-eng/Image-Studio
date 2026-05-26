@@ -49,10 +49,23 @@ cleanup() {
 }
 trap cleanup EXIT
 
+ensure_frontend_deps() {
+  if [[ -d "$PROJECT_DIR/frontend/node_modules" ]]; then
+    return
+  fi
+  echo "frontend/node_modules missing; running npm ci" >&2
+  (
+    cd "$PROJECT_DIR/frontend"
+    npm ci
+  )
+}
+
 if [[ ! -f "$ICON_SRC" ]]; then
   echo "missing icon source: $ICON_SRC" >&2
   exit 1
 fi
+
+ensure_frontend_deps
 
 (
   cd "$PROJECT_DIR/frontend"

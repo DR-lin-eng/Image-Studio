@@ -1,6 +1,10 @@
 import { spawn } from "node:child_process";
 
 const root = process.cwd();
+const androidSdkRoot = process.env.ANDROID_SDK_ROOT || process.env.ANDROID_HOME || `${root}/.tmp/android-sdk`;
+const javaHome = process.env.IMAGE_STUDIO_JAVA_HOME || process.env.JAVA_HOME || `${root}/.tmp/jdk/jdk-17.0.19+10/Contents/Home`;
+const androidUserHome = process.env.ANDROID_USER_HOME || `${root}/.tmp/android-home/.android`;
+const homeDir = process.env.HOME || `${root}/.tmp/android-home`;
 
 function runStep(step) {
   return new Promise((resolve, reject) => {
@@ -50,11 +54,11 @@ const steps = [
     cwd: `${root}/android-shell`,
     env: {
       GRADLE_USER_HOME: `${root}/.tmp/gradle-home-arm64`,
-      JAVA_HOME: `${root}/.tmp/jdk/jdk-17.0.19+10/Contents/Home`,
-      ANDROID_HOME: `${root}/.tmp/android-sdk`,
-      ANDROID_SDK_ROOT: `${root}/.tmp/android-sdk`,
-      ANDROID_USER_HOME: `${root}/.tmp/android-home/.android`,
-      HOME: `${root}/.tmp/android-home`,
+      JAVA_HOME: javaHome,
+      ANDROID_HOME: androidSdkRoot,
+      ANDROID_SDK_ROOT: androidSdkRoot,
+      ANDROID_USER_HOME: androidUserHome,
+      HOME: homeDir,
     },
   },
   {

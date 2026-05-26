@@ -37,6 +37,16 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      - name: Install frontend dependencies
+        working-directory: image-studio/frontend
+        run: npm ci
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android packages
+        run: sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+
       - name: Prepare Android local.properties
         run: |
           mkdir -p .tmp/android-home/.android

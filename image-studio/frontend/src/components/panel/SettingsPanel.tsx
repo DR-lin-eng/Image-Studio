@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import {
-  Download, Folder, FolderEdit, Github, Info, KeyRound,
-  MessageSquare, Monitor, Moon, RotateCw, Sun, Trash2, Upload,
+  ChevronRight, Database, Download, Folder, FolderEdit, Github, Info, KeyRound,
+  MessageSquare, Monitor, Moon, PlugZap, RotateCw, Shield, SlidersHorizontal, Sun, Trash2, Upload,
 } from "lucide-react";
 import { useStudioStore } from "../../state/studioStore";
 import {
@@ -31,11 +31,14 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
     pruneHistoryOlderThanDays,
     setTheme, setFontScale,
     pushToast,
+    apiKey, baseURL, apiMode,
+    profiles, activeProfileId, setActiveProfile,
+    openUpstreamConfig, testAPIKey, isTestingKey,
   } = useStudioStore();
 
   const [outputDir, setOutputDir] = useState("");
   const [aboutOpen, setAboutOpen] = useState(false);
-  const { isMac, isWindows } = usePlatform();
+  const { isMac, isWindows, isAndroidPhone } = usePlatform();
 
   useEffect(() => {
     if (!open) return;
@@ -78,9 +81,176 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
     onClose();
   }
 
+  const outputLabel = androidTarget.isAndroid ? platformOutputRootLabel() : (outputDir || "...");
+  const historyCountLabel = `${history.length} 条`;
+  const activeProfile = profiles.find((profile) => profile.id === activeProfileId);
+  const upstreamReady = !!apiKey.trim() && !!baseURL.trim();
+  const upstreamModeLabel = apiMode === "responses" ? "Responses API" : "Images API";
+
+  const androidSettings = isAndroidPhone ? (
+    <div className="android-settings-panel">
+      <section className="android-settings-hero">
+        <div className="android-settings-hero-orb">
+          <SlidersHorizontal className="h-5 w-5" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="android-settings-kicker">Image Studio</div>
+          <h2>偏好设置</h2>
+          <p>只保留移动端常用控制，桌面路径和上游配置仍在各自入口里处理。</p>
+        </div>
+      </section>
+
+      <section className="android-settings-card">
+        <div className="android-settings-section-title">运行</div>
+        <div className="android-settings-upstream-card">
+          <div className="android-settings-upstream-head">
+            <span className="android-settings-row-icon"><PlugZap className="h-4 w-4" /></span>
+            <span className="min-w-0 flex-1">
+              <span className="android-settings-field-title">上游配置</span>
+              <span className="android-settings-field-subtitle">
+                {activeProfile ? `${activeProfile.name} · ${upstreamModeLabel}` : "还没有可用上游配置"}
+              </span>
+            </span>
+            <span className={`android-settings-status-pill ${upstreamReady ? "ready" : "missing"}`}>
+              {upstreamReady ? "已配置" : "未配置"}
+            </span>
+          </div>
+          {profiles.length > 0 ? (
+            <select
+              value={activeProfileId}
+              onChange={(e) => {
+                const id = e.target.value;
+                if (id) void setActiveProfile(id);
+              }}
+              className="focus-ring android-settings-profile-select"
+            >
+              {profiles.map((profile) => (
+                <option key={profile.id} value={profile.id}>
+                  {profile.name} · {profile.apiMode === "responses" ? "Responses" : "Images"}
+                </option>
+              ))}
+            </select>
+          ) : null}
+          <div className="android-settings-action-grid android-settings-upstream-actions">
+            <button type="button" onClick={() => openUpstreamConfig("settings")}>管理配置</button>
+            <button type="button" onClick={testAPIKey} disabled={!upstreamReady || isTestingKey}>
+              {isTestingKey ? "检查中..." : "测试连通性"}
+            </button>
+          </div>
+        </div>
+        <div className="android-settings-field">
+          <div>
+            <span className="android-settings-field-title">内核执行</span>
+            <span className="android-settings-field-subtitle">默认使用自动策略，远程内核用于跨端验证。</span>
+          </div>
+          <select
+            value={kernelRuntimeMode}
+            onChange={(e) => setField("kernelRuntimeMode", e.target.value as KernelRuntimeMode)}
+            className="focus-ring android-settings-select"
+          >
+            <option value="auto">Auto</option>
+            <option value="local">Local</option>
+            <option value="remote">Remote</option>
+          </select>
+        </div>
+        <button type="button" className="android-settings-row-action" onClick={openOutputLocation}>
+          <span className="android-settings-row-icon"><Folder className="h-4 w-4" /></span>
+          <span className="min-w-0 flex-1">
+            <span className="android-settings-field-title">保存位置</span>
+            <span className="android-settings-field-subtitle truncate">{outputLabel}</span>
+          </span>
+          <ChevronRight className="h-4 w-4 text-zinc-400" />
+        </button>
+        <p className="android-settings-note">{androidSaveHint()}</p>
+      </section>
+
+      <section className="android-settings-card">
+        <div className="android-settings-section-title">外观</div>
+        <div className="android-settings-segmented" role="group" aria-label="主题">
+          <button type="button" className={theme === "system" ? "active" : ""} onClick={() => setTheme("system")}>
+            <Monitor className="h-3.5 w-3.5" /> 系统
+          </button>
+          <button type="button" className={theme === "light" ? "active" : ""} onClick={() => setTheme("light")}>
+            <Sun className="h-3.5 w-3.5" /> 浅色
+          </button>
+          <button type="button" className={theme === "dark" ? "active" : ""} onClick={() => setTheme("dark")}>
+            <Moon className="h-3.5 w-3.5" /> 深色
+          </button>
+        </div>
+        <div className="android-settings-field">
+          <div>
+            <span className="android-settings-field-title">字号</span>
+            <span className="android-settings-field-subtitle">当前 {Math.round(fontScale * 100)}%</span>
+          </div>
+          <div className="android-settings-size-pills">
+            {[0.85, 1, 1.15].map((value) => (
+              <button
+                key={value}
+                type="button"
+                className={Math.abs(fontScale - value) < 0.01 ? "active" : ""}
+                onClick={() => setFontScale(value)}
+              >
+                {value === 0.85 ? "小" : value === 1 ? "中" : "大"}
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="android-settings-card">
+        <div className="android-settings-section-title">参数预设</div>
+        <SettingsPresetsRow />
+      </section>
+
+      <section className="android-settings-card">
+        <div className="android-settings-section-title">历史数据</div>
+        <div className="android-settings-history-meter">
+          <span><Database className="h-4 w-4" /> 本地历史</span>
+          <strong>{historyCountLabel}</strong>
+        </div>
+        <div className="android-settings-action-grid">
+          <button type="button" onClick={exportHistory}><Upload className="h-4 w-4" /> 导出</button>
+          <button type="button" onClick={importHistory}><Download className="h-4 w-4" /> 导入</button>
+          <button type="button" onClick={() => pruneHistory(3)}>清理 3 天前</button>
+          <button type="button" onClick={() => pruneHistory(7)}>清理 7 天前</button>
+        </div>
+      </section>
+
+      <section className="android-settings-card android-settings-danger-card">
+        <div className="android-settings-section-title">安全与清理</div>
+        <button type="button" className="android-settings-row-action danger" onClick={clearAPIKey}>
+          <span className="android-settings-row-icon"><KeyRound className="h-4 w-4" /></span>
+          <span className="min-w-0 flex-1">
+            <span className="android-settings-field-title">清除 API Key</span>
+            <span className="android-settings-field-subtitle">从系统凭据存储移除当前密钥。</span>
+          </span>
+          <Shield className="h-4 w-4 text-red-400" />
+        </button>
+        <button type="button" className="android-settings-row-action danger" onClick={clearHistory}>
+          <span className="android-settings-row-icon"><Trash2 className="h-4 w-4" /></span>
+          <span className="min-w-0 flex-1">
+            <span className="android-settings-field-title">清空历史</span>
+            <span className="android-settings-field-subtitle">删除本地数据库中的全部历史。</span>
+          </span>
+          <ChevronRight className="h-4 w-4 text-red-300" />
+        </button>
+      </section>
+
+      <section className="android-settings-card">
+        <div className="android-settings-section-title">支持</div>
+        <div className="android-settings-action-grid">
+          <button type="button" onClick={() => setAboutOpen(true)}><Info className="h-4 w-4" /> 关于</button>
+          <button type="button" onClick={() => openExternal(REPO_URL)}><Github className="h-4 w-4" /> GitHub</button>
+          <button type="button" onClick={() => openExternal(ISSUES_URL)}><MessageSquare className="h-4 w-4" /> 反馈</button>
+        </div>
+      </section>
+    </div>
+  ) : null;
+
   return (
     <>
       <Modal open={open} onClose={closeSettings} title="设置" width={540}>
+        {androidSettings ?? (
         <div className={`flex flex-col ${androidTarget.isAndroid ? "gap-3" : isMac ? "gap-4" : "gap-3.5"}`}>
           <SettingsRow label="内核执行">
             <select
@@ -256,6 +426,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
           </SettingsRow>
 
         </div>
+        )}
       </Modal>
 
       <AboutImageStudioModal

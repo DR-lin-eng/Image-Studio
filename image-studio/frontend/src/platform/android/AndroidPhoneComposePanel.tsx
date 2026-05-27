@@ -5,7 +5,14 @@ import {
 import { useStudioStore } from "../../state/studioStore";
 import { OpenFile } from "../runtime/host";
 import { Mode } from "../../types/domain";
-import { ASPECT_OPTIONS, QUALITY_TIERS, STYLE_CHIPS } from "../../components/panel/panelOptions";
+import { QUALITY_TIERS, STYLE_CHIPS } from "../../components/panel/panelOptions";
+import {
+  availableResolutionPresets,
+  buildSizeSelection,
+  deriveAspectPreset,
+  deriveResolutionPreset,
+  normalizeResolutionSelection,
+} from "../../components/panel/sizeCapabilities";
 import { AndroidModeSwitch } from "./AndroidModeSwitch";
 import { AndroidPhoneAdvancedSection } from "./AndroidPhoneAdvancedSection";
 import { AndroidPhoneParameterSection } from "./AndroidPhoneParameterSection";
@@ -18,7 +25,7 @@ export function AndroidPhoneComposePanel() {
   const {
     apiKey, mode, prompt, negativePrompt, size, quality, seed, styleTag,
     outputFormat, batchCount, sources, currentImage, errorMessage, errorRawPath,
-    isRunning, lastPayload, isOptimizingPrompt, apiMode, baseURL, profiles,
+    isRunning, lastPayload, isOptimizingPrompt, apiMode, requestPolicy, baseURL, profiles, imageModelID,
     noPromptRevision, setField, clearError, pushToast, selectSourceImage,
     removeSource, clearSources, openUpstreamConfig, submit, cancel, retryLast, optimizePrompt,
   } = useStudioStore();
@@ -34,9 +41,30 @@ export function AndroidPhoneComposePanel() {
     prompt.trim() && (hasUsableResponsesProfile || (apiKey.trim() && baseURL.trim()))
   );
   const activeStyleLabel = STYLE_CHIPS.find((item) => item.id === styleTag)?.label ?? "默认风格";
-  const activeAspectLabel = ASPECT_OPTIONS.find((item) => item.value === size)?.label ?? size;
+  const activeAspect = deriveAspectPreset(size);
+  const activeResolution = deriveResolutionPreset(size);
+  const availableResolutions = availableResolutionPresets({ apiMode, requestPolicy, imageModelID });
+  const activeAspectLabel = activeAspect === "auto" ? "Auto" : activeAspect;
+  const activeResolutionLabel = activeResolution === "auto" ? "自动" : activeResolution.toUpperCase();
   const activeQualityLabel = QUALITY_TIERS.find((item) => item.value === quality)?.label ?? quality;
   const editSourceLabel = sources.length > 0 ? `${sources.length} 张已添加` : currentImage?.savedPath ? "使用当前画板" : "未添加";
+  const settingsExpanded = parametersOpen || advancedOpen;
+
+  const handleAspectSelect = (aspect: typeof activeAspect) => {
+    setField("size", buildSizeSelection(
+      aspect,
+      normalizeResolutionSelection(activeResolution, { apiMode, requestPolicy, imageModelID }),
+      { apiMode, requestPolicy, imageModelID },
+    ));
+  };
+
+  const handleResolutionSelect = (resolution: typeof activeResolution) => {
+    setField("size", buildSizeSelection(
+      activeAspect,
+      resolution,
+      { apiMode, requestPolicy, imageModelID },
+    ));
+  };
 
   const handleModeChange = (next: Mode) => {
     vibrateForPlatform(12);
@@ -59,7 +87,10 @@ export function AndroidPhoneComposePanel() {
   };
 
   return (
-    <div className="control-panel android-phone-compose flex w-full flex-col gap-3 overflow-y-auto border-r-0 bg-[var(--bg)] px-3 py-3" style={{ paddingLeft: "calc(env(safe-area-inset-left, 0px) + 12px)", paddingRight: "calc(env(safe-area-inset-right, 0px) + 12px)" }}>
+    <div
+      className={`control-panel android-phone-compose ${settingsExpanded ? "android-phone-compose-expanded" : ""} flex w-full flex-col gap-3 overflow-y-auto border-r-0 bg-[var(--bg)] px-3 py-3`}
+      style={{ paddingLeft: "calc(env(safe-area-inset-left, 0px) + 12px)", paddingRight: "calc(env(safe-area-inset-right, 0px) + 12px)" }}
+    >
       {errorMessage ? (
         <section className="platform-card border border-red-500/18 bg-red-500/10 p-3 text-xs text-red-700 dark:text-red-200">
           <div className="flex items-start gap-2">
@@ -209,17 +240,25 @@ export function AndroidPhoneComposePanel() {
         </div>
       </section>
 
-      {!needsUpstreamSetup && !advancedOpen ? (
+      {!needsUpstreamSetup ? (
         <AndroidPhoneParameterSection
+          activeAspect={activeAspect}
           activeAspectLabel={activeAspectLabel}
+          activeResolution={activeResolution}
+          activeResolutionLabel={activeResolutionLabel}
           activeQualityLabel={activeQualityLabel}
           activeStyleLabel={activeStyleLabel}
+          availableResolutions={availableResolutions}
           batchCount={batchCount}
+          handleAspectSelect={handleAspectSelect}
+          handleResolutionSelect={handleResolutionSelect}
+          imageModelID={imageModelID}
+          apiMode={apiMode}
           parametersOpen={parametersOpen}
           quality={quality}
+          requestPolicy={requestPolicy}
           setField={setField as any}
           setParametersOpen={setParametersOpen}
-          size={size}
           styleTag={styleTag}
         />
       ) : null}

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   Download, Folder, FolderEdit, Github, Info, KeyRound,
-  MessageSquare, Monitor, Moon, Plug, RotateCw, Settings, Sun, Trash2, Upload, X,
+  MessageSquare, Monitor, Moon, RotateCw, Sun, Trash2, Upload,
 } from "lucide-react";
 import { useStudioStore } from "../../state/studioStore";
 import {
@@ -10,51 +10,16 @@ import {
 import type { KernelRuntimeMode } from "../../types/domain";
 import { Modal } from "../common/Modal";
 import { rememberTrustedOutputRoot } from "../../lib/storage";
-import { platformOutputRootLabel, platformRuntimeLabel } from "../../platform";
+import { platformOutputRootLabel } from "../../platform";
 import { androidSaveHint, androidTarget, openExternalURLForPlatform, openOutputLocationForPlatform } from "../../platform/android/bridge";
-import { appVersion } from "../../lib/version";
 import { usePlatform } from "../../platform/context";
+import { AboutImageStudioModal } from "./AboutImageStudioModal";
+import { SettingsPresetsRow } from "./SettingsPresetsRow";
+import { SettingsRow, SettingsSegButton } from "./settingsPrimitives";
 
 const REPO_URL = "https://github.com/RoseKhlifa/Image-Studio";
 const ISSUES_URL = "https://github.com/RoseKhlifa/Image-Studio/issues";
 const MIT_URL = "https://opensource.org/licenses/MIT";
-
-function PresetsRow() {
-  const { presets, savePreset, applyPreset, deletePreset } = useStudioStore();
-  const { isWindows } = usePlatform();
-  function onSave() {
-    const name = prompt("预设名:");
-    if (name) savePreset(name);
-  }
-  return (
-    <div className="flex flex-col gap-1.5">
-      {presets.map((p) => (
-        <div key={p.id} className="flex items-center gap-1">
-          <button
-            onClick={() => applyPreset(p.id)}
-            title={`${p.size} · ${p.quality}`}
-            className={`flex-1 border border-black/[0.08] px-3 py-2 text-left text-xs text-zinc-700 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] dark:border-white/[0.08] dark:text-zinc-300 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
-          >
-            {p.name}
-          </button>
-          <button
-            onClick={() => deletePreset(p.id)}
-            title="删除"
-            className={`p-1.5 text-zinc-500 hover:bg-red-500/10 hover:text-red-400 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
-          >
-            <X className="w-3 h-3" />
-          </button>
-        </div>
-      ))}
-      <button
-        onClick={onSave}
-        className={`border border-dashed border-black/[0.12] px-3 py-2 text-xs text-zinc-500 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] dark:border-white/[0.1] ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
-      >
-        + 保存当前参数
-      </button>
-    </div>
-  );
-}
 
 export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
   const {
@@ -62,22 +27,15 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
     theme, fontScale,
     setField, setAPIKey,
     history,
-    profiles,
-    activeProfileId,
-    apiMode,
-    baseURL,
-    isTestingKey,
     exportHistory, importHistory,
+    pruneHistoryOlderThanDays,
     setTheme, setFontScale,
-    openUpstreamConfig,
-    testAPIKey,
     pushToast,
   } = useStudioStore();
 
   const [outputDir, setOutputDir] = useState("");
   const [aboutOpen, setAboutOpen] = useState(false);
-  const { isWindows } = usePlatform();
-  const activeProfile = profiles.find((profile) => profile.id === activeProfileId) ?? null;
+  const { isMac, isWindows } = usePlatform();
 
   useEffect(() => {
     if (!open) return;
@@ -101,6 +59,12 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
     }
   }
 
+  async function pruneHistory(days: number) {
+    const removed = await pruneHistoryOlderThanDays(days);
+    if (removed > 0) pushToast(`已清理 ${removed} 条 ${days} 天前的历史`, "success");
+    else pushToast(`没有 ${days} 天前的历史需要清理`, "info");
+  }
+
   function openOutputLocation() {
     openOutputLocationForPlatform(OpenOutputDir).catch((e) => pushToast(e?.message ?? "无法打开保存位置", "warn"));
   }
@@ -114,21 +78,15 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
     onClose();
   }
 
-  function openUpstreamManager() {
-    setAboutOpen(false);
-    onClose();
-    openUpstreamConfig("settings");
-  }
-
   return (
     <>
       <Modal open={open} onClose={closeSettings} title="设置" width={540}>
-        <div className={`flex flex-col ${androidTarget.isAndroid ? "gap-3" : "gap-3.5"}`}>
-          <Row label="内核执行">
+        <div className={`flex flex-col ${androidTarget.isAndroid ? "gap-3" : isMac ? "gap-4" : "gap-3.5"}`}>
+          <SettingsRow label="内核执行">
             <select
               value={kernelRuntimeMode}
               onChange={(e) => setField("kernelRuntimeMode", e.target.value as KernelRuntimeMode)}
-              className={`focus-ring w-full border border-black/[0.08] bg-[var(--surface)] px-3 py-2.5 text-[12px] text-zinc-900 dark:border-white/[0.08] dark:text-zinc-100 ${isWindows ? "rounded-[10px]" : "rounded-[14px]"}`}
+              className={`focus-ring w-full border border-black/[0.08] bg-[var(--surface)] px-3 ${isMac ? "min-h-[44px] py-3 text-[14px]" : "py-2.5 text-[12px]"} text-zinc-900 dark:border-white/[0.08] dark:text-zinc-100 ${isWindows ? "rounded-[10px]" : "rounded-[16px]"}`}
             >
               <option value="auto">auto(按宿主自动选择)</option>
               <option value="local">local(桌面 Go/Wails)</option>
@@ -137,47 +95,11 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
             <p className="mt-1 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-300">
               桌面可切到 remote 验证与 Android / Worker 是否走同一套共享请求内核
             </p>
-          </Row>
+          </SettingsRow>
 
-          <Row label="上游配置">
-            <div className="flex flex-col gap-2">
-              <div className={`rounded-[14px] border border-black/[0.08] bg-[var(--surface)] px-3 py-2.5 dark:border-white/[0.08] ${isWindows ? "rounded-[10px]" : "rounded-[14px]"}`}>
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="text-[12px] font-medium text-zinc-800 dark:text-zinc-100">
-                      {activeProfile?.name ?? "还没有可用配置"}
-                    </div>
-                    <div className="mt-1 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">
-                      {activeProfile
-                        ? `${apiMode === "responses" ? "Responses API" : "Images API"} · ${baseURL || "未填写 BASE_URL"}`
-                        : "把 BASE_URL、API Key 和模型配置统一收在这里管理。"}
-                    </div>
-                  </div>
-                  <span className={`inline-flex h-2.5 w-2.5 shrink-0 rounded-full ${activeProfile && baseURL.trim() ? "bg-[var(--accent)]" : "bg-red-500"}`} />
-                </div>
-              </div>
-              <div className="flex gap-1.5">
-                <button
-                  onClick={openUpstreamManager}
-                  className={`flex-1 inline-flex items-center justify-center gap-1.5 border border-black/[0.08] px-3 py-2 text-[12px] text-zinc-700 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] dark:border-white/[0.08] dark:text-zinc-300 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
-                >
-                  <Settings className="w-3 h-3" /> 管理上游
-                </button>
-                <button
-                  onClick={testAPIKey}
-                  disabled={!activeProfile || !baseURL.trim() || isTestingKey}
-                  className={`inline-flex items-center justify-center gap-1.5 border border-black/[0.08] px-3 py-2 text-[12px] text-zinc-700 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:text-zinc-300 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
-                >
-                  <Plug className={`w-3 h-3 ${isTestingKey ? "animate-spin" : ""}`} /> {isTestingKey ? "检查中..." : "测试连接"}
-                </button>
-              </div>
-            </div>
-          </Row>
-
-          {/* 输出目录 */}
-          <Row label={androidTarget.isAndroid ? "保存位置" : "输出目录"}>
-            <div className={`flex items-center gap-1 border border-black/[0.08] bg-[var(--surface)] px-3 py-2 dark:border-white/[0.08] ${isWindows ? "rounded-[10px]" : "rounded-[14px]"}`}>
-              <span title={outputDir} className="flex-1 text-[11px] font-mono-token text-zinc-700 dark:text-zinc-200 truncate">
+          <SettingsRow label={androidTarget.isAndroid ? "保存位置" : "输出目录"}>
+            <div className={`flex items-center gap-1 border border-black/[0.08] bg-[var(--surface)] px-3 ${isMac ? "py-3" : "py-2.5"} dark:border-white/[0.08] ${isWindows ? "rounded-[10px]" : "rounded-[16px]"}`}>
+              <span title={outputDir} className={`flex-1 truncate font-mono-token text-zinc-700 dark:text-zinc-200 ${isMac ? "text-[13px]" : "text-[12px]"}`}>
                 {androidTarget.isAndroid ? platformOutputRootLabel() : (outputDir || "...")}
               </span>
               <button
@@ -206,7 +128,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
                       pushToast(`切换失败:${e?.message ?? e}`, "error", 5000);
                     }
                   }}
-                  className={`flex-1 inline-flex items-center justify-center gap-1.5 border border-black/[0.08] px-3 py-2 text-[12px] text-zinc-700 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] dark:border-white/[0.08] dark:text-zinc-300 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
+                  className={`flex-1 inline-flex min-h-[34px] items-center justify-center gap-1.5 border border-black/[0.08] px-3 ${isMac ? "py-2.5 text-[13px]" : "py-2 text-[12px]"} font-medium text-zinc-700 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] dark:border-white/[0.08] dark:text-zinc-300 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
                 >
                   <FolderEdit className="w-3 h-3" /> 修改
                 </button>
@@ -224,58 +146,55 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
                     }
                   }}
                   title={`清除自定义路径,回到 ${platformOutputRootLabel()}/images`}
-                  className={`inline-flex items-center gap-1 border border-black/[0.08] px-3 py-2 text-[12px] text-zinc-500 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] dark:border-white/[0.08] dark:text-zinc-300 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
+                  className={`inline-flex min-h-[34px] items-center gap-1 border border-black/[0.08] px-3 ${isMac ? "py-2.5 text-[13px]" : "py-2 text-[12px]"} font-medium text-zinc-500 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] dark:border-white/[0.08] dark:text-zinc-300 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
                 >
                   <RotateCw className="w-3 h-3" /> 默认
                 </button>
               </div>
             )}
-          </Row>
+          </SettingsRow>
 
-          {/* 主题 */}
-          <Row label="主题">
-            <div className={`platform-seg flex gap-1 bg-black/[0.04] p-0.5 ring-1 ring-black/[0.05] dark:bg-white/[0.06] dark:ring-white/[0.06] ${isWindows ? "rounded-[10px]" : "rounded-full"}`}>
-              <SegBtn active={theme === "system"} onClick={() => setTheme("system")}>
+          <SettingsRow label="主题">
+            <div className={`platform-seg flex flex-wrap gap-1 bg-black/[0.04] p-0.5 ring-1 ring-black/[0.05] dark:bg-white/[0.06] dark:ring-white/[0.06] ${isWindows ? "rounded-[10px]" : "rounded-[18px]"}`}>
+              <SettingsSegButton active={theme === "system"} onClick={() => setTheme("system")}>
                 <Monitor className="w-3 h-3" /> 系统
-              </SegBtn>
-              <SegBtn active={theme === "dark"} onClick={() => setTheme("dark")}>
+              </SettingsSegButton>
+              <SettingsSegButton active={theme === "dark"} onClick={() => setTheme("dark")}>
                 <Moon className="w-3 h-3" /> 深色
-              </SegBtn>
-              <SegBtn active={theme === "light"} onClick={() => setTheme("light")}>
+              </SettingsSegButton>
+              <SettingsSegButton active={theme === "light"} onClick={() => setTheme("light")}>
                 <Sun className="w-3 h-3" /> 浅色
-              </SegBtn>
+              </SettingsSegButton>
             </div>
-          </Row>
+          </SettingsRow>
 
-          {/* 字号 */}
-          <Row label={`字号 ${Math.round(fontScale * 100)}%`}>
-            <div className={`platform-seg flex gap-1 bg-black/[0.04] p-0.5 ring-1 ring-black/[0.05] dark:bg-white/[0.06] dark:ring-white/[0.06] ${isWindows ? "rounded-[10px]" : "rounded-full"}`}>
+          <SettingsRow label={`字号 ${Math.round(fontScale * 100)}%`}>
+            <div className={`platform-seg flex flex-wrap gap-1 bg-black/[0.04] p-0.5 ring-1 ring-black/[0.05] dark:bg-white/[0.06] dark:ring-white/[0.06] ${isWindows ? "rounded-[10px]" : "rounded-[18px]"}`}>
               {[0.85, 1, 1.15].map((v) => (
-                <SegBtn key={v} active={Math.abs(fontScale - v) < 0.01} onClick={() => setFontScale(v)}>
+                <SettingsSegButton key={v} active={Math.abs(fontScale - v) < 0.01} onClick={() => setFontScale(v)}>
                   {v === 0.85 ? "小" : v === 1 ? "中" : "大"}
-                </SegBtn>
+                </SettingsSegButton>
               ))}
             </div>
-          </Row>
+          </SettingsRow>
 
-          {/* 预设 */}
-          <Row label="参数预设">
-            <PresetsRow />
-          </Row>
+          <SettingsRow label="参数预设">
+            <SettingsPresetsRow />
+          </SettingsRow>
 
           {/* 历史 import / export */}
           <div className="flex gap-1.5">
             <button
               onClick={exportHistory}
               title="导出全部历史为 JSON"
-              className={`flex-1 inline-flex items-center justify-center gap-1.5 border border-black/[0.08] px-3 py-2 text-[12px] text-zinc-700 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] dark:border-white/[0.08] dark:text-zinc-300 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
+              className={`flex-1 inline-flex min-h-[34px] items-center justify-center gap-1.5 border border-black/[0.08] px-3 ${isMac ? "py-2.5 text-[13px]" : "py-2 text-[12px]"} font-medium text-zinc-700 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] dark:border-white/[0.08] dark:text-zinc-300 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
             >
               <Upload className="w-3 h-3" /> 导出历史
             </button>
             <button
               onClick={importHistory}
               title="从 JSON 文件导入"
-              className={`flex-1 inline-flex items-center justify-center gap-1.5 border border-black/[0.08] px-3 py-2 text-[12px] text-zinc-700 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] dark:border-white/[0.08] dark:text-zinc-300 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
+              className={`flex-1 inline-flex min-h-[34px] items-center justify-center gap-1.5 border border-black/[0.08] px-3 ${isMac ? "py-2.5 text-[13px]" : "py-2 text-[12px]"} font-medium text-zinc-700 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] dark:border-white/[0.08] dark:text-zinc-300 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
             >
               <Download className="w-3 h-3" /> 导入历史
             </button>
@@ -285,26 +204,41 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
           <div className="flex gap-1.5">
             <button
               onClick={clearAPIKey}
-              className={`flex-1 inline-flex items-center justify-center gap-1.5 border border-black/[0.08] px-3 py-2 text-[12px] text-zinc-500 transition-colors hover:border-red-400/40 hover:text-red-400 dark:border-white/[0.08] dark:text-zinc-300 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
+              className={`flex-1 inline-flex min-h-[34px] items-center justify-center gap-1.5 border border-black/[0.08] px-3 py-2 text-[12px] font-medium text-zinc-500 transition-colors hover:border-red-400/40 hover:text-red-400 dark:border-white/[0.08] dark:text-zinc-300 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
             >
               <KeyRound className="w-3 h-3" /> 清除 API Key
             </button>
             <button
               onClick={clearHistory}
-              className={`flex-1 inline-flex items-center justify-center gap-1.5 border border-black/[0.08] px-3 py-2 text-[12px] text-zinc-500 transition-colors hover:border-red-400/40 hover:text-red-400 dark:border-white/[0.08] dark:text-zinc-300 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
+              className={`flex-1 inline-flex min-h-[34px] items-center justify-center gap-1.5 border border-black/[0.08] px-3 py-2 text-[12px] font-medium text-zinc-500 transition-colors hover:border-red-400/40 hover:text-red-400 dark:border-white/[0.08] dark:text-zinc-300 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
             >
               <Trash2 className="w-3 h-3" /> 清空历史
             </button>
           </div>
 
+          <div className="flex gap-1.5">
+            <button
+              onClick={() => pruneHistory(3)}
+              className={`flex-1 inline-flex min-h-[34px] items-center justify-center gap-1.5 border border-black/[0.08] px-3 py-2 text-[12px] font-medium text-zinc-500 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] dark:border-white/[0.08] dark:text-zinc-300 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
+            >
+              清理 3 天前
+            </button>
+            <button
+              onClick={() => pruneHistory(7)}
+              className={`flex-1 inline-flex min-h-[34px] items-center justify-center gap-1.5 border border-black/[0.08] px-3 py-2 text-[12px] font-medium text-zinc-500 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] dark:border-white/[0.08] dark:text-zinc-300 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
+            >
+              清理 7 天前
+            </button>
+          </div>
+
           <button
             onClick={() => setAboutOpen(true)}
-            className={`inline-flex items-center justify-center gap-1.5 border border-black/[0.08] px-3 py-2 text-[12px] text-zinc-500 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] dark:border-white/[0.08] dark:text-zinc-300 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
+            className={`inline-flex min-h-[34px] items-center justify-center gap-1.5 border border-black/[0.08] px-3 py-2 text-[12px] font-medium text-zinc-500 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] dark:border-white/[0.08] dark:text-zinc-300 ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
           >
             <Info className="w-3 h-3" /> 关于 Image Studio
           </button>
 
-          <Row label="支持与反馈">
+          <SettingsRow label="支持与反馈">
             <div className="flex gap-1.5">
               <button
                 onClick={() => openExternal(REPO_URL)}
@@ -319,116 +253,19 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
                 <MessageSquare className="w-3 h-3" /> 反馈
               </button>
             </div>
-          </Row>
+          </SettingsRow>
 
         </div>
       </Modal>
 
-      {/* 关于 modal */}
-      <Modal open={aboutOpen} onClose={() => setAboutOpen(false)} title="关于 Image Studio" width={460}>
-        <div className={`text-center ${androidTarget.isAndroid ? "mb-4" : "mb-5"}`}>
-          <div className={`w-14 h-14 mx-auto ${androidTarget.isAndroid ? "mb-1.5" : "mb-2"} bg-white dark:bg-zinc-100 ring-1 ring-black/15 dark:ring-white/20 flex items-center justify-center ${isWindows ? "rounded-[12px]" : "rounded-2xl"}`}>
-            <svg width="40" height="40" viewBox="0 0 1024 1024" fill="none" aria-hidden>
-              <rect x="160" y="270" width="704" height="490" rx="56" stroke="#18181b" strokeWidth="56" />
-              <path d="M 200 740 L 420 470 L 560 600 L 460 740 Z" fill="#52525b" />
-              <path d="M 380 740 L 580 490 L 670 580 L 770 480 L 824 740 Z" fill="#18181b" />
-              <circle cx="700" cy="420" r="55" stroke="#18181b" strokeWidth="48" />
-              <polygon points="820,200 836,240 820,280 804,240" fill="#18181b" />
-              <polygon points="780,240 820,224 860,240 820,256" fill="#18181b" />
-            </svg>
-          </div>
-          <div className={`${androidTarget.isAndroid ? "text-[17px]" : "text-lg"} font-bold`}>Image Studio</div>
-          <div className="text-[10px] text-zinc-500 mt-0.5">
-            v{appVersion} · <span onClick={() => openExternal(MIT_URL)} className="cursor-pointer text-[var(--accent)] hover:opacity-80">MIT License</span>
-          </div>
-        </div>
-        {androidTarget.isAndroid ? (
-          <>
-            <p className="text-[11px] leading-relaxed text-zinc-700 dark:text-zinc-300">
-              开源的图片生成 / 编辑客户端。数据都保存在本地机器，不上传任何服务器，API Key 走系统安全存储。
-            </p>
-            <div className="mt-3 grid grid-cols-2 gap-2 text-[10px]">
-              <AboutFact label="数据" value="本地保存" />
-              <AboutFact label="运行时" value="Android WebView" />
-              <AboutFact label="上游" value="Responses / Images" />
-              <AboutFact label="协议" value="MIT License" />
-            </div>
-          </>
-        ) : (
-          <>
-            <p className="text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">
-              一个开源的图片生成 / 编辑客户端,基于 Wails(Go + React/TS)。
-              数据(API Key、历史记录、生成图)都保存在本地机器,不上传任何服务器。API Key 走系统安全存储,不再保存在 localStorage。
-            </p>
-            <div className="mt-3 text-[10px] text-zinc-500 leading-relaxed space-y-0.5">
-              <div><strong className="text-zinc-700 dark:text-zinc-300">技术栈:</strong></div>
-              <div>· 后端:Go ≥ 1.25 / SSE</div>
-              <div>· 前端:React 18 + TypeScript / Tailwind v4 / zustand / react-konva</div>
-              <div>· 打包:{platformRuntimeLabel()}</div>
-              <div className="pt-1.5"><strong className="text-zinc-700 dark:text-zinc-300">支持的上游:</strong></div>
-              <div>· 兼容 OpenAI <strong className="text-zinc-700 dark:text-zinc-300">Responses API</strong></div>
-              <div>· 标准 <strong className="text-zinc-700 dark:text-zinc-300">Images API</strong>(generations + edits)</div>
-            </div>
-          </>
-        )}
-        <div className="mt-3.5 flex gap-2">
-          <button
-            onClick={() => openExternal(REPO_URL)}
-            className={`liquid-primary-button flex-1 inline-flex items-center justify-center gap-1.5 bg-[var(--accent)] px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-[var(--accent-2)] ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
-          >
-            <Github className="w-3.5 h-3.5" /> GitHub 仓库
-          </button>
-          <button
-            onClick={() => openExternal(REPO_URL + "/issues")}
-            className={`flex-1 inline-flex items-center justify-center gap-1.5 border border-black/[0.08] px-3 py-2 text-xs text-zinc-700 transition-colors hover:bg-black/[0.04] dark:border-white/[0.08] dark:text-zinc-300 dark:hover:bg-white/[0.06] ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
-          >
-            <MessageSquare className="w-3.5 h-3.5" /> 反馈
-          </button>
-        </div>
-        <hr className="border-black/[0.06] dark:border-white/[0.04] mt-3.5 mb-2.5" />
-        <div className="text-[9px] text-zinc-500 text-center leading-relaxed">
-          100% 本地数据 · 无遥测 · 无云端账户 · 无内购
-        </div>
-      </Modal>
+      <AboutImageStudioModal
+        open={aboutOpen}
+        onClose={() => setAboutOpen(false)}
+        onOpenFeedback={() => openExternal(REPO_URL + "/issues")}
+        onOpenLicense={() => openExternal(MIT_URL)}
+        onOpenRepo={() => openExternal(REPO_URL)}
+        mitURL={MIT_URL}
+      />
     </>
-  );
-}
-
-function Row({ label, children }: { label: React.ReactNode; children: React.ReactNode }) {
-  const { isWindows } = usePlatform();
-  return (
-    <div className={`platform-card border border-black/[0.05] bg-white/72 px-4 py-3.5 shadow-[var(--shadow-card)] dark:border-white/[0.06] dark:bg-[rgb(29_32_40_/_0.88)] ${isWindows ? "rounded-[12px]" : "rounded-[18px]"}`}>
-      <label className="mb-2 block text-[11px] font-semibold tracking-[0.04em] text-zinc-700 dark:text-zinc-200">{label}</label>
-      {children}
-    </div>
-  );
-}
-
-function SegBtn({ active, onClick, children }: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  const { isWindows } = usePlatform();
-  return (
-    <button
-      onClick={onClick}
-      className={`platform-chip flex-1 inline-flex items-center justify-center gap-1 px-2 py-2 text-[11px] font-medium transition-colors ${
-        active
-          ? "active bg-white text-zinc-900 shadow-sm dark:bg-zinc-900 dark:text-zinc-100"
-          : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100"
-      } ${isWindows ? "rounded-[8px]" : "rounded-full"}`}
-    >
-      {children}
-    </button>
-  );
-}
-
-function AboutFact({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-[14px] border border-black/[0.08] bg-[var(--surface)] px-3 py-2 text-left dark:border-white/[0.08]">
-      <div className="text-[9px] uppercase tracking-[0.12em] text-zinc-400 dark:text-zinc-500">{label}</div>
-      <div className="mt-1 text-[11px] font-medium text-zinc-800 dark:text-zinc-100">{value}</div>
-    </div>
   );
 }

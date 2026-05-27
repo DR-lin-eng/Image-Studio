@@ -6,6 +6,7 @@ import { usePlatform } from "../platform/context";
 import { useStudioStore } from "../state/studioStore";
 import { DropImportOverlay } from "./components/DropImportOverlay";
 import { PlatformWorkspace } from "./components/PlatformWorkspace";
+import { HistoryTimelineModal } from "../components/history/HistoryTimelineModal";
 import { ResultDetailGate } from "./gates/ResultDetailGate";
 import { SettingsPanelGate } from "./gates/SettingsPanelGate";
 import { StarPromptGate } from "./gates/StarPromptGate";
@@ -44,6 +45,7 @@ export default function App() {
       <FooterBar />
       <UpstreamConfigGate />
       <SettingsPanelGate open={settingsOpen} onClose={closeSettings} />
+      <HistoryTimelineModal />
       <ResultDetailGate />
       <StarPromptGate />
     </div>

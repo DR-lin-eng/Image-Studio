@@ -17,17 +17,17 @@ const PROMPT_TEMPLATES: { label: string; text: string }[] = [
 export function PromptPopover({ onClose, onPick }: { onClose: () => void; onPick: (text: string) => void }) {
   const history = useStudioStore((s) => s.promptHistory);
   const [tab, setTab] = useState<"templates" | "history">("templates");
-  const { isWindows, usesAppleUI } = usePlatform();
+  const { isMac, isWindows, usesAppleUI } = usePlatform();
 
   return (
     <div
       onClick={(e) => e.stopPropagation()}
-      className={`absolute left-0 top-[calc(100%+0.6rem)] z-[140] flex w-[min(21.5rem,calc(100vw-3rem))] max-h-[340px] flex-col overflow-hidden border border-black/[0.08] bg-white/96 shadow-[0_28px_70px_rgb(15_23_42_/_0.22)] backdrop-blur-2xl dark:border-white/[0.08] dark:bg-[rgb(24_27_34_/_0.96)] ${usesAppleUI ? "liquid-glass-panel" : ""} ${isWindows ? "rounded-[12px]" : "rounded-[20px]"}`}
+      className={`absolute left-0 top-[calc(100%+0.75rem)] z-[140] flex max-h-[360px] flex-col overflow-hidden border border-black/[0.08] bg-white/96 shadow-[0_28px_70px_rgb(15_23_42_/_0.22)] backdrop-blur-2xl dark:border-white/[0.08] dark:bg-[rgb(24_27_34_/_0.96)] ${usesAppleUI ? "liquid-glass-panel" : ""} ${isMac ? "w-[min(25rem,calc(100vw-3rem))]" : "w-[min(22.5rem,calc(100vw-3rem))]"} ${isWindows ? "rounded-[12px]" : "rounded-[22px]"}`}
     >
-      <div className="flex items-center border-b border-black/[0.06] px-1.5 py-1 dark:border-white/[0.05]">
+      <div className="flex items-center border-b border-black/[0.06] px-2 py-1.5 dark:border-white/[0.05]">
         <button
           onClick={() => setTab("templates")}
-          className={`flex-1 rounded-full px-3 py-2 text-[11px] font-semibold transition-colors ${
+          className={`flex-1 rounded-full ${isMac ? "px-3.5 py-2.5 text-[12px]" : "px-3 py-2 text-[11px]"} font-semibold transition-colors ${
             tab === "templates"
               ? "bg-[var(--accent-soft)] text-[var(--accent)]"
               : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
@@ -37,7 +37,7 @@ export function PromptPopover({ onClose, onPick }: { onClose: () => void; onPick
         </button>
         <button
           onClick={() => setTab("history")}
-          className={`flex-1 rounded-full px-3 py-2 text-[11px] font-semibold transition-colors ${
+          className={`flex-1 rounded-full ${isMac ? "px-3.5 py-2.5 text-[12px]" : "px-3 py-2 text-[11px]"} font-semibold transition-colors ${
             tab === "history"
               ? "bg-[var(--accent-soft)] text-[var(--accent)]"
               : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
@@ -53,20 +53,20 @@ export function PromptPopover({ onClose, onPick }: { onClose: () => void; onPick
           <X className="w-3.5 h-3.5" />
         </button>
       </div>
-      <div className="flex-1 overflow-y-auto p-2">
+      <div className={`flex-1 overflow-y-auto ${isMac ? "p-3" : "p-2.5"}`}>
         {tab === "templates" && PROMPT_TEMPLATES.map((t) => (
           <button
             key={t.label}
             onClick={() => { onPick(t.text); onClose(); }}
-            className={`w-full px-3 py-2.5 text-left transition-colors hover:bg-[var(--accent-soft)] ${isWindows ? "rounded-[10px]" : "rounded-[14px]"}`}
+            className={`w-full text-left transition-colors hover:bg-[var(--accent-soft)] ${isMac ? "px-3.5 py-3.5" : "px-3 py-3"} ${isWindows ? "rounded-[10px]" : "rounded-[16px]"}`}
           >
-            <div className="mb-1 text-[12px] font-semibold text-zinc-900 dark:text-zinc-100">{t.label}</div>
-            <div className="text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-300">{t.text}</div>
+            <div className={`${isMac ? "mb-1.5 text-[13px]" : "mb-1 text-[12px]"} font-semibold text-zinc-900 dark:text-zinc-100`}>{t.label}</div>
+            <div className={`${isMac ? "text-[12px] leading-6" : "text-[11px] leading-relaxed"} text-zinc-500 dark:text-zinc-300`}>{t.text}</div>
           </button>
         ))}
         {tab === "history" && (
           history.length === 0 ? (
-            <div className={`border border-dashed border-black/[0.08] px-4 py-8 text-center text-[12px] text-zinc-500 dark:border-white/[0.08] dark:text-zinc-300 ${isWindows ? "rounded-[12px]" : "rounded-[16px]"}`}>
+            <div className={`border border-dashed border-black/[0.08] px-4 py-8 text-center text-[12px] text-zinc-500 dark:border-white/[0.08] dark:text-zinc-300 ${isWindows ? "rounded-[12px]" : "rounded-[18px]"}`}>
               还没有提交过 prompt
             </div>
           ) : (
@@ -75,9 +75,9 @@ export function PromptPopover({ onClose, onPick }: { onClose: () => void; onPick
                 key={i}
                 onClick={() => { onPick(p); onClose(); }}
                 title="点击使用"
-                className={`w-full px-3 py-2.5 text-left transition-colors hover:bg-[var(--accent-soft)] ${isWindows ? "rounded-[10px]" : "rounded-[14px]"}`}
+                className={`w-full text-left transition-colors hover:bg-[var(--accent-soft)] ${isMac ? "px-3.5 py-3.5" : "px-3 py-3"} ${isWindows ? "rounded-[10px]" : "rounded-[16px]"}`}
               >
-                <div className="text-[12px] leading-relaxed text-zinc-700 dark:text-zinc-200">{p}</div>
+                <div className={`${isMac ? "text-[13px] leading-6" : "text-[12px] leading-relaxed"} text-zinc-700 dark:text-zinc-200`}>{p}</div>
               </button>
             ))
           )

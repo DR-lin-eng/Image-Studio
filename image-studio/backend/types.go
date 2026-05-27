@@ -9,6 +9,10 @@ import "strings"
 type GenerateOptions struct {
 	APIKey  string `json:"apiKey"`
 	Mode    string `json:"mode"` // "generate" | "edit"
+	// RequestedJobID allows the frontend to pre-bind event listeners before
+	// dispatching the request, avoiding a race where a very fast result event
+	// arrives before the UI has attached `result:<jobId>` handlers.
+	RequestedJobID string `json:"requestedJobId"`
 	Prompt  string `json:"prompt"`
 	Size    string `json:"size"`
 	Quality string `json:"quality"`

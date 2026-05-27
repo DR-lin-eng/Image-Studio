@@ -104,6 +104,19 @@ html.dark .app-modal-header {
   flex: 0 0 auto;
   min-height: 44px;
 }
+.mac-app-header {
+  min-height: 68px;
+  padding-top: max(var(--mac-titlebar-top-pad), env(safe-area-inset-top, 0px));
+  padding-bottom: var(--mac-titlebar-bottom-pad);
+  padding-left: calc(var(--mac-titlebar-safe-left) + 10px);
+  padding-right: calc(var(--mac-titlebar-safe-right) + 4px);
+}
+.mac-header-copy {
+  padding-top: 2px;
+}
+.mac-header-actions {
+  padding-top: 2px;
+}
 .app-header-left { display: flex; align-items: center; gap: 28px; }
 .app-header-right { display: flex; align-items: center; gap: 10px; }
 
@@ -132,6 +145,13 @@ html.dark .app-modal-header {
   flex: 0 0 auto;
   overflow-x: auto;
   user-select: none;
+}
+.mac-workspace-bar {
+  min-height: 40px;
+  padding-top: 6px;
+  padding-bottom: 8px;
+  padding-left: calc(var(--mac-titlebar-safe-left) + 8px);
+  padding-right: calc(var(--mac-titlebar-safe-right) + 6px);
 }
 .workspace-tab {
   display: flex; align-items: center; gap: 6px;
@@ -251,7 +271,7 @@ html.dark .app-modal-header {
 /* ── Three-column studio body ───────────────────────────────────────────── */
 .studio {
   display: grid;
-  grid-template-columns: 360px minmax(0, 1fr) 280px;
+  grid-template-columns: 408px minmax(0, 1fr) 352px;
   width: 100%;
   flex: 1 1 0;
   min-height: 0;
@@ -1595,7 +1615,7 @@ html[data-target-platform="android"] .history-rail .grid {
 
 .history-rail-stack-compact {
   width: 100%;
-  max-width: 264px;
+  max-width: 320px;
   margin-inline: auto;
 }
 
@@ -1612,7 +1632,7 @@ html[data-target-platform="android"] .history-rail-grid-compact {
 .history-rail-grid {
   display: grid;
   width: 100%;
-  gap: 10px;
+  gap: 12px;
   align-content: start;
   min-width: 0;
   box-sizing: border-box;

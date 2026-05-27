@@ -1,11 +1,11 @@
 import type { QualityValue, SizeValue } from "../../types/domain";
 
-export const STYLE_CHIPS: { id: string; label: string }[] = [
-  { id: "cyberpunk", label: "赛博朋克" },
-  { id: "anime", label: "二次元" },
-  { id: "illust", label: "插画" },
-  { id: "3d", label: "3D 渲染" },
-  { id: "chinese", label: "国风" },
+export const STYLE_CHIPS: { id: string; label: string; hint: string }[] = [
+  { id: "cyberpunk", label: "赛博朋克", hint: "霓虹夜景" },
+  { id: "anime", label: "二次元", hint: "动画上色" },
+  { id: "illust", label: "插画", hint: "扁平绘制" },
+  { id: "3d", label: "3D 渲染", hint: "体积光泽" },
+  { id: "chinese", label: "国风", hint: "水墨意境" },
 ];
 
 // auto 不展示具体方框形状,留给上游决定。
@@ -19,8 +19,8 @@ export const ASPECT_OPTIONS: { value: SizeValue; label: string; w: number; h: nu
 ];
 
 export const QUALITY_TIERS: { value: QualityValue; label: string }[] = [
-  { value: "auto", label: "Auto" },
-  { value: "low", label: "1K" },
-  { value: "medium", label: "2K" },
-  { value: "high", label: "4K" },
+  { value: "auto", label: "自动" },
+  { value: "low", label: "快速" },
+  { value: "medium", label: "标准" },
+  { value: "high", label: "精修" },
 ];

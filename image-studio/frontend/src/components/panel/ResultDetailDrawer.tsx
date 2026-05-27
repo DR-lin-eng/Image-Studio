@@ -1,28 +1,13 @@
 import { ClipboardCopy, Folder, RotateCw, Save, Sparkles } from "lucide-react";
 import { useStudioStore } from "../../state/studioStore";
-import type { HistoryItem, SizeValue } from "../../types/domain";
+import type { HistoryItem } from "../../types/domain";
 import { SaveImageAs, OpenOutputDir } from "../../platform/runtime/host";
 import { submitShortcutLabel } from "../../platform";
 import { useBlobURL } from "../../lib/images";
 import { androidSaveHint, androidTarget, openOutputLocationForPlatform, saveImageForPlatform } from "../../platform/android/bridge";
 import { Modal } from "../common/Modal";
 import { usePlatform } from "../../platform/context";
-
-const ASPECT_LABEL: Record<SizeValue, string> = {
-  auto: "auto",
-  "1024x1024": "1:1",
-  "1024x1536": "2:3",
-  "1152x2048": "9:16",
-  "1536x1024": "3:2",
-  "2048x1152": "16:9",
-};
-
-const QUALITY_LABEL: Record<string, string> = {
-  low: "1K",
-  medium: "2K",
-  high: "4K",
-  auto: "自动",
-};
+import { qualityLabel, sizeLabel } from "../history/historyLabels";
 
 export function ResultDetailDrawer() {
   const item = useStudioStore((s) => s.resultDetail);
@@ -34,8 +19,6 @@ export function ResultDetailDrawer() {
   if (!item) return null;
   const detail = item;
 
-  const aspect = ASPECT_LABEL[detail.size as SizeValue] ?? "";
-  const quality = QUALITY_LABEL[detail.quality] ?? detail.quality;
   const created = new Date(detail.createdAt).toLocaleString();
   const previewURL = useBlobURL(detail.imageBlob ?? null, detail.previewOnly ? detail.imageB64 : null);
 
@@ -88,8 +71,8 @@ export function ResultDetailDrawer() {
         <div className="space-y-4">
           <Section title="参数">
             <Kv label="模式" value={detail.mode === "edit" ? "图生图" : "文生图"} />
-            <Kv label="尺寸" value={`${detail.size}${aspect ? ` · ${aspect}` : ""}`} />
-            <Kv label="质量" value={quality} />
+            <Kv label="尺寸" value={sizeLabel(detail.size)} />
+            <Kv label="质量" value={qualityLabel(detail.quality)} />
             {detail.seed ? <Kv label="种子" value={String(detail.seed)} mono /> : null}
             {detail.styleTag ? <Kv label="风格" value={`#${detail.styleTag}`} /> : null}
             {typeof detail.elapsedSec === "number" ? <Kv label="耗时" value={`${detail.elapsedSec.toFixed(1)}s`} /> : null}
@@ -211,5 +194,3 @@ function Btn({ children, onClick, primary }: {
     </button>
   );
 }
-
-export type _UnusedHi = HistoryItem;

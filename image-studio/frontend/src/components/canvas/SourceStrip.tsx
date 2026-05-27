@@ -10,7 +10,7 @@ export function SourceStrip() {
   const reorderSources = useStudioStore((s) => s.reorderSources);
   const mode = useStudioStore((s) => s.mode);
   const selectSourceImage = useStudioStore((s) => s.selectSourceImage);
-  const { isWindows, usesAppleUI } = usePlatform();
+  const { isMac, isWindows, usesAppleUI } = usePlatform();
 
   const [dragFrom, setDragFrom] = useState<number | null>(null);
   const [overIdx, setOverIdx] = useState<number | null>(null);
@@ -19,8 +19,17 @@ export function SourceStrip() {
   if (sources.length === 0) return null;
 
   return (
-    <div className={`source-strip flex items-center gap-2 overflow-x-auto border-b border-[var(--border)] bg-[var(--toolbar)] px-3 py-2 backdrop-blur-2xl ${usesAppleUI ? "liquid-glass-bar" : ""}`}>
-      <span className="source-strip-label text-[11px] text-zinc-500 shrink-0">参考图 {sources.length} 张:</span>
+    <div className={`source-strip border-b border-[var(--border)] bg-[var(--toolbar)] backdrop-blur-2xl ${usesAppleUI ? "liquid-glass-bar" : ""} ${isMac ? "px-3 py-2.5" : "px-3 py-2"}`}>
+      <div className={`flex ${isMac ? "items-start justify-between gap-3" : "items-center gap-2"} overflow-x-auto`}>
+        <div className="min-w-0 shrink-0">
+          <div className="source-strip-label text-[11px] text-zinc-500 shrink-0">参考图 {sources.length} 张</div>
+          {isMac && (
+            <div className="mt-0.5 text-[11px] leading-5 text-zinc-500 dark:text-zinc-400">
+              图生图时常驻显示，支持拖拽排序和继续追加参考图。
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-2 overflow-x-auto">
       {sources.map((s, i) => (
         <SourceTile
           key={s.path}
@@ -41,6 +50,8 @@ export function SourceStrip() {
       >
         <Plus className="w-4 h-4" />
       </button>
+        </div>
+      </div>
     </div>
   );
 }

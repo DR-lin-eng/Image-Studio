@@ -54,6 +54,10 @@
   --window-outline: rgb(255 255 255 / 0.42);
   --window-outline-dark: rgb(255 255 255 / 0.06);
   --header-height: 58px;
+  --mac-titlebar-safe-left: 110px;
+  --mac-titlebar-safe-right: 18px;
+  --mac-titlebar-top-pad: 10px;
+  --mac-titlebar-bottom-pad: 8px;
   --tab-radius: 999px;
   --card-radius: 18px;
   --control-radius: 999px;
@@ -96,8 +100,8 @@
   --border: rgb(84 84 88 / 0.52);
   --border-2: rgb(84 84 88 / 0.72);
   --text: #f5f5f7;
-  --text-muted: rgb(235 235 245 / 0.68);
-  --text-dim: rgb(235 235 245 / 0.4);
+  --text-muted: rgb(235 235 245 / 0.78);
+  --text-dim: rgb(235 235 245 / 0.54);
   --danger: #ff453a;
   --danger-soft: rgb(255 69 58 / 0.14);
   --success: #30d158;
@@ -696,6 +700,13 @@ html[data-ui-family="apple"] .liquid-primary-button {
     color 140ms ease,
     transform 120ms ease,
     opacity 140ms ease;
+}
+
+html[data-ui-family="apple"] .platform-pill,
+html[data-ui-family="apple"] .platform-action-btn,
+html[data-ui-family="apple"] .liquid-primary-button {
+  min-height: 34px;
+  line-height: 1.2;
 }
 
 html.dark[data-ui-family="apple"] .platform-seg,

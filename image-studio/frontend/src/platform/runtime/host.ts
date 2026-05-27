@@ -7,10 +7,6 @@ import {
 } from "./remoteKernel.ts";
 import { normalizeRequestPolicy } from "../../../../../shared/kernel/requestModel.js";
 import {
-  hasAndroidInvokeBridge,
-  invokeAndroidNative,
-} from "../android/nativeInvoke.ts";
-import {
   cropVirtualImage,
   flipVirtualImage,
   isVirtualPath,
@@ -22,103 +18,39 @@ import {
   registerVirtualText,
   rotateVirtualImage,
 } from "../../lib/virtualHostStore.ts";
+import {
+  browserStoredAPIKey,
+  fileNameFromPath,
+  saveByDownload,
+  setBrowserStoredAPIKey,
+} from "./hostBrowser.ts";
+import {
+  clearLocalEvents,
+  emitLocalEvent,
+  getForcedKernelRuntimeMode,
+  onLocalEvent,
+  setForcedKernelRuntimeMode,
+} from "./hostEvents.ts";
+import {
+  canInvokeAndroidMethod,
+  getRuntime,
+  hasServiceMethod,
+  invokeAndroid,
+  invokeService,
+} from "./hostBindings.ts";
+import type {
+  GenerateOptionsLike,
+  HostCapabilities,
+  HostKind,
+  ImageTransformResultLike,
+  ImportedImageLike,
+  JobStartedLike,
+  KernelRuntimeMode,
+  PromptOptimizeOptionsLike,
+  SelectFileResponseLike,
+} from "./hostTypes.ts";
 
-type AnyFn = (...args: any[]) => any;
-type ServiceBinding = Record<string, AnyFn>;
-type RuntimeBinding = {
-  EventsOnMultiple?: (eventName: string, callback: (...args: any[]) => void, maxCallbacks?: number) => () => void;
-  EventsOff?: (eventName: string, ...additionalEventNames: string[]) => void;
-  WindowSetSystemDefaultTheme?: () => void;
-  WindowSetLightTheme?: () => void;
-  WindowSetDarkTheme?: () => void;
-};
-
-type GenerateOptionsLike = {
-  apiKey: string;
-  mode: string;
-  prompt: string;
-  size: string;
-  quality: string;
-  outputFormat: string;
-  imagePaths: string[];
-  imagePath: string;
-  maskB64: string;
-  seed: number;
-  negativePrompt: string;
-  baseURL: string;
-  textModelID: string;
-  imageModelID: string;
-  apiMode: string;
-  requestPolicy: string;
-  noPromptRevision: boolean;
-  concurrencyLimit?: number;
-};
-
-type PromptOptimizeOptionsLike = {
-  apiKey: string;
-  prompt: string;
-  mode: string;
-  baseURL: string;
-  textModelID: string;
-  imagePaths: string[];
-  imagePath: string;
-};
-
-type JobStartedLike = { jobId: string };
-type ImportedImageLike = { path: string; imageB64: string };
-type ImageTransformResultLike = { path: string; acceleration?: string };
-type SelectFileResponseLike = { path: string; size: number; imageB64?: string };
-
-export type HostKind = "wails-desktop" | "android-shell" | "browser";
-
-export type HostCapabilities = {
-  localGeneration: boolean;
-  promptOptimization: boolean;
-  nativeFileDialogs: boolean;
-  nativeImageTransforms: boolean;
-  nativeHistoryFileIO: boolean;
-  nativeOutputDirectoryPicker: boolean;
-  secureCredentialStore: boolean;
-};
-
-export type KernelRuntimeMode = "auto" | "local" | "remote";
-
-type BrowserWindow = Window & {
-  go?: {
-    backend?: {
-      Service?: ServiceBinding;
-    };
-  };
-  runtime?: RuntimeBinding;
-  AndroidImageStudio?: {
-    invoke?: (requestId: string, method: string, payloadJson: string) => void;
-  };
-  __imageStudioNativeResolve?: (requestId: string, payload: unknown) => void;
-  __imageStudioNativeReject?: (requestId: string, message: string) => void;
-};
-
-const browserKeyPrefix = "image-studio.browser-key.";
-const localEventListeners = new Map<string, Set<(...args: any[]) => void>>();
 const remoteJobControllers = new Map<string, AbortController>();
-let forcedKernelRuntimeMode: KernelRuntimeMode = "auto";
-
-function getService(): ServiceBinding | null {
-  if (typeof window === "undefined") return null;
-  return (window as BrowserWindow).go?.backend?.Service ?? null;
-}
-
-function getRuntime(): RuntimeBinding | null {
-  if (typeof window === "undefined") return null;
-  return (window as BrowserWindow).runtime ?? null;
-}
-
-function hasServiceMethod(name: string): boolean {
-  return typeof getService()?.[name] === "function";
-}
-
-function canInvokeAndroidMethod(_name: string): boolean {
-  return hasAndroidInvokeBridge();
-}
 
 function unsupportedMessage(method: string): string {
   const kind = detectHostKind();
@@ -131,27 +63,6 @@ function unsupportedMessage(method: string): string {
   return `宿主未暴露 ${method} 能力`;
 }
 
-function invokeService<T>(method: string, ...args: unknown[]): Promise<T> {
-  const fn = getService()?.[method];
-  if (typeof fn !== "function") {
-    return Promise.reject(new Error(unsupportedMessage(method)));
-  }
-  try {
-    return Promise.resolve(fn(...args)) as Promise<T>;
-  } catch (error) {
-    return Promise.reject(error);
-  }
-}
-
-function invokeAndroid<T>(method: string, ...args: unknown[]): Promise<T> {
-  return invokeAndroidNative<T>(method, ...args).catch((error) => {
-    if (String((error as any)?.message || "").includes("当前 Android shell 未提供")) {
-      return Promise.reject(new Error(unsupportedMessage(method)));
-    }
-    return Promise.reject(error);
-  });
-}
-
 function makeJobID(): string {
   try {
     if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -161,70 +72,6 @@ function makeJobID(): string {
     // ignore
   }
   return `job-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-}
-
-function emitLocalEvent(eventName: string, payload: unknown) {
-  const bucket = localEventListeners.get(eventName);
-  if (!bucket) return;
-  for (const listener of Array.from(bucket)) {
-    try {
-      listener(payload);
-    } catch {
-      // ignore listener errors
-    }
-  }
-}
-
-function onLocalEvent(eventName: string, callback: (...args: any[]) => void) {
-  const bucket = localEventListeners.get(eventName) ?? new Set<(...args: any[]) => void>();
-  bucket.add(callback);
-  localEventListeners.set(eventName, bucket);
-  return () => {
-    const existing = localEventListeners.get(eventName);
-    if (!existing) return;
-    existing.delete(callback);
-    if (existing.size === 0) localEventListeners.delete(eventName);
-  };
-}
-
-function clearLocalEvents(...eventNames: string[]) {
-  for (const eventName of eventNames) {
-    localEventListeners.delete(eventName);
-  }
-}
-
-function saveByDownload(blob: Blob, suggestedName: string): string {
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = suggestedName;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  globalThis.setTimeout(() => URL.revokeObjectURL(url), 15_000);
-  return suggestedName;
-}
-
-function browserStoredAPIKey(user: string): string {
-  try {
-    return localStorage.getItem(browserKeyPrefix + user) ?? "";
-  } catch {
-    return "";
-  }
-}
-
-function setBrowserStoredAPIKey(user: string, value: string) {
-  try {
-    if (value.trim()) localStorage.setItem(browserKeyPrefix + user, value.trim());
-    else localStorage.removeItem(browserKeyPrefix + user);
-  } catch {
-    // ignore
-  }
-}
-
-function fileNameFromPath(path: string | undefined): string {
-  if (!path) return "image.png";
-  return path.split(/[\\/]/).pop() || "image.png";
 }
 
 function supportsDesktopNativeGPUTransforms(): boolean {
@@ -282,7 +129,7 @@ async function importHistoryFallback(): Promise<string> {
 }
 
 async function startRemoteJob(options: GenerateOptionsLike): Promise<JobStartedLike> {
-  const jobId = makeJobID();
+  const jobId = options.requestedJobId?.trim() || makeJobID();
   const controller = new AbortController();
   remoteJobControllers.set(jobId, controller);
   void (async () => {
@@ -334,18 +181,18 @@ export function detectHostKind(): HostKind {
 }
 
 export function setKernelRuntimeMode(mode: KernelRuntimeMode) {
-  forcedKernelRuntimeMode = mode;
+  setForcedKernelRuntimeMode(mode);
 }
 
 export function getKernelRuntimeMode(): KernelRuntimeMode {
-  return forcedKernelRuntimeMode;
+  return getForcedKernelRuntimeMode();
 }
 
 export function getHostCapabilities(): HostCapabilities {
   const kind = detectHostKind();
   const localGenerationCapable = kind === "wails-desktop" && hasServiceMethod("Generate") && hasServiceMethod("Edit");
   const localPromptOptimizeCapable = kind === "wails-desktop" && hasServiceMethod("OptimizePrompt");
-  const localModeEnabled = forcedKernelRuntimeMode !== "remote";
+  const localModeEnabled = getForcedKernelRuntimeMode() !== "remote";
   return {
     localGeneration: localGenerationCapable && localModeEnabled,
     promptOptimization: localPromptOptimizeCapable && localModeEnabled,
@@ -390,31 +237,31 @@ export function WindowSetDarkTheme() {
 }
 
 export function Generate(options: GenerateOptionsLike): Promise<JobStartedLike> {
-  if (forcedKernelRuntimeMode === "local" && detectHostKind() !== "wails-desktop") {
+  if (getForcedKernelRuntimeMode() === "local" && detectHostKind() !== "wails-desktop") {
     return Promise.reject(new Error("当前宿主不支持强制本地内核"));
   }
   if (getHostCapabilities().localGeneration) {
-    return invokeService<JobStartedLike>("Generate", options);
+    return invokeService<JobStartedLike>(unsupportedMessage, "Generate", options);
   }
   return startRemoteJob({ ...options, mode: "generate" });
 }
 
 export function Edit(options: GenerateOptionsLike): Promise<JobStartedLike> {
-  if (forcedKernelRuntimeMode === "local" && detectHostKind() !== "wails-desktop") {
+  if (getForcedKernelRuntimeMode() === "local" && detectHostKind() !== "wails-desktop") {
     return Promise.reject(new Error("当前宿主不支持强制本地内核"));
   }
   if (getHostCapabilities().localGeneration) {
-    return invokeService<JobStartedLike>("Edit", options);
+    return invokeService<JobStartedLike>(unsupportedMessage, "Edit", options);
   }
   return startRemoteJob({ ...options, mode: "edit" });
 }
 
 export function OptimizePrompt(options: PromptOptimizeOptionsLike): Promise<string> {
-  if (forcedKernelRuntimeMode === "local" && detectHostKind() !== "wails-desktop") {
+  if (getForcedKernelRuntimeMode() === "local" && detectHostKind() !== "wails-desktop") {
     return Promise.reject(new Error("当前宿主不支持强制本地内核"));
   }
   if (getHostCapabilities().promptOptimization) {
-    return invokeService<string>("OptimizePrompt", options);
+    return invokeService<string>(unsupportedMessage, "OptimizePrompt", options);
   }
   const controller = new AbortController();
   return optimizePromptRemote({
@@ -436,40 +283,40 @@ export function Cancel(jobId: string): Promise<void> {
     return Promise.resolve();
   }
   if (hasServiceMethod("Cancel")) {
-    return invokeService<void>("Cancel", jobId);
+    return invokeService<void>(unsupportedMessage, "Cancel", jobId);
   }
   if (canInvokeAndroidMethod("Cancel")) {
-    return invokeAndroid<void>("Cancel", jobId).catch(() => undefined);
+    return invokeAndroid<void>(unsupportedMessage, "Cancel", jobId).catch(() => undefined);
   }
   return Promise.resolve();
 }
 
 export function OpenImageDialog(): Promise<SelectFileResponseLike> {
   if (hasServiceMethod("OpenImageDialog")) {
-    return invokeService<SelectFileResponseLike>("OpenImageDialog").catch(() => openImageDialogFallback());
+    return invokeService<SelectFileResponseLike>(unsupportedMessage, "OpenImageDialog").catch(() => openImageDialogFallback());
   }
   if (canInvokeAndroidMethod("OpenImageDialog")) {
-    return invokeAndroid<SelectFileResponseLike>("OpenImageDialog").catch(() => openImageDialogFallback());
+    return invokeAndroid<SelectFileResponseLike>(unsupportedMessage, "OpenImageDialog").catch(() => openImageDialogFallback());
   }
   return openImageDialogFallback();
 }
 
 export function GetOutputDir(): Promise<string> {
   if (hasServiceMethod("GetOutputDir")) {
-    return invokeService<string>("GetOutputDir");
+    return invokeService<string>(unsupportedMessage, "GetOutputDir");
   }
   if (canInvokeAndroidMethod("GetOutputDir")) {
-    return invokeAndroid<string>("GetOutputDir");
+    return invokeAndroid<string>(unsupportedMessage, "GetOutputDir");
   }
   return Promise.resolve("");
 }
 
 export function DeleteStoredAPIKey(user: string): Promise<void> {
   if (hasServiceMethod("DeleteStoredAPIKey")) {
-    return invokeService<void>("DeleteStoredAPIKey", user);
+    return invokeService<void>(unsupportedMessage, "DeleteStoredAPIKey", user);
   }
   if (canInvokeAndroidMethod("DeleteStoredAPIKey")) {
-    return invokeAndroid<void>("DeleteStoredAPIKey", user);
+    return invokeAndroid<void>(unsupportedMessage, "DeleteStoredAPIKey", user);
   }
   setBrowserStoredAPIKey(user, "");
   return Promise.resolve();
@@ -477,20 +324,20 @@ export function DeleteStoredAPIKey(user: string): Promise<void> {
 
 export function GetStoredAPIKey(user: string): Promise<string> {
   if (hasServiceMethod("GetStoredAPIKey")) {
-    return invokeService<string>("GetStoredAPIKey", user);
+    return invokeService<string>(unsupportedMessage, "GetStoredAPIKey", user);
   }
   if (canInvokeAndroidMethod("GetStoredAPIKey")) {
-    return invokeAndroid<string>("GetStoredAPIKey", user);
+    return invokeAndroid<string>(unsupportedMessage, "GetStoredAPIKey", user);
   }
   return Promise.resolve(browserStoredAPIKey(user));
 }
 
 export function SetStoredAPIKey(user: string, value: string): Promise<void> {
   if (hasServiceMethod("SetStoredAPIKey")) {
-    return invokeService<void>("SetStoredAPIKey", user, value);
+    return invokeService<void>(unsupportedMessage, "SetStoredAPIKey", user, value);
   }
   if (canInvokeAndroidMethod("SetStoredAPIKey")) {
-    return invokeAndroid<void>("SetStoredAPIKey", user, value);
+    return invokeAndroid<void>(unsupportedMessage, "SetStoredAPIKey", user, value);
   }
   setBrowserStoredAPIKey(user, value);
   return Promise.resolve();
@@ -498,7 +345,7 @@ export function SetStoredAPIKey(user: string, value: string): Promise<void> {
 
 export function SaveImageAs(imageB64: string, suggestedName: string): Promise<string> {
   if (hasServiceMethod("SaveImageAs")) {
-    return invokeService<string>("SaveImageAs", imageB64, suggestedName);
+    return invokeService<string>(unsupportedMessage, "SaveImageAs", imageB64, suggestedName);
   }
   const mimeType = suggestedName.toLowerCase().endsWith(".jpg") || suggestedName.toLowerCase().endsWith(".jpeg")
     ? "image/jpeg"
@@ -510,11 +357,11 @@ export function SaveImageAs(imageB64: string, suggestedName: string): Promise<st
 
 export function ImportImageFromB64(imageB64: string, suggestedName: string): Promise<ImportedImageLike> {
   if (hasServiceMethod("ImportImageFromB64")) {
-    return invokeService<ImportedImageLike>("ImportImageFromB64", imageB64, suggestedName)
+    return invokeService<ImportedImageLike>(unsupportedMessage, "ImportImageFromB64", imageB64, suggestedName)
       .catch(() => registerVirtualImage({ imageB64, suggestedName }));
   }
   if (canInvokeAndroidMethod("ImportImageFromB64")) {
-    return invokeAndroid<ImportedImageLike>("ImportImageFromB64", imageB64, suggestedName)
+    return invokeAndroid<ImportedImageLike>(unsupportedMessage, "ImportImageFromB64", imageB64, suggestedName)
       .catch(() => registerVirtualImage({ imageB64, suggestedName }));
   }
   return Promise.resolve(registerVirtualImage({ imageB64, suggestedName }));
@@ -525,7 +372,7 @@ export function RotateImage(path: string, degrees: number): Promise<ImageTransfo
     return rotateVirtualImage(path, degrees).then((result) => ({ path: result.path, acceleration: result.acceleration || "cpu-canvas" }));
   }
   if (supportsDesktopNativeGPUTransforms()) {
-    return invokeService<ImageTransformResultLike>("RotateImage", path, degrees);
+    return invokeService<ImageTransformResultLike>(unsupportedMessage, "RotateImage", path, degrees);
   }
   return materializeReadablePathAsVirtual(path).then(async (imported) => {
     const result = await rotateVirtualImage(imported.path, degrees);
@@ -538,7 +385,7 @@ export function FlipImage(path: string, horizontal: boolean): Promise<ImageTrans
     return flipVirtualImage(path, horizontal).then((result) => ({ path: result.path, acceleration: result.acceleration || "cpu-canvas" }));
   }
   if (supportsDesktopNativeGPUTransforms()) {
-    return invokeService<ImageTransformResultLike>("FlipImage", path, horizontal);
+    return invokeService<ImageTransformResultLike>(unsupportedMessage, "FlipImage", path, horizontal);
   }
   return materializeReadablePathAsVirtual(path).then(async (imported) => {
     const result = await flipVirtualImage(imported.path, horizontal);
@@ -551,7 +398,7 @@ export function CropImage(path: string, x: number, y: number, width: number, hei
     return cropVirtualImage(path, x, y, width, height).then((result) => ({ path: result.path, acceleration: result.acceleration || "cpu-canvas" }));
   }
   if (supportsDesktopNativeGPUTransforms()) {
-    return invokeService<ImageTransformResultLike>("CropImage", path, x, y, width, height);
+    return invokeService<ImageTransformResultLike>(unsupportedMessage, "CropImage", path, x, y, width, height);
   }
   return materializeReadablePathAsVirtual(path).then(async (imported) => {
     const result = await cropVirtualImage(imported.path, x, y, width, height);
@@ -564,68 +411,68 @@ export function ReadImageAsBase64(path: string): Promise<string> {
     return Promise.resolve(readVirtualImageAsBase64(path));
   }
   if (canInvokeAndroidMethod("ReadImageAsBase64")) {
-    return invokeAndroid<string>("ReadImageAsBase64", path);
+    return invokeAndroid<string>(unsupportedMessage, "ReadImageAsBase64", path);
   }
-  return invokeService<string>("ReadImageAsBase64", path);
+  return invokeService<string>(unsupportedMessage, "ReadImageAsBase64", path);
 }
 
 export function ExportHistoryToFile(jsonContent: string): Promise<string> {
   if (hasServiceMethod("ExportHistoryToFile")) {
-    return invokeService<string>("ExportHistoryToFile", jsonContent);
+    return invokeService<string>(unsupportedMessage, "ExportHistoryToFile", jsonContent);
   }
   return Promise.resolve(saveByDownload(new Blob([jsonContent], { type: "application/json" }), `image-studio-history-${Date.now()}.json`));
 }
 
 export function ImportHistoryFromFile(): Promise<string> {
   if (hasServiceMethod("ImportHistoryFromFile")) {
-    return invokeService<string>("ImportHistoryFromFile");
+    return invokeService<string>(unsupportedMessage, "ImportHistoryFromFile");
   }
   if (canInvokeAndroidMethod("ImportHistoryFromFile")) {
-    return invokeAndroid<string>("ImportHistoryFromFile");
+    return invokeAndroid<string>(unsupportedMessage, "ImportHistoryFromFile");
   }
   return importHistoryFallback();
 }
 
 export function RegisterTrustedOutputDir(root: string): Promise<void> {
   if (hasServiceMethod("RegisterTrustedOutputDir")) {
-    return invokeService<void>("RegisterTrustedOutputDir", root);
+    return invokeService<void>(unsupportedMessage, "RegisterTrustedOutputDir", root);
   }
   return Promise.resolve();
 }
 
 export function SetOutputDir(path: string): Promise<void> {
   if (hasServiceMethod("SetOutputDir")) {
-    return invokeService<void>("SetOutputDir", path);
+    return invokeService<void>(unsupportedMessage, "SetOutputDir", path);
   }
   if (canInvokeAndroidMethod("SetOutputDir")) {
-    return invokeAndroid<void>("SetOutputDir", path);
+    return invokeAndroid<void>(unsupportedMessage, "SetOutputDir", path);
   }
   return Promise.resolve();
 }
 
 export function ChooseOutputDir(): Promise<string> {
   if (hasServiceMethod("ChooseOutputDir")) {
-    return invokeService<string>("ChooseOutputDir");
+    return invokeService<string>(unsupportedMessage, "ChooseOutputDir");
   }
   if (canInvokeAndroidMethod("ChooseOutputDir")) {
-    return invokeAndroid<string>("ChooseOutputDir");
+    return invokeAndroid<string>(unsupportedMessage, "ChooseOutputDir");
   }
   return GetOutputDir();
 }
 
 export function OpenOutputDir(): Promise<void> {
   if (hasServiceMethod("OpenOutputDir")) {
-    return invokeService<void>("OpenOutputDir");
+    return invokeService<void>(unsupportedMessage, "OpenOutputDir");
   }
   if (canInvokeAndroidMethod("OpenOutputDir")) {
-    return invokeAndroid<void>("OpenOutputDir");
+    return invokeAndroid<void>(unsupportedMessage, "OpenOutputDir");
   }
   return Promise.reject(new Error(unsupportedMessage("OpenOutputDir")));
 }
 
 export function OpenExternalURL(url: string): Promise<void> {
   if (canInvokeAndroidMethod("OpenExternalURL")) {
-    return invokeAndroid<void>("OpenExternalURL", url).catch(() => {
+    return invokeAndroid<void>(unsupportedMessage, "OpenExternalURL", url).catch(() => {
       const opened = typeof window !== "undefined" ? window.open(url, "_blank", "noopener,noreferrer") : null;
       if (!opened && typeof window !== "undefined") window.location.href = url;
     });
@@ -638,7 +485,7 @@ export function OpenExternalURL(url: string): Promise<void> {
     }
     return Promise.reject(new Error(unsupportedMessage("OpenExternalURL")));
   }
-  return invokeService<void>("OpenExternalURL", url);
+  return invokeService<void>(unsupportedMessage, "OpenExternalURL", url);
 }
 
 export function OpenFile(path: string): Promise<void> {
@@ -646,9 +493,9 @@ export function OpenFile(path: string): Promise<void> {
     return openVirtualPath(path);
   }
   if (canInvokeAndroidMethod("OpenFile")) {
-    return invokeAndroid<void>("OpenFile", path);
+    return invokeAndroid<void>(unsupportedMessage, "OpenFile", path);
   }
-  return invokeService<void>("OpenFile", path);
+  return invokeService<void>(unsupportedMessage, "OpenFile", path);
 }
 
 export function ReadTextFile(path: string): Promise<string> {
@@ -656,9 +503,9 @@ export function ReadTextFile(path: string): Promise<string> {
     return Promise.resolve(readVirtualText(path));
   }
   if (canInvokeAndroidMethod("ReadTextFile")) {
-    return invokeAndroid<string>("ReadTextFile", path);
+    return invokeAndroid<string>(unsupportedMessage, "ReadTextFile", path);
   }
-  return invokeService<string>("ReadTextFile", path);
+  return invokeService<string>(unsupportedMessage, "ReadTextFile", path);
 }
 
 export function probeCurrentUpstream(baseURL: string, apiKey: string, signal?: AbortSignal): Promise<void> {

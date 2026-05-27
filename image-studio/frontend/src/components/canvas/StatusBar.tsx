@@ -1,6 +1,9 @@
 import { CheckCircle2, Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useStudioStore } from "../../state/studioStore";
 import { usePlatform } from "../../platform/context";
+import { HistoryMetaBadges } from "../history/HistoryMetaBadges";
+import { qualityLabel, sizeLabel } from "../history/historyLabels";
 
 function fmtBytes(b: number): string {
   if (b < 1024) return `${b} B`;
@@ -11,6 +14,8 @@ function fmtBytes(b: number): string {
 export function StatusBar() {
   const { isRunning, progress, currentImage, lastLogLine, viewZoom, recentDurations, jobsTotal, jobsCompleted, runningJobs } = useStudioStore();
   const { isAndroidPhone, isMac, isWindows, usesAppleUI } = usePlatform();
+  const [clockNow, setClockNow] = useState(() => Date.now());
+  const [progressAnchor, setProgressAnchor] = useState(() => ({ elapsed: 0, at: Date.now() }));
   const zoomLabel = currentImage ? `${Math.round(viewZoom * 100)}%` : "";
   const avg = recentDurations.length > 0
     ? recentDurations.reduce((a, b) => a + b, 0) / recentDurations.length
@@ -18,6 +23,24 @@ export function StatusBar() {
   const eta = isRunning && progress && avg > 0
     ? Math.max(0, Math.round(avg - progress.elapsed))
     : null;
+  const liveElapsedSeconds = progress
+    ? Math.max(progress.elapsed, progressAnchor.elapsed + (clockNow - progressAnchor.at) / 1000)
+    : 0;
+
+  useEffect(() => {
+    if (!isRunning) return undefined;
+    const timer = window.setInterval(() => setClockNow(Date.now()), 100);
+    return () => window.clearInterval(timer);
+  }, [isRunning]);
+
+  useEffect(() => {
+    if (!progress) return;
+    setProgressAnchor({ elapsed: progress.elapsed, at: Date.now() });
+  }, [progress?.elapsed, progress?.stage]);
+
+  function formatElapsed(seconds: number): string {
+    return `${seconds.toFixed(1)}s`;
+  }
 
   if (isRunning) {
     return (
@@ -26,8 +49,8 @@ export function StatusBar() {
         <span className="font-medium">
           {progress
             ? isMac
-              ? `${progress.stage} · ${progress.elapsed}s`
-              : `${progress.stage} · ${progress.elapsed}s · ${fmtBytes(progress.bytes)}`
+              ? `${progress.stage} · ${formatElapsed(liveElapsedSeconds)}`
+              : `${progress.stage} · ${formatElapsed(liveElapsedSeconds)} · ${fmtBytes(progress.bytes)}`
             : "正在请求..."}
         </span>
         {jobsTotal > 1 && (
@@ -46,18 +69,18 @@ export function StatusBar() {
     );
   }
   if (currentImage) {
-    const metaParts: string[] = [];
-    metaParts.push(currentImage.mode === "edit" ? "编辑" : "生成");
-    metaParts.push(currentImage.size);
-    metaParts.push(currentImage.quality);
-    if (currentImage.elapsedSec) metaParts.push(`${currentImage.elapsedSec}s`);
-    if (!isMac && currentImage.seed) metaParts.push(`seed ${currentImage.seed}`);
-    if (!isMac && currentImage.styleTag) metaParts.push(`#${currentImage.styleTag}`);
+    const headline = currentImage.mode === "edit" ? "编辑结果" : "生成结果";
+    const metaBadges = [sizeLabel(currentImage.size), qualityLabel(currentImage.quality)];
+    if (currentImage.elapsedSec) metaBadges.push(`${currentImage.elapsedSec}s`);
+    if (!isMac && currentImage.seed) metaBadges.push(`seed ${currentImage.seed}`);
+    if (!isMac && currentImage.styleTag) metaBadges.push(`#${currentImage.styleTag}`);
     return (
       <div className={`flex items-center gap-3 overflow-hidden border-t border-[var(--border)] bg-[var(--toolbar)] px-3 py-2 text-[11px] text-zinc-600 backdrop-blur-2xl dark:text-zinc-400 ${usesAppleUI ? "liquid-glass-bar" : ""} ${isWindows ? "min-h-[34px]" : ""} ${isAndroidPhone ? "min-h-[30px]" : ""} ${isMac ? "min-h-[28px]" : ""}`}>
         <span className="inline-flex shrink-0 items-center gap-1.5 text-[var(--accent)]">
-          <CheckCircle2 className="w-3 h-3" /> <span className="font-medium">{metaParts.join(" · ")}</span>
+          <CheckCircle2 className="w-3 h-3" />
+          <span className="font-medium">{headline}</span>
         </span>
+        <HistoryMetaBadges items={metaBadges} compact className="opacity-90" />
         {!isAndroidPhone && !isMac && <span className="text-zinc-500 font-mono-token">{new Date(currentImage.createdAt).toLocaleTimeString()}</span>}
         {!isAndroidPhone && !isMac && currentImage.revisedPrompt && (
           <span className="text-zinc-500 truncate flex-1 italic" title={currentImage.revisedPrompt}>

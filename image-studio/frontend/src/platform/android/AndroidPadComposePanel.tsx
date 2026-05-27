@@ -14,11 +14,13 @@ import { AndroidPadSourceSection } from "./AndroidPadSourceSection";
 import { AndroidPromptTemplateModal } from "./AndroidPromptTemplateModal";
 import {
   availableResolutionPresets,
-  buildSizeSelection,
   deriveAspectPreset,
   deriveResolutionPreset,
-  normalizeResolutionSelection,
 } from "../../components/panel/sizeCapabilities";
+import {
+  buildAndroidAspectSizeSelection,
+  buildAndroidResolutionSizeSelection,
+} from "./parameters/androidSizeSelection";
 
 export function AndroidPadComposePanel() {
   const {
@@ -49,15 +51,15 @@ export function AndroidPadComposePanel() {
   const editSourceLabel = sources.length > 0 ? `${sources.length} 张已添加` : currentImage?.savedPath ? "使用当前画板" : "未添加";
 
   const handleAspectSelect = (aspect: typeof activeAspect) => {
-    setField("size", buildSizeSelection(
+    setField("size", buildAndroidAspectSizeSelection(
       aspect,
-      normalizeResolutionSelection(activeResolution, { apiMode, requestPolicy, imageModelID }),
+      activeResolution,
       { apiMode, requestPolicy, imageModelID },
     ));
   };
 
   const handleResolutionSelect = (resolution: typeof activeResolution) => {
-    setField("size", buildSizeSelection(
+    setField("size", buildAndroidResolutionSizeSelection(
       activeAspect,
       resolution,
       { apiMode, requestPolicy, imageModelID },

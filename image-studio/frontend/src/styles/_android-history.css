@@ -241,7 +241,7 @@ html[data-target-platform="android"] .android-history-section-head small {
 
 html[data-target-platform="android"] .android-history-feature {
   display: grid;
-  grid-template-columns: 122px minmax(0, 1fr);
+  grid-template-columns: minmax(116px, 34vw) minmax(0, 1fr);
   gap: 12px;
   align-items: stretch;
   border: 0;
@@ -252,23 +252,33 @@ html[data-target-platform="android"] .android-history-feature {
 
 html[data-target-platform="android"] .android-history-feature-tile {
   position: relative;
-  min-height: 122px;
+  min-height: 132px;
   overflow: hidden;
   border: 2px solid transparent;
-  border-radius: 24px;
+  border-radius: 26px;
   background: rgb(15 23 42 / 0.05);
+  box-shadow: 0 10px 22px rgb(15 23 42 / 0.08);
+  touch-action: manipulation;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    transform 80ms ease;
 }
 
 html[data-target-platform="android"] .android-history-feature-tile.active,
 html[data-target-platform="android"] .android-history-tile.active {
   border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent);
+  box-shadow:
+    0 0 0 1px var(--accent),
+    0 14px 28px rgb(0 121 107 / 0.16);
 }
 
 html[data-target-platform="android"] .android-history-feature-tile.compare,
 html[data-target-platform="android"] .android-history-tile.compare {
   border-color: rgb(59 130 246);
-  box-shadow: 0 0 0 1px rgb(59 130 246);
+  box-shadow:
+    0 0 0 1px rgb(59 130 246),
+    0 14px 28px rgb(59 130 246 / 0.16);
 }
 
 html[data-target-platform="android"] .android-history-feature-tile img,
@@ -278,11 +288,26 @@ html[data-target-platform="android"] .android-history-tile-image img {
   object-fit: cover;
 }
 
+html[data-target-platform="android"] .android-history-image-shade {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgb(15 23 42 / 0.34), transparent 35%),
+    linear-gradient(0deg, rgb(15 23 42 / 0.3), transparent 42%);
+}
+
 html[data-target-platform="android"] .android-history-feature-copy {
   display: flex;
   min-width: 0;
   flex-direction: column;
   justify-content: center;
+  border: 0;
+  border-radius: 22px;
+  background: rgb(248 250 249 / 0.76);
+  padding: 12px;
+  text-align: left;
+  touch-action: manipulation;
 }
 
 html[data-target-platform="android"] .android-history-feature-copy strong {
@@ -306,21 +331,26 @@ html[data-target-platform="android"] .android-history-feature-copy span {
 html[data-target-platform="android"] .android-history-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 11px;
 }
 
 html[data-target-platform="android"] .android-history-tile {
   position: relative;
   overflow: hidden;
   border: 2px solid transparent;
-  border-radius: 24px;
-  background: rgb(255 255 255 / 0.8);
-  box-shadow: 0 8px 20px rgb(15 23 42 / 0.05);
+  border-radius: 26px;
+  background: rgb(255 255 255 / 0.88);
+  box-shadow: 0 10px 24px rgb(15 23 42 / 0.07);
+  touch-action: manipulation;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    transform 80ms ease;
 }
 
 html[data-target-platform="android"] .android-history-tile-image {
   position: relative;
-  aspect-ratio: 1;
+  aspect-ratio: 1 / 1.08;
   overflow: hidden;
   background: rgb(15 23 42 / 0.05);
 }
@@ -329,67 +359,71 @@ html[data-target-platform="android"] .android-history-tile-mode {
   position: absolute;
   left: 8px;
   top: 8px;
-  background: rgb(15 23 42 / 0.62);
+  border: 1px solid rgb(255 255 255 / 0.18);
+  background: rgb(15 23 42 / 0.78);
+  color: white;
+  font-weight: 800;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.45);
 }
 
 html[data-target-platform="android"] .android-history-compare-badge {
   position: absolute;
-  right: 8px;
+  right: 50px;
   top: 8px;
   border-radius: 999px;
   background: rgb(59 130 246 / 0.9);
-  padding: 2px 7px;
+  padding: 3px 8px;
   color: white;
   font-size: 10px;
   font-weight: 800;
 }
 
 html[data-target-platform="android"] .android-history-tile-body {
-  padding: 9px;
+  display: flex;
+  min-height: 86px;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 10px;
 }
 
 html[data-target-platform="android"] .android-history-tile-body p {
   display: -webkit-box;
-  min-height: 36px;
+  min-height: 38px;
   overflow: hidden;
-  margin: 0 0 7px;
+  margin: 0 0 8px;
   color: rgb(39 39 42);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 750;
   line-height: 1.5;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
 
-html[data-target-platform="android"] .android-history-tile-actions {
-  position: absolute;
-  left: 8px;
-  right: 8px;
-  bottom: 8px;
-  display: flex;
-  justify-content: space-between;
-  pointer-events: none;
-}
-
-html[data-target-platform="android"] .android-history-tile-actions button,
 html[data-target-platform="android"] .android-history-tile-menu {
   display: inline-flex;
-  width: 34px;
-  height: 34px;
+  width: 38px;
+  height: 38px;
   align-items: center;
   justify-content: center;
   border: 0;
   border-radius: 999px;
-  background: rgb(15 23 42 / 0.62);
+  background: rgb(15 23 42 / 0.68);
   color: white;
   pointer-events: auto;
-  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 16px rgb(15 23 42 / 0.22);
+  backdrop-filter: blur(12px);
 }
 
 html[data-target-platform="android"] .android-history-tile-menu {
   position: absolute;
   right: 8px;
-  bottom: 8px;
+  top: 8px;
+}
+
+html[data-target-platform="android"] .android-history-tile-meta span {
+  border-color: rgb(0 121 107 / 0.08);
+  background: rgb(0 121 107 / 0.06);
+  color: rgb(63 84 79);
 }
 
 html[data-target-platform="android"] .android-history-empty {
@@ -464,11 +498,201 @@ html[data-target-platform="android"] .android-history-quick-actions button.dange
   color: rgb(185 28 28);
 }
 
+html[data-target-platform="android"] body.android-history-sheet-open {
+  overflow: hidden;
+}
+
+html[data-target-platform="android"] .android-history-action-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 9300;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 10px calc(10px + env(safe-area-inset-bottom, 0px));
+}
+
+html[data-target-platform="android"] .android-history-action-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgb(15 23 42 / 0.38);
+  backdrop-filter: blur(6px);
+}
+
+html[data-target-platform="android"] .android-history-action-sheet {
+  position: relative;
+  width: min(100%, 430px);
+  max-height: min(86vh, 720px);
+  overflow-y: auto;
+  border: 1px solid rgb(255 255 255 / 0.78);
+  border-radius: 30px;
+  background: rgb(253 255 254 / 0.96);
+  box-shadow: 0 -24px 60px rgb(15 23 42 / 0.22);
+  padding: 9px 10px 12px;
+}
+
+html[data-target-platform="android"] .android-history-sheet-grabber {
+  width: 38px;
+  height: 4px;
+  margin: 0 auto 9px;
+  border-radius: 999px;
+  background: rgb(15 23 42 / 0.16);
+}
+
+html[data-target-platform="android"] .android-history-sheet-head {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr) 42px;
+  gap: 10px;
+  align-items: center;
+  padding: 4px 2px 12px;
+}
+
+html[data-target-platform="android"] .android-history-sheet-preview {
+  position: relative;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 22px;
+  background: rgb(15 23 42 / 0.06);
+}
+
+html[data-target-platform="android"] .android-history-sheet-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+html[data-target-platform="android"] .android-history-sheet-mode {
+  position: absolute;
+  left: 6px;
+  top: 6px;
+  background: rgb(15 23 42 / 0.66);
+}
+
+html[data-target-platform="android"] .android-history-sheet-copy {
+  min-width: 0;
+}
+
+html[data-target-platform="android"] .android-history-sheet-copy span {
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 850;
+}
+
+html[data-target-platform="android"] .android-history-sheet-copy strong {
+  display: -webkit-box;
+  overflow: hidden;
+  margin-top: 3px;
+  color: rgb(24 24 27);
+  font-size: 14px;
+  font-weight: 850;
+  line-height: 1.42;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+html[data-target-platform="android"] .android-history-sheet-copy small {
+  display: block;
+  overflow: hidden;
+  margin-top: 5px;
+  color: rgb(113 113 122);
+  font-size: 11px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-target-platform="android"] .android-history-sheet-close {
+  display: inline-flex;
+  width: 42px;
+  height: 42px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  background: rgb(15 23 42 / 0.06);
+  color: rgb(82 82 91);
+}
+
+html[data-target-platform="android"] .android-history-sheet-close svg {
+  width: 18px;
+  height: 18px;
+}
+
+html[data-target-platform="android"] .android-history-sheet-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+html[data-target-platform="android"] .android-history-sheet-actions + .android-history-sheet-actions {
+  margin-top: 9px;
+}
+
+html[data-target-platform="android"] .android-history-sheet-actions button {
+  display: flex;
+  min-width: 0;
+  min-height: 58px;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid rgb(15 23 42 / 0.06);
+  border-radius: 19px;
+  background: rgb(248 250 249 / 0.92);
+  padding: 10px;
+  color: rgb(39 39 42);
+  font-size: 12px;
+  font-weight: 800;
+  text-align: left;
+}
+
+html[data-target-platform="android"] .android-history-sheet-actions button.separator {
+  border-color: rgb(0 121 107 / 0.14);
+  background: rgb(0 121 107 / 0.06);
+}
+
+html[data-target-platform="android"] .android-history-sheet-actions button:disabled {
+  opacity: 0.42;
+}
+
+html[data-target-platform="android"] .android-history-sheet-danger {
+  grid-template-columns: 1fr;
+}
+
+html[data-target-platform="android"] .android-history-sheet-danger button {
+  border-color: rgb(239 68 68 / 0.16);
+  background: rgb(254 242 242 / 0.88);
+  color: rgb(185 28 28);
+}
+
+html[data-target-platform="android"] .android-history-sheet-action-icon {
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  background: rgb(255 255 255 / 0.88);
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1px rgb(15 23 42 / 0.04);
+}
+
+html[data-target-platform="android"] .android-history-sheet-danger .android-history-sheet-action-icon {
+  color: rgb(220 38 38);
+}
+
+html[data-target-platform="android"] .android-history-sheet-action-icon svg {
+  width: 17px;
+  height: 17px;
+}
+
 html[data-target-platform="android"] .android-history-stat:active,
 html[data-target-platform="android"] .android-history-feature:active,
 html[data-target-platform="android"] .android-history-tile:active,
 html[data-target-platform="android"] .android-history-more:active,
-html[data-target-platform="android"] .android-history-quick-actions button:active {
+html[data-target-platform="android"] .android-history-quick-actions button:active,
+html[data-target-platform="android"] .android-history-sheet-actions button:active,
+html[data-target-platform="android"] .android-history-sheet-close:active {
   transform: scale(0.985);
 }
 
@@ -489,7 +713,9 @@ html.dark[data-target-platform="android"] .android-history-feature-card,
 html.dark[data-target-platform="android"] .android-history-results-card,
 html.dark[data-target-platform="android"] .android-history-quick-actions,
 html.dark[data-target-platform="android"] .android-history-stat,
-html.dark[data-target-platform="android"] .android-history-tile {
+html.dark[data-target-platform="android"] .android-history-tile,
+html.dark[data-target-platform="android"] .android-history-feature-copy,
+html.dark[data-target-platform="android"] .android-history-action-sheet {
   border-color: rgb(255 255 255 / 0.08);
   background: rgb(255 255 255 / 0.05);
 }
@@ -504,7 +730,9 @@ html.dark[data-target-platform="android"] .android-history-hero h2,
 html.dark[data-target-platform="android"] .android-history-stat strong,
 html.dark[data-target-platform="android"] .android-history-feature-copy strong,
 html.dark[data-target-platform="android"] .android-history-tile-body p,
-html.dark[data-target-platform="android"] .android-history-empty strong {
+html.dark[data-target-platform="android"] .android-history-empty strong,
+html.dark[data-target-platform="android"] .android-history-sheet-copy strong,
+html.dark[data-target-platform="android"] .android-history-sheet-actions button {
   color: rgb(244 244 245);
 }
 
@@ -512,12 +740,16 @@ html.dark[data-target-platform="android"] .android-history-hero p,
 html.dark[data-target-platform="android"] .android-history-section-head,
 html.dark[data-target-platform="android"] .android-history-section-head small,
 html.dark[data-target-platform="android"] .android-history-feature-copy span,
-html.dark[data-target-platform="android"] .android-history-empty {
+html.dark[data-target-platform="android"] .android-history-empty,
+html.dark[data-target-platform="android"] .android-history-sheet-copy small {
   color: rgb(212 212 216 / 0.72);
 }
 
 html.dark[data-target-platform="android"] .android-history-search,
-html.dark[data-target-platform="android"] .android-history-quick-actions button {
+html.dark[data-target-platform="android"] .android-history-quick-actions button,
+html.dark[data-target-platform="android"] .android-history-sheet-close,
+html.dark[data-target-platform="android"] .android-history-sheet-actions button,
+html.dark[data-target-platform="android"] .android-history-sheet-action-icon {
   border-color: rgb(255 255 255 / 0.08);
   background: rgb(255 255 255 / 0.05);
 }
@@ -533,4 +765,29 @@ html.dark[data-target-platform="android"] .android-history-filter-row {
 html.dark[data-target-platform="android"] .android-history-filter-row button.active {
   background: rgb(20 83 75 / 0.5);
   color: rgb(153 246 228);
+}
+
+html.dark[data-target-platform="android"] .android-history-tile-meta span {
+  border-color: rgb(45 212 191 / 0.12);
+  background: rgb(45 212 191 / 0.08);
+  color: rgb(204 251 241 / 0.78);
+}
+
+html.dark[data-target-platform="android"] .android-history-action-sheet {
+  background: rgb(24 30 33 / 0.98);
+  box-shadow: 0 -24px 60px rgb(0 0 0 / 0.42);
+}
+
+html.dark[data-target-platform="android"] .android-history-sheet-grabber {
+  background: rgb(255 255 255 / 0.22);
+}
+
+html.dark[data-target-platform="android"] .android-history-sheet-danger button {
+  border-color: rgb(248 113 113 / 0.18);
+  background: rgb(127 29 29 / 0.24);
+  color: rgb(254 202 202);
+}
+
+html.dark[data-target-platform="android"] .android-history-sheet-danger .android-history-sheet-action-icon {
+  color: rgb(248 113 113);
 }

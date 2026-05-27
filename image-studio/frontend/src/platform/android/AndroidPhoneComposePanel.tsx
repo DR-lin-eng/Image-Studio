@@ -8,16 +8,18 @@ import { Mode } from "../../types/domain";
 import { QUALITY_TIERS, STYLE_CHIPS } from "../../components/panel/panelOptions";
 import {
   availableResolutionPresets,
-  buildSizeSelection,
   deriveAspectPreset,
   deriveResolutionPreset,
-  normalizeResolutionSelection,
 } from "../../components/panel/sizeCapabilities";
 import { AndroidModeSwitch } from "./AndroidModeSwitch";
 import { AndroidPhoneAdvancedSection } from "./AndroidPhoneAdvancedSection";
 import { AndroidPhoneParameterSection } from "./AndroidPhoneParameterSection";
 import { AndroidPhoneSourceSection } from "./AndroidPhoneSourceSection";
 import { AndroidPromptTemplateModal } from "./AndroidPromptTemplateModal";
+import {
+  buildAndroidAspectSizeSelection,
+  buildAndroidResolutionSizeSelection,
+} from "./parameters/androidSizeSelection";
 import { vibrateForPlatform } from "./bridge";
 
 export function AndroidPhoneComposePanel() {
@@ -50,15 +52,15 @@ export function AndroidPhoneComposePanel() {
   const settingsExpanded = parametersOpen || advancedOpen;
 
   const handleAspectSelect = (aspect: typeof activeAspect) => {
-    setField("size", buildSizeSelection(
+    setField("size", buildAndroidAspectSizeSelection(
       aspect,
-      normalizeResolutionSelection(activeResolution, { apiMode, requestPolicy, imageModelID }),
+      activeResolution,
       { apiMode, requestPolicy, imageModelID },
     ));
   };
 
   const handleResolutionSelect = (resolution: typeof activeResolution) => {
-    setField("size", buildSizeSelection(
+    setField("size", buildAndroidResolutionSizeSelection(
       activeAspect,
       resolution,
       { apiMode, requestPolicy, imageModelID },

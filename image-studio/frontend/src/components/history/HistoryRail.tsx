@@ -8,6 +8,8 @@ import type { HistoryItem, Mode } from "../../types/domain";
 import { ContextMenu } from "../common/ContextMenu";
 import { RawResponseModal } from "./RawResponseModal";
 import { usePlatform } from "../../platform/context";
+import { AndroidHistoryActionSheet } from "../../platform/android/history/AndroidHistoryActionSheet";
+import { AndroidHistoryTile } from "../../platform/android/history/AndroidHistoryTile";
 import {
   isHistoryInDateFilter,
   matchesHistorySearch,
@@ -205,27 +207,25 @@ export function HistoryRail() {
               <span><Clock3 className="h-4 w-4" /> 最近作品</span>
               <small>{new Date(latestHistory.createdAt).toLocaleDateString()}</small>
             </div>
-            <button
-              type="button"
-              className="android-history-feature"
-              onClick={() => void selectCurrent(latestHistory)}
-            >
-              <HistoryTile
+            <div className="android-history-feature">
+              <AndroidHistoryTile
                 item={latestHistory}
                 isCurrent={currentImage?.id === latestHistory.id}
                 isCompare={compareB?.id === latestHistory.id}
                 onSelect={selectCurrent}
                 onToggleCompare={(next) => setCompareB(next)}
-                onReuse={reuseAsSource}
-                onDelete={deleteHistoryItem}
                 onOpenMenu={(x, y) => openMenu(latestHistory, x, y)}
-                variant="phoneFeature"
+                variant="feature"
               />
-              <span className="android-history-feature-copy">
+              <button
+                type="button"
+                className="android-history-feature-copy"
+                onClick={() => void selectCurrent(latestHistory)}
+              >
                 <strong>{latestHistory.prompt || "(无 prompt)"}</strong>
                 <span>{sizeLabel(latestHistory.size)} · {qualityLabel(latestHistory.quality)} · {latestHistory.mode === "edit" ? "图生图" : "文生图"}</span>
-              </span>
-            </button>
+              </button>
+            </div>
           </section>
         ) : null}
 
@@ -244,17 +244,14 @@ export function HistoryRail() {
           ) : (
             <div className="android-history-grid">
               {phoneHistory.map((h) => (
-                <HistoryTile
+                <AndroidHistoryTile
                   key={h.id}
                   item={h}
                   isCurrent={currentImage?.id === h.id}
                   isCompare={compareB?.id === h.id}
                   onSelect={selectCurrent}
                   onToggleCompare={(next) => setCompareB(next)}
-                  onReuse={reuseAsSource}
-                  onDelete={deleteHistoryItem}
                   onOpenMenu={(x, y) => openMenu(h, x, y)}
-                  variant="phone"
                 />
               ))}
             </div>
@@ -286,7 +283,7 @@ export function HistoryRail() {
           </button>
         </section>
 
-        {menu && <ContextMenu x={menu.x} y={menu.y} items={buildMenu(menu.item)} onClose={closeMenu} />}
+        {menu && <AndroidHistoryActionSheet item={menu.item} items={buildMenu(menu.item)} onClose={closeMenu} />}
         {rawPath && <RawResponseModal path={rawPath} onClose={closeRaw} />}
       </aside>
     );

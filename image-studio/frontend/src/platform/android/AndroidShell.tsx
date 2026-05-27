@@ -1,14 +1,11 @@
 import type { ReactElement } from "react";
 import { History, Image as ImageIcon, SlidersHorizontal } from "lucide-react";
 import { ControlPanel } from "../../components/panel/ControlPanel";
-import { Toolbar } from "../../components/canvas/Toolbar";
-import { SourceStrip } from "../../components/canvas/SourceStrip";
-import { CanvasStage } from "../../components/canvas/CanvasStage";
-import { StatusBar } from "../../components/canvas/StatusBar";
 import { HistoryRail } from "../../components/history/HistoryRail";
 import type { AndroidView } from "../types";
 import { vibrateForPlatform } from "./bridge";
 import { usePlatform } from "../context";
+import { AndroidCanvasWorkspace } from "./canvas/AndroidCanvasWorkspace";
 
 export function AndroidShell({
   fullscreen,
@@ -47,10 +44,7 @@ export function AndroidShell({
         {showRail ? <AndroidRail active={androidView} onChange={handleViewChange} /> : null}
         <ControlPanel />
         <div className="canvas-shell">
-          <Toolbar />
-          <SourceStrip />
-          <CanvasStage />
-          <StatusBar />
+          <AndroidCanvasWorkspace />
         </div>
         <HistoryRail />
       </div>

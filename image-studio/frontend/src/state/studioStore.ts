@@ -63,8 +63,7 @@ import {
   pickActiveProfile,
 } from "../lib/profiles";
 import { base64ToBlob } from "../lib/images";
-import { isMac } from "../platform";
-import { readRuntimePlatformState } from "../platform";
+import { isMac, readRuntimePlatformState } from "../platform";
 import { saveImageForPlatform } from "../platform/android/bridge";
 import {
   activeRuntimePatch,
@@ -397,7 +396,13 @@ export const useStudioStore = create<StudioState>((set, get) => ({
         }
       }
       if (editSourcePaths.length === 0) {
-        set({ errorMessage: "图生图模式需要先添加源图(或从文件管理器拖图到画板)", errorRawPath: null });
+        const platform = readRuntimePlatformState();
+        set({
+          errorMessage: platform.isAndroid
+            ? "图生图模式需要先从相册或历史添加源图"
+            : "图生图模式需要先添加源图(或从文件管理器拖图到画板)",
+          errorRawPath: null,
+        });
         return;
       }
     }

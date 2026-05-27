@@ -1,32 +1,34 @@
-import { lazy, Suspense, useState } from "react";
+import { useState } from "react";
 import {
-  Dices, ListPlus, Sparkles, X,
+  ListPlus, Sparkles,
 } from "lucide-react";
 import { useStudioStore } from "../../state/studioStore";
-import { ASPECT_OPTIONS, QUALITY_TIERS, STYLE_CHIPS } from "../../components/panel/panelOptions";
-import type { Mode, OutputFormatValue } from "../../types/domain";
-import { OUTPUT_FORMAT_OPTIONS } from "../../types/domain";
+import { QUALITY_TIERS, STYLE_CHIPS } from "../../components/panel/panelOptions";
+import type { Mode } from "../../types/domain";
 import { AndroidModeSwitch } from "./AndroidModeSwitch";
 import { usePlatform } from "../context";
 import { vibrateForPlatform } from "./bridge";
+import { AndroidAdvancedSection } from "./AndroidAdvancedSection";
 import { AndroidPadParameterSection } from "./AndroidPadParameterSection";
 import { AndroidPadSourceSection } from "./AndroidPadSourceSection";
-
-const PromptPopover = lazy(() => import("../../components/panel/PromptPopover").then((m) => ({ default: m.PromptPopover })));
+import { AndroidPromptTemplateModal } from "./AndroidPromptTemplateModal";
+import {
+  availableResolutionPresets,
+  buildSizeSelection,
+  deriveAspectPreset,
+  deriveResolutionPreset,
+  normalizeResolutionSelection,
+} from "../../components/panel/sizeCapabilities";
 
 export function AndroidPadComposePanel() {
   const {
     apiKey, mode, prompt, negativePrompt, size, quality, seed, styleTag, outputFormat,
-    batchCount, sources, currentImage, isRunning, isOptimizingPrompt, apiMode, baseURL,
+    batchCount, sources, currentImage, isRunning, isOptimizingPrompt, apiMode, requestPolicy, baseURL, imageModelID,
     profiles, noPromptRevision, setField, selectSourceImage, removeSource, clearSources,
     openUpstreamConfig, submit, cancel, optimizePrompt,
   } = useStudioStore();
-  const [promptPopover, setPromptPopover] = useState(false);
+  const [templateOpen, setTemplateOpen] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [styleOpen, setStyleOpen] = useState(false);
-  const [aspectOpen, setAspectOpen] = useState(false);
-  const [qualityOpen, setQualityOpen] = useState(false);
-  const [batchOpen, setBatchOpen] = useState(false);
   const promptLen = prompt.length;
   const { androidWidthClass } = usePlatform();
   const isMediumPad = androidWidthClass === "medium";
@@ -38,9 +40,29 @@ export function AndroidPadComposePanel() {
     prompt.trim() && (hasUsableResponsesProfile || (apiKey.trim() && baseURL.trim()))
   );
   const activeStyleLabel = STYLE_CHIPS.find((item) => item.id === styleTag)?.label ?? "默认风格";
-  const activeAspectLabel = ASPECT_OPTIONS.find((item) => item.value === size)?.label ?? size;
+  const activeAspect = deriveAspectPreset(size);
+  const activeResolution = deriveResolutionPreset(size);
+  const availableResolutions = availableResolutionPresets({ apiMode, requestPolicy, imageModelID });
+  const activeAspectLabel = activeAspect === "auto" ? "Auto" : activeAspect;
+  const activeResolutionLabel = activeResolution === "auto" ? "自动" : activeResolution.toUpperCase();
   const activeQualityLabel = QUALITY_TIERS.find((item) => item.value === quality)?.label ?? quality;
   const editSourceLabel = sources.length > 0 ? `${sources.length} 张已添加` : currentImage?.savedPath ? "使用当前画板" : "未添加";
+
+  const handleAspectSelect = (aspect: typeof activeAspect) => {
+    setField("size", buildSizeSelection(
+      aspect,
+      normalizeResolutionSelection(activeResolution, { apiMode, requestPolicy, imageModelID }),
+      { apiMode, requestPolicy, imageModelID },
+    ));
+  };
+
+  const handleResolutionSelect = (resolution: typeof activeResolution) => {
+    setField("size", buildSizeSelection(
+      activeAspect,
+      resolution,
+      { apiMode, requestPolicy, imageModelID },
+    ));
+  };
 
   const handleModeChange = (next: Mode) => {
     vibrateForPlatform(12);
@@ -107,26 +129,15 @@ export function AndroidPadComposePanel() {
           <div className="relative android-pad-action-slot">
             <button
               type="button"
-              onClick={() => { vibrateForPlatform(8); setPromptPopover((v) => !v); }}
+              onClick={() => { vibrateForPlatform(8); setTemplateOpen(true); }}
               className={`platform-pill inline-flex min-h-[40px] items-center gap-1.5 px-3 text-[12px] ${
-                promptPopover
+                templateOpen
                   ? "bg-[var(--accent-soft)] text-[var(--accent)] ring-1 ring-[color:var(--accent)]/20"
                   : "text-zinc-500 hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]"
               }`}
             >
               <ListPlus className="h-3.5 w-3.5" /> 模板 / 历史
             </button>
-            {promptPopover ? (
-              <Suspense fallback={null}>
-                <PromptPopover
-                  onClose={() => setPromptPopover(false)}
-                  onPick={(text) => {
-                    const current = useStudioStore.getState().prompt;
-                    setField("prompt", current ? `${current}\n${text}` : text);
-                  }}
-                />
-              </Suspense>
-            ) : null}
           </div>
           <button
             type="button"
@@ -165,25 +176,24 @@ export function AndroidPadComposePanel() {
       </section>
 
       <AndroidPadParameterSection
+        activeAspect={activeAspect}
         activeAspectLabel={activeAspectLabel}
+        activeResolution={activeResolution}
+        activeResolutionLabel={activeResolutionLabel}
         activeQualityLabel={activeQualityLabel}
         activeStyleLabel={activeStyleLabel}
-        aspectOpen={aspectOpen}
+        availableResolutions={availableResolutions}
+        apiMode={apiMode}
         batchCount={batchCount}
-        batchOpen={batchOpen}
+        handleAspectSelect={handleAspectSelect}
+        handleResolutionSelect={handleResolutionSelect}
+        imageModelID={imageModelID}
         isMediumPad={isMediumPad}
-        mode={mode}
         needsUpstreamSetup={needsUpstreamSetup}
         onOpenUpstream={() => { vibrateForPlatform(8); openUpstreamConfig("app"); }}
         quality={quality}
-        qualityOpen={qualityOpen}
-        setAspectOpen={setAspectOpen}
-        setBatchOpen={setBatchOpen}
+        requestPolicy={requestPolicy}
         setField={setField as any}
-        setQualityOpen={setQualityOpen}
-        setStyleOpen={setStyleOpen}
-        size={size}
-        styleOpen={styleOpen}
         styleTag={styleTag}
       />
 
@@ -198,69 +208,16 @@ export function AndroidPadComposePanel() {
         />
       ) : null}
 
-      <section>
-        <button
-          type="button"
-          onClick={() => { vibrateForPlatform(8); setAdvancedOpen((v) => !v); }}
-          className="platform-card android-pad-advanced-toggle flex w-full items-center justify-between px-4 py-3 text-left text-[12px] text-zinc-500 transition-colors hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100"
-        >
-          <span className="android-phone-kicker !mb-0">高级参数</span>
-          <span className="text-[11px] opacity-70">{advancedOpen ? "收起 ▾" : "展开 ▸"}</span>
-        </button>
-        {advancedOpen ? (
-          <div className="platform-card mt-2 flex flex-col gap-3 p-4">
-            <textarea
-              value={negativePrompt}
-              placeholder="负向提示词，不希望出现的元素"
-              onChange={(e) => setField("negativePrompt", e.target.value)}
-              className="focus-ring min-h-[88px] w-full resize-none border border-black/[0.08] bg-[var(--surface)] px-4 py-3 text-[13px] leading-6 text-zinc-900 placeholder:text-zinc-400 dark:border-white/[0.08] dark:text-zinc-100 dark:placeholder:text-zinc-500"
-            />
-            <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-2">
-              <input
-                type="number"
-                value={seed || ""}
-                placeholder="Seed 留空为随机"
-                min={0}
-                onChange={(e) => setField("seed", Number(e.target.value) || 0)}
-                className="focus-ring min-h-[42px] border border-black/[0.08] bg-[var(--surface)] px-4 text-[13px] font-mono-token text-zinc-900 placeholder:text-zinc-400 dark:border-white/[0.08] dark:text-zinc-100 dark:placeholder:text-zinc-500"
-              />
-              <button
-                type="button"
-                onClick={() => { vibrateForPlatform(5); setField("seed", Math.floor(Math.random() * 2_000_000_000)); }}
-                title="随机 seed"
-                className="platform-action-btn inline-flex min-h-[42px] items-center justify-center border border-black/[0.08] px-3 text-zinc-600 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] dark:border-white/[0.08] dark:text-zinc-400"
-              >
-                <Dices className="h-3.5 w-3.5" />
-              </button>
-              {seed > 0 ? (
-                <button
-                  type="button"
-                  onClick={() => { vibrateForPlatform(5); setField("seed", 0); }}
-                  title="清除"
-                  className="platform-action-btn inline-flex min-h-[42px] items-center justify-center border border-black/[0.08] px-3 text-zinc-500 transition-colors hover:border-red-400/40 hover:text-red-400 dark:border-white/[0.08]"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              ) : <span />}
-            </div>
-            <div>
-              <div className="mb-2 text-[12px] font-medium text-zinc-600 dark:text-zinc-300">输出格式</div>
-              <div className="grid grid-cols-3 gap-2">
-                {OUTPUT_FORMAT_OPTIONS.map((item) => (
-                  <button
-                    key={item.value}
-                    type="button"
-                    onClick={() => { vibrateForPlatform(5); setField("outputFormat", item.value as OutputFormatValue); }}
-                    className={`android-choice-chip ${outputFormat === item.value ? "active" : ""}`}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        ) : null}
-      </section>
+      <AndroidAdvancedSection
+        advancedOpen={advancedOpen}
+        apiMode={apiMode}
+        negativePrompt={negativePrompt}
+        noPromptRevision={noPromptRevision}
+        outputFormat={outputFormat}
+        seed={seed}
+        setAdvancedOpen={setAdvancedOpen}
+        setField={setField as any}
+      />
 
       <div className="android-pad-cta" style={{ paddingLeft: "calc(env(safe-area-inset-left, 0px) + 16px)", paddingRight: "calc(env(safe-area-inset-right, 0px) + 16px)" }}>
         {needsUpstreamSetup ? (
@@ -290,6 +247,14 @@ export function AndroidPadComposePanel() {
           </button>
         )}
       </div>
+      <AndroidPromptTemplateModal
+        open={templateOpen}
+        onClose={() => setTemplateOpen(false)}
+        onPick={(text) => {
+          const current = useStudioStore.getState().prompt;
+          setField("prompt", current ? `${current}\n${text}` : text);
+        }}
+      />
     </div>
   );
 }

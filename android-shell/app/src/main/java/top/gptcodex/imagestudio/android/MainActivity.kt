@@ -1,9 +1,15 @@
 package top.gptcodex.imagestudio.android
 
 import android.annotation.SuppressLint
+import android.Manifest
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.provider.MediaStore
 import android.util.Log
 import android.view.View
 import android.webkit.ConsoleMessage
@@ -15,6 +21,7 @@ import android.webkit.WebView
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.webkit.WebSettingsCompat
@@ -26,11 +33,52 @@ class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
     private lateinit var bridge: AndroidImageStudioBridge
     private lateinit var assetLoader: WebViewAssetLoader
-    private val openImageLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+    private val openImageDocumentLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (::bridge.isInitialized) bridge.onOpenImageDialogResult(uri)
+    }
+    private val openImagePickerLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (::bridge.isInitialized) bridge.onOpenImageDialogResult(result.data?.data)
+    }
+    private val requestLegacyGalleryPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) {
+        launchGalleryImagePicker()
     }
     private val importHistoryLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (::bridge.isInitialized) bridge.onImportHistoryResult(uri)
+    }
+
+    private fun launchImageImport() {
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.S_V2) {
+            val granted = ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.READ_EXTERNAL_STORAGE,
+            ) == PackageManager.PERMISSION_GRANTED
+            if (!granted) {
+                requestLegacyGalleryPermissionLauncher.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
+                return
+            }
+        }
+        launchGalleryImagePicker()
+    }
+
+    private fun launchGalleryImagePicker() {
+        val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            Intent(MediaStore.ACTION_PICK_IMAGES).apply {
+                type = "image/*"
+            }
+        } else {
+            @Suppress("DEPRECATION")
+            Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI).apply {
+                type = "image/*"
+            }
+        }
+
+        try {
+            openImagePickerLauncher.launch(intent)
+        } catch (_: ActivityNotFoundException) {
+            openImageDocumentLauncher.launch(arrayOf("image/*"))
+        } catch (_: IllegalStateException) {
+            openImageDocumentLauncher.launch(arrayOf("image/*"))
+        }
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -44,7 +92,7 @@ class MainActivity : AppCompatActivity() {
         // Apply edge-to-edge padding to the webview container if needed, 
         // but typically we want the web content to handle its own safe areas.
         // For now, we'll let it flow under the bars.
-        ViewCompat.setOnApplyWindowInsetsListener(webView) { v, insets ->
+        ViewCompat.setOnApplyWindowInsetsListener(webView) { _, insets ->
             insets
         }
 
@@ -52,7 +100,7 @@ class MainActivity : AppCompatActivity() {
             this,
             webView,
             launchOpenImageDialog = {
-                openImageLauncher.launch(arrayOf("image/*"))
+                launchImageImport()
             },
             launchImportHistory = {
                 importHistoryLauncher.launch(arrayOf("application/json", "text/plain", "*/*"))

@@ -954,6 +954,8 @@ html[data-ui-family="apple"] .select:focus {
 @import "./_layout.css";
 @import "./_android-phone-advanced.css";
 @import "./_android-settings.css";
+@import "./_android-upstream.css";
+@import "./_android-parameters.css";
 @import "./_android-history.css";
 @import "./_panel.css";
 @import "./_canvas.css";

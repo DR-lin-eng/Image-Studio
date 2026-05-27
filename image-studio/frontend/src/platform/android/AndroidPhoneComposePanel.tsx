@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from "react";
+import { useState } from "react";
 import {
   FileText, ListPlus, RotateCw, Settings, Sparkles, X,
 } from "lucide-react";
@@ -17,9 +17,8 @@ import { AndroidModeSwitch } from "./AndroidModeSwitch";
 import { AndroidPhoneAdvancedSection } from "./AndroidPhoneAdvancedSection";
 import { AndroidPhoneParameterSection } from "./AndroidPhoneParameterSection";
 import { AndroidPhoneSourceSection } from "./AndroidPhoneSourceSection";
+import { AndroidPromptTemplateModal } from "./AndroidPromptTemplateModal";
 import { vibrateForPlatform } from "./bridge";
-
-const PromptPopover = lazy(() => import("../../components/panel/PromptPopover").then((m) => ({ default: m.PromptPopover })));
 
 export function AndroidPhoneComposePanel() {
   const {
@@ -29,7 +28,7 @@ export function AndroidPhoneComposePanel() {
     noPromptRevision, setField, clearError, pushToast, selectSourceImage,
     removeSource, clearSources, openUpstreamConfig, submit, cancel, retryLast, optimizePrompt,
   } = useStudioStore();
-  const [promptPopover, setPromptPopover] = useState(false);
+  const [templateOpen, setTemplateOpen] = useState(false);
   const [parametersOpen, setParametersOpen] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const promptLen = prompt.length;
@@ -165,7 +164,7 @@ export function AndroidPhoneComposePanel() {
         </section>
       ) : null}
 
-      <section className={`platform-card android-phone-prompt ${needsUpstreamSetup ? "" : "android-phone-compose-sheet"} relative overflow-visible ${promptPopover ? "z-30" : "z-0"} p-4`}>
+      <section className={`platform-card android-phone-prompt ${needsUpstreamSetup ? "" : "android-phone-compose-sheet"} p-4`}>
         {!needsUpstreamSetup ? (
           <div className="android-phone-sheet-header">
             <div className="android-phone-hero-top">
@@ -202,9 +201,9 @@ export function AndroidPhoneComposePanel() {
           <div className="android-phone-action-item relative">
             <button
               type="button"
-              onClick={() => { vibrateForPlatform(8); setPromptPopover((v) => !v); }}
+              onClick={() => { vibrateForPlatform(8); setTemplateOpen(true); }}
               className={`platform-pill android-phone-action-pill inline-flex min-h-[38px] items-center gap-1.5 px-3 text-[11px] ${
-                promptPopover
+                templateOpen
                   ? "bg-[var(--accent-soft)] text-[var(--accent)] ring-1 ring-[color:var(--accent)]/20"
                   : "text-zinc-500 hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]"
               }`}
@@ -212,17 +211,6 @@ export function AndroidPhoneComposePanel() {
             >
               <ListPlus className="h-3.5 w-3.5" /> 模板
             </button>
-            {promptPopover ? (
-              <Suspense fallback={null}>
-                <PromptPopover
-                  onClose={() => setPromptPopover(false)}
-                  onPick={(text) => {
-                    const current = useStudioStore.getState().prompt;
-                    setField("prompt", current ? `${current}\n${text}` : text);
-                  }}
-                />
-              </Suspense>
-            ) : null}
           </div>
           <button
             type="button"
@@ -315,6 +303,14 @@ export function AndroidPhoneComposePanel() {
           </button>
         )}
       </div>
+      <AndroidPromptTemplateModal
+        open={templateOpen}
+        onClose={() => setTemplateOpen(false)}
+        onPick={(text) => {
+          const current = useStudioStore.getState().prompt;
+          setField("prompt", current ? `${current}\n${text}` : text);
+        }}
+      />
     </div>
   );
 }

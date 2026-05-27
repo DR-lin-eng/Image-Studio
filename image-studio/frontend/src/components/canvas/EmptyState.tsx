@@ -6,8 +6,10 @@ import { usePlatform } from "../../platform/context";
 // 棋盘格 + CSS keyframes 在 _canvas.css 里。这里只负责中央内容。
 export function EmptyState() {
   const importImageFile = useStudioStore((s) => s.importImageFile);
+  const selectSourceImage = useStudioStore((s) => s.selectSourceImage);
   const mode = useStudioStore((s) => s.mode);
   const { isAndroidPhone, isAndroidPad, isWindows, usesAppleUI } = usePlatform();
+  const isAndroid = isAndroidPhone || isAndroidPad;
 
   function onFilePick(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
@@ -45,11 +47,22 @@ export function EmptyState() {
             </div>
           </div>
         )}
-        <label className={`platform-action-btn inline-flex cursor-pointer items-center gap-1.5 border border-black/[0.08] bg-white/70 text-zinc-700 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-zinc-300 ${isAndroidPhone ? "px-4 py-2 text-[12px] rounded-full" : isAndroidPad ? "px-5 py-3 text-[13px] rounded-full" : `px-4 py-2.5 text-sm ${isWindows ? "rounded-[10px]" : "rounded-full"}`}`}>
-          <Upload className="w-3.5 h-3.5" />
-          {isAndroidPad ? "导入参考图开始编辑" : "选择本地图片"}
-          <input type="file" accept="image/png,image/jpeg,image/webp" onChange={onFilePick} className="hidden" style={{ display: "none" }} />
-        </label>
+        {isAndroid ? (
+          <button
+            type="button"
+            onClick={selectSourceImage}
+            className={`platform-action-btn inline-flex cursor-pointer items-center gap-1.5 border border-black/[0.08] bg-white/70 text-zinc-700 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-zinc-300 ${isAndroidPhone ? "px-4 py-2 text-[12px] rounded-full" : "px-5 py-3 text-[13px] rounded-full"}`}
+          >
+            <Upload className="w-3.5 h-3.5" />
+            从相册选择
+          </button>
+        ) : (
+          <label className={`platform-action-btn inline-flex cursor-pointer items-center gap-1.5 border border-black/[0.08] bg-white/70 text-zinc-700 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-zinc-300 px-4 py-2.5 text-sm ${isWindows ? "rounded-[10px]" : "rounded-full"}`}>
+            <Upload className="w-3.5 h-3.5" />
+            选择本地图片
+            <input type="file" accept="image/png,image/jpeg,image/webp" onChange={onFilePick} className="hidden" style={{ display: "none" }} />
+          </label>
+        )}
       </div>
     </div>
   );

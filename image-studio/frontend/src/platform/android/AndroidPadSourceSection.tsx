@@ -17,34 +17,53 @@ export function AndroidPadSourceSection({
   removeSource: (index: number) => void;
   sources: SourceImage[];
 }) {
+  const sourceState = sources.length > 0
+    ? `${sources.length} 张`
+    : currentImage?.savedPath
+      ? "当前画板"
+      : "未添加";
+  const sourceMode = sources.length > 0 ? "显式参考" : currentImage?.savedPath ? "隐式源图" : "待选择";
+  const sourceHint = sources.length > 0
+    ? "可继续替换或补充"
+    : currentImage?.savedPath
+      ? "将使用当前画板"
+      : "从相册或历史选择";
+
   return (
-    <section className="platform-card p-5">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
+    <section className="platform-card android-source-summary-card android-pad-source-card">
+      <div className="android-source-summary-head">
+        <div className="android-source-summary-copy">
           <div className="android-phone-kicker">源图片 / 参考图</div>
-          <div className="mt-1 text-[15px] font-semibold text-zinc-900 dark:text-zinc-100">{editSourceLabel}</div>
-          <p className="mt-1 text-[12px] leading-6 text-zinc-500 dark:text-zinc-300">
-            {sources.length > 0
-              ? "已添加显式参考图，可继续替换或补充更多图。"
-              : currentImage?.savedPath
-                ? "当前画板图片会作为隐式源图参与本次编辑。"
-                : "先添加一张图，或者从历史里挑一张结果继续编辑。"}
-          </p>
+          <div className="android-source-summary-title">{editSourceLabel}</div>
+          <div className="android-source-summary-grid">
+            <span>
+              <span>参考图</span>
+              <strong>{sourceState}</strong>
+            </span>
+            <span>
+              <span>使用方式</span>
+              <strong>{sourceMode}</strong>
+            </span>
+            <span className="wide">
+              <span>状态</span>
+              <strong>{sourceHint}</strong>
+            </span>
+          </div>
         </div>
-        <Wand2 className="mt-1 h-4 w-4 shrink-0 text-zinc-400" />
+        <Wand2 className="android-source-summary-icon" />
       </div>
       {sources.length > 0 ? (
-        <div className="mt-3 flex flex-col gap-2">
+        <div className="android-source-list">
           {sources.map((source, index) => (
-            <div key={source.path} className="flex items-center gap-2 rounded-[16px] border border-black/[0.06] bg-[var(--surface)] px-3 py-2 dark:border-white/[0.06]">
-              <span className="min-w-0 flex-1 truncate text-[12px] text-zinc-700 dark:text-zinc-300" title={source.path}>
+            <div key={source.path} className="android-source-list-item">
+              <span title={source.path}>
                 {index + 1}. {source.name}
               </span>
               <button
                 type="button"
                 onClick={() => { vibrateForPlatform(5); removeSource(index); }}
                 title="移除"
-                className="rounded-full p-1 text-zinc-400 transition-colors hover:bg-red-500/10 hover:text-red-400"
+                className="android-source-remove-button"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -52,19 +71,19 @@ export function AndroidPadSourceSection({
           ))}
         </div>
       ) : null}
-      <div className="mt-3 flex gap-2">
+      <div className="android-source-actions">
         <button
           type="button"
           onClick={onSelectSource}
-          className="platform-action-btn inline-flex min-h-[42px] flex-1 items-center justify-center gap-1.5 border border-black/[0.08] px-3 py-2 text-[12px] text-zinc-700 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] dark:border-white/[0.08] dark:text-zinc-300"
+          className="platform-action-btn android-source-primary-action"
         >
-          <ImagePlus className="h-3.5 w-3.5" /> 添加图片
+          <ImagePlus className="h-3.5 w-3.5" /> 从相册添加
         </button>
         {sources.length > 0 ? (
           <button
             type="button"
             onClick={() => { vibrateForPlatform(5); clearSources(); }}
-            className="platform-action-btn inline-flex min-h-[42px] items-center gap-1.5 border border-black/[0.08] px-3 py-2 text-[12px] text-zinc-500 transition-colors hover:border-red-400/40 hover:text-red-400 dark:border-white/[0.08]"
+            className="platform-action-btn android-source-clear-action"
           >
             <Trash2 className="h-3.5 w-3.5" />
           </button>

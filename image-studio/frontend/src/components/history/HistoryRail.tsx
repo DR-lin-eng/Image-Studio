@@ -1,5 +1,8 @@
 import { Suspense, lazy, useDeferredValue, useMemo, useRef, useState } from "react";
-import { ChevronDown, ChevronRight, Filter, GalleryVerticalEnd, Split } from "lucide-react";
+import {
+  ChevronDown, ChevronRight, Clock3, CopyPlus, Filter, GalleryVerticalEnd,
+  Image as ImageIcon, ListFilter, RotateCcw, Search, Settings2, Split, Trash2,
+} from "lucide-react";
 import { useStudioStore } from "../../state/studioStore";
 import type { HistoryItem, Mode } from "../../types/domain";
 import { ContextMenu } from "../common/ContextMenu";
@@ -12,6 +15,7 @@ import {
 } from "./historyFilters";
 import { HistoryTile } from "./HistoryTile";
 import { useHistoryContextMenu } from "./useHistoryContextMenu";
+import { qualityLabel, sizeLabel } from "./historyLabels";
 
 type ModeFilter = "all" | Mode;
 type DateFilter = RelativeHistoryDateFilter;
@@ -46,6 +50,10 @@ export function HistoryRail() {
     });
   }, [history, deferredQ, modeF, dateF]);
   const recentHistory = filtered.slice(0, 6);
+  const phoneHistory = filtered.slice(0, 24);
+  const latestHistory = filtered[0] ?? null;
+  const generateCount = history.filter((item) => item.mode === "generate").length;
+  const editCount = history.length - generateCount;
   const desktopFilterThreshold = isMac ? 8 : 4;
   const showHistoryFilters = !isMac && (history.length > desktopFilterThreshold || q.trim().length > 0 || modeF !== "all" || dateF !== "all");
   const historyFiltersActive = q.trim().length > 0 || modeF !== "all" || dateF !== "all";
@@ -101,6 +109,188 @@ export function HistoryRail() {
   });
 
   if (fullscreen) return null;
+
+  if (isAndroidPhone) {
+    return (
+      <aside className="history-rail android-history-page box-border flex w-full shrink-0 flex-col overflow-y-auto border-0 bg-[var(--bg)]">
+        <section className="android-history-hero">
+          <div>
+            <div className="android-history-kicker">本地图库</div>
+            <h2>历史作品</h2>
+            <p>按时间回看生成结果，直接复用参数、设为源图或继续变体。</p>
+          </div>
+          <div className="android-history-total">
+            <span>{history.length}</span>
+            <small>张</small>
+          </div>
+        </section>
+
+        <section className="android-history-stats" aria-label="历史统计">
+          <button
+            type="button"
+            className={`android-history-stat ${modeF === "all" ? "active" : ""}`}
+            onClick={() => setModeF("all")}
+          >
+            <ImageIcon className="h-4 w-4" />
+            <span>全部</span>
+            <strong>{history.length}</strong>
+          </button>
+          <button
+            type="button"
+            className={`android-history-stat ${modeF === "generate" ? "active" : ""}`}
+            onClick={() => setModeF("generate")}
+          >
+            <CopyPlus className="h-4 w-4" />
+            <span>文生图</span>
+            <strong>{generateCount}</strong>
+          </button>
+          <button
+            type="button"
+            className={`android-history-stat ${modeF === "edit" ? "active" : ""}`}
+            onClick={() => setModeF("edit")}
+          >
+            <Settings2 className="h-4 w-4" />
+            <span>图生图</span>
+            <strong>{editCount}</strong>
+          </button>
+        </section>
+
+        <section className="android-history-filter-card">
+          <label className="android-history-search">
+            <Search className="h-4 w-4" />
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="搜索提示词 / 优化后提示词"
+            />
+          </label>
+          <div className="android-history-filter-row">
+            <button
+              type="button"
+              className={dateF === "all" ? "active" : ""}
+              onClick={() => setDateF("all")}
+            >
+              全部日期
+            </button>
+            <button
+              type="button"
+              className={dateF === "today" ? "active" : ""}
+              onClick={() => setDateF("today")}
+            >
+              今天
+            </button>
+            <button
+              type="button"
+              className={dateF === "week" ? "active" : ""}
+              onClick={() => setDateF("week")}
+            >
+              本周
+            </button>
+          </div>
+        </section>
+
+        {compareB ? (
+          <button
+            type="button"
+            onClick={() => setCompareB(null)}
+            className="android-history-compare-exit"
+          >
+            <Split className="h-4 w-4" /> 退出对比
+          </button>
+        ) : null}
+
+        {history.length > 0 && latestHistory ? (
+          <section className="android-history-feature-card">
+            <div className="android-history-section-head">
+              <span><Clock3 className="h-4 w-4" /> 最近作品</span>
+              <small>{new Date(latestHistory.createdAt).toLocaleDateString()}</small>
+            </div>
+            <button
+              type="button"
+              className="android-history-feature"
+              onClick={() => void selectCurrent(latestHistory)}
+            >
+              <HistoryTile
+                item={latestHistory}
+                isCurrent={currentImage?.id === latestHistory.id}
+                isCompare={compareB?.id === latestHistory.id}
+                onSelect={selectCurrent}
+                onToggleCompare={(next) => setCompareB(next)}
+                onReuse={reuseAsSource}
+                onDelete={deleteHistoryItem}
+                onOpenMenu={(x, y) => openMenu(latestHistory, x, y)}
+                variant="phoneFeature"
+              />
+              <span className="android-history-feature-copy">
+                <strong>{latestHistory.prompt || "(无 prompt)"}</strong>
+                <span>{sizeLabel(latestHistory.size)} · {qualityLabel(latestHistory.quality)} · {latestHistory.mode === "edit" ? "图生图" : "文生图"}</span>
+              </span>
+            </button>
+          </section>
+        ) : null}
+
+        <section className="android-history-results-card">
+          <div className="android-history-section-head">
+            <span><ListFilter className="h-4 w-4" /> 结果</span>
+            <small>{filtered.length}{filtered.length !== history.length ? ` / ${history.length}` : ""}</small>
+          </div>
+
+          {phoneHistory.length === 0 ? (
+            <div className="android-history-empty">
+              <div className="android-history-empty-icon"><ImageIcon className="h-5 w-5" /></div>
+              <strong>{historyFiltersActive ? "没有匹配项" : "还没有历史结果"}</strong>
+              <span>{historyFiltersActive ? "换个关键词或清除筛选条件。" : "生成后的图片会自动出现在这里。"}</span>
+            </div>
+          ) : (
+            <div className="android-history-grid">
+              {phoneHistory.map((h) => (
+                <HistoryTile
+                  key={h.id}
+                  item={h}
+                  isCurrent={currentImage?.id === h.id}
+                  isCompare={compareB?.id === h.id}
+                  onSelect={selectCurrent}
+                  onToggleCompare={(next) => setCompareB(next)}
+                  onReuse={reuseAsSource}
+                  onDelete={deleteHistoryItem}
+                  onOpenMenu={(x, y) => openMenu(h, x, y)}
+                  variant="phone"
+                />
+              ))}
+            </div>
+          )}
+
+          {filtered.length > phoneHistory.length ? (
+            <button type="button" className="android-history-more" onClick={openHistoryTimeline}>
+              查看更多历史
+            </button>
+          ) : null}
+        </section>
+
+        <section className="android-history-quick-actions">
+          <button type="button" onClick={() => latestHistory && void regenerateFromHistory(latestHistory)} disabled={!latestHistory}>
+            <RotateCcw className="h-4 w-4" /> 重跑最近
+          </button>
+          <button
+            type="button"
+            className="danger"
+            onClick={() => {
+              if (!currentImage) return;
+              if (window.confirm(`确定删除当前历史项?\n\n${currentImage.prompt?.slice(0, 60) || "(无 prompt)"}`)) {
+                void deleteHistoryItem(currentImage.id);
+              }
+            }}
+            disabled={!currentImage}
+          >
+            <Trash2 className="h-4 w-4" /> 删除当前
+          </button>
+        </section>
+
+        {menu && <ContextMenu x={menu.x} y={menu.y} items={buildMenu(menu.item)} onClose={closeMenu} />}
+        {rawPath && <RawResponseModal path={rawPath} onClose={closeRaw} />}
+      </aside>
+    );
+  }
 
   return (
     <aside className={`history-rail box-border flex w-[332px] shrink-0 flex-col overflow-y-auto border-l border-[var(--border)] bg-[var(--inspector)] px-4 py-4 backdrop-blur-2xl ${usesAppleUI ? "liquid-sidebar" : ""} ${usesAndroidUI && !isAndroidPhone ? "android-surface-pane" : ""} ${isAndroidPad ? "android-pad-history" : ""}`}>

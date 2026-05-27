@@ -12,7 +12,7 @@ export function SettingsPresetsRow() {
   }
 
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="settings-presets-row flex flex-col gap-1.5">
       {presets.map((preset) => (
         <div key={preset.id} className="flex items-center gap-1">
           <button

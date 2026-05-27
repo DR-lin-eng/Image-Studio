@@ -4,6 +4,7 @@ plugins {
 }
 
 import org.gradle.api.DefaultTask
+import org.gradle.api.GradleException
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.tasks.OutputDirectory
 
@@ -16,6 +17,9 @@ val fallbackDebugKeystore = androidHomeCacheDir.resolve("debug.keystore")
 val customKeystorePath = providers.environmentVariable("IMAGE_STUDIO_KEYSTORE_PATH")
 val appVersionName = providers.environmentVariable("IMAGE_STUDIO_ANDROID_VERSION_NAME").orElse("0.1.5-dev")
 val appVersionCode = providers.environmentVariable("IMAGE_STUDIO_ANDROID_VERSION_CODE").orElse("1050001").map(String::toInt)
+val usePrebuiltFrontend = providers.environmentVariable("IMAGE_STUDIO_ANDROID_USE_PREBUILT_FRONTEND")
+    .map { value -> value == "1" || value.equals("true", ignoreCase = true) }
+    .orElse(false)
 val ensureFallbackDebugKeystore = tasks.register("ensureFallbackDebugKeystore") {
     group = "build setup"
     outputs.file(fallbackDebugKeystore)
@@ -51,9 +55,13 @@ val ensureFallbackDebugKeystore = tasks.register("ensureFallbackDebugKeystore") 
 }
 val frontendInstallTask = tasks.register("prepareFrontendDependencies") {
     group = "frontend"
+    inputs.file(frontendRoot.resolve("package.json"))
+    inputs.file(frontendRoot.resolve("package-lock.json"))
     outputs.dir(frontendRoot.resolve("node_modules"))
+    onlyIf {
+        !usePrebuiltFrontend.get()
+    }
     doLast {
-        delete(frontendNodeModules)
         exec {
             workingDir = frontendRoot
             environment("npm_config_cache", npmCacheDir.absolutePath)
@@ -161,12 +169,17 @@ androidComponents {
             outputs.upToDateWhen { false }
             doLast {
                 androidHomeCacheDir.mkdirs()
-                exec {
-                    workingDir = frontendRoot
-                    environment("npm_config_cache", npmCacheDir.absolutePath)
-                    environment("ANDROID_USER_HOME", androidHomeCacheDir.absolutePath)
-                    environment("HOME", androidHomeDir.absolutePath)
-                    commandLine("npm", "run", "build:$mode")
+                if (!usePrebuiltFrontend.get()) {
+                    exec {
+                        workingDir = frontendRoot
+                        environment("npm_config_cache", npmCacheDir.absolutePath)
+                        environment("ANDROID_USER_HOME", androidHomeCacheDir.absolutePath)
+                        environment("HOME", androidHomeDir.absolutePath)
+                        commandLine("npm", "run", "build:$mode")
+                    }
+                }
+                if (!frontendDist.resolve("index.html").isFile) {
+                    throw GradleException("Frontend dist is missing. Run npm run build:$mode or unset IMAGE_STUDIO_ANDROID_USE_PREBUILT_FRONTEND.")
                 }
                 delete(sharedAssetsDir)
                 delete(outputDir)

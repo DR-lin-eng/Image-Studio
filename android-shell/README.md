@@ -21,3 +21,8 @@ Local build:
 cd android-shell
 ./gradlew assembleRelease
 ```
+
+MuMu emulator debugging:
+
+- See `../docs/mumu-android-debug.md` for the shared ADB connection,
+  Docker build, install, screenshot, rotation, and troubleshooting workflow.

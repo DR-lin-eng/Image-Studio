@@ -24,7 +24,7 @@ html[data-platform="windows"][data-ui-family="fluent"] {
   --tool-hover-bg: rgb(0 0 0 / 0.04);
   --tool-hover-text: var(--text);
   --fluent-pane-left: 360px;
-  --fluent-pane-right: 286px;
+  --fluent-pane-right: 320px;
   --card-radius: 8px;
   --control-radius: 4px;
   --window-blur: none;

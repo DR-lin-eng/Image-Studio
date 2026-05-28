@@ -20,7 +20,7 @@
 @media (max-width: 1180px) {
   html[data-platform="windows"][data-ui-family="fluent"] {
     --fluent-pane-left: 336px;
-    --fluent-pane-right: 266px;
+    --fluent-pane-right: 300px;
   }
 
   html[data-platform="windows"][data-ui-family="fluent"] .studio {

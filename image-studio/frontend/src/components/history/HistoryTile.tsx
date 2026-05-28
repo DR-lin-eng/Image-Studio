@@ -26,7 +26,7 @@ export function HistoryTile({
   onReuse: (h: HistoryItem) => void | Promise<void>;
   onDelete: (id: string) => void | Promise<void>;
   onOpenMenu: (x: number, y: number) => void;
-  variant?: "default" | "phone" | "phoneFeature";
+  variant?: "default" | "phone" | "phoneFeature" | "windowsFeature" | "windowsList";
 }) {
   const { isMac, usesFluentUI } = usePlatform();
   const previewURL = useBlobURL(item.previewBlob ?? item.imageBlob ?? null, item.imageB64 ?? null);
@@ -115,6 +115,85 @@ export function HistoryTile({
             title="删除"
           >
             <X className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (variant === "windowsFeature") {
+    return (
+      <div
+        title={item.prompt}
+        onClick={handleSelect}
+        onMouseDown={handleMouseDown}
+        onDoubleClick={() => onReuse(item)}
+        onContextMenu={openMenuFromEvent}
+        className={`windows-history-feature-tile ${isCurrent ? "active" : ""} ${isCompare ? "compare" : ""}`}
+      >
+        <div className="windows-history-feature-image">
+          <img
+            src={previewURL ?? `data:image/png;base64,${item.imageB64}`}
+            alt={item.prompt}
+            loading="eager"
+            decoding="async"
+          />
+          <HistoryModeBadge mode={item.mode} className="windows-history-mode" />
+          {isCompare ? <span className="windows-history-compare-badge">B</span> : null}
+        </div>
+        <div className="windows-history-feature-body">
+          <p>{item.prompt || "(无 prompt)"}</p>
+          <HistoryMetaBadges items={[sizeLabel(item.size), qualityLabel(item.quality)]} compact />
+          <div className="windows-history-tile-actions">
+            <button type="button" onClick={openMenuFromEvent} onContextMenu={openMenuFromEvent}>
+              <Ellipsis className="h-3.5 w-3.5" /> 更多
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (variant === "windowsList") {
+    return (
+      <div
+        title={item.prompt}
+        onClick={handleSelect}
+        onMouseDown={handleMouseDown}
+        onDoubleClick={() => onReuse(item)}
+        onContextMenu={openMenuFromEvent}
+        className={`windows-history-row ${isCurrent ? "active" : ""} ${isCompare ? "compare" : ""}`}
+      >
+        <div className="windows-history-row-thumb">
+          <img
+            src={previewURL ?? `data:image/png;base64,${item.imageB64}`}
+            alt={item.prompt}
+            loading="eager"
+            decoding="async"
+          />
+        </div>
+        <div className="windows-history-row-main">
+          <p>{item.prompt || "(无 prompt)"}</p>
+          <div className="windows-history-row-meta">
+            <HistoryModeBadge mode={item.mode} />
+            <HistoryMetaBadges items={[sizeLabel(item.size), qualityLabel(item.quality)]} compact />
+            {isCompare ? <span className="windows-history-compare-inline">B</span> : null}
+          </div>
+        </div>
+        <div className="windows-history-row-actions">
+          <button type="button" onClick={openMenuFromEvent} onContextMenu={openMenuFromEvent} title="更多">
+            <Ellipsis className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              void onDelete(item.id);
+            }}
+            onContextMenu={openMenuFromEvent}
+            title="删除"
+          >
+            <X className="h-3.5 w-3.5" />
           </button>
         </div>
       </div>

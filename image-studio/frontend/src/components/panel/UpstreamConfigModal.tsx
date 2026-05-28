@@ -135,7 +135,14 @@ export function UpstreamConfigModal({
 
   if (profiles.length === 0) {
     return (
-      <Modal open={open} onClose={onClose} title="上游配置" width={760}>
+      <Modal
+        open={open}
+        onClose={onClose}
+        title="上游配置"
+        width={760}
+        cardClassName="upstream-config-modal"
+        bodyClassName="upstream-config-modal-body"
+      >
         <section className={`flex flex-col ${isAndroidPhone ? "gap-4" : "gap-5"}`}>
           <div className={`border border-black/[0.06] bg-[var(--surface)]/70 dark:border-white/[0.06] dark:bg-white/[0.03] ${isAndroidPhone ? "rounded-[20px] px-4 py-4" : "rounded-[22px] px-5 py-5"}`}>
             <div className="flex items-start gap-3">
@@ -198,8 +205,15 @@ export function UpstreamConfigModal({
 
   return (
     <>
-    <Modal open={open} onClose={onClose} title="上游配置" width={760}>
-      <div className={`flex gap-4 ${isAndroidPhone ? "flex-col" : ""}`}>
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="上游配置"
+      width={760}
+      cardClassName="upstream-config-modal"
+      bodyClassName="upstream-config-modal-body"
+    >
+      <div className={`flex min-w-0 gap-4 ${isAndroidPhone ? "flex-col" : ""}`}>
         <UpstreamProfileList
           profiles={profiles}
           selectedId={selectedId}

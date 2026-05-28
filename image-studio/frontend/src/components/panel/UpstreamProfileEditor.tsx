@@ -39,7 +39,7 @@ export function UpstreamProfileEditor({
   const { isAndroidPhone, usesFluentUI } = usePlatform();
 
   return (
-    <div className={`flex flex-col ${isAndroidPhone ? "gap-3" : "gap-3.5"}`}>
+    <div className={`upstream-profile-editor flex min-w-0 flex-col ${isAndroidPhone ? "gap-3" : "gap-3.5"}`}>
       <div className="flex items-center justify-end">
         <button
           type="button"
@@ -56,7 +56,7 @@ export function UpstreamProfileEditor({
           value={draft.name}
           onChange={(e) => onPatchDraft({ name: e.target.value })}
           spellCheck={false}
-          className={`focus-ring w-full border border-black/[0.08] bg-[var(--surface)] px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 dark:border-white/[0.08] dark:text-zinc-100 dark:placeholder:text-zinc-500 ${usesFluentUI ? "rounded-[10px]" : "rounded-[14px]"}`}
+          className={`focus-ring w-full min-w-0 border border-black/[0.08] bg-[var(--surface)] px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 dark:border-white/[0.08] dark:text-zinc-100 dark:placeholder:text-zinc-500 ${usesFluentUI ? "rounded-[10px]" : "rounded-[14px]"}`}
         />
       </Field>
 
@@ -78,8 +78,8 @@ export function UpstreamProfileEditor({
                     : "border-black/[0.08] text-zinc-700 hover:border-[color:var(--accent)]/30 dark:border-white/[0.06] dark:text-zinc-300"
                 } ${usesFluentUI ? "rounded-[8px]" : "rounded-[14px]"}`}
               >
-                <span className="text-[12px] font-semibold">{option.title}</span>
-                <span className={`text-[10px] ${active ? "text-[var(--accent)]/80" : "text-zinc-500"}`}>{option.sub}</span>
+                <span className="min-w-0 break-words text-[12px] font-semibold [overflow-wrap:anywhere]">{option.title}</span>
+                <span className={`min-w-0 break-words text-[10px] [overflow-wrap:anywhere] ${active ? "text-[var(--accent)]/80" : "text-zinc-500"}`}>{option.sub}</span>
               </button>
             );
           })}
@@ -109,8 +109,8 @@ export function UpstreamProfileEditor({
                     : "border-black/[0.08] text-zinc-700 hover:border-[color:var(--accent)]/30 dark:border-white/[0.06] dark:text-zinc-300"
                 } ${usesFluentUI ? "rounded-[8px]" : "rounded-[14px]"}`}
               >
-                <span className="text-[12px] font-semibold">{option.title}</span>
-                <span className={`text-[10px] ${active ? "text-[var(--accent)]/80" : "text-zinc-500"}`}>{option.sub}</span>
+                <span className="min-w-0 break-words text-[12px] font-semibold [overflow-wrap:anywhere]">{option.title}</span>
+                <span className={`min-w-0 break-words text-[10px] [overflow-wrap:anywhere] ${active ? "text-[var(--accent)]/80" : "text-zinc-500"}`}>{option.sub}</span>
               </button>
             );
           })}
@@ -127,7 +127,7 @@ export function UpstreamProfileEditor({
           placeholder="https://your-relay.example.com"
           onChange={(e) => onPatchDraft({ baseURL: e.target.value })}
           spellCheck={false}
-          className={`focus-ring w-full border border-black/[0.08] bg-[var(--surface)] px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 dark:border-white/[0.08] dark:text-zinc-100 dark:placeholder:text-zinc-500 font-mono-token ${usesFluentUI ? "rounded-[10px]" : "rounded-[14px]"}`}
+          className={`focus-ring w-full min-w-0 border border-black/[0.08] bg-[var(--surface)] px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 dark:border-white/[0.08] dark:text-zinc-100 dark:placeholder:text-zinc-500 font-mono-token ${usesFluentUI ? "rounded-[10px]" : "rounded-[14px]"}`}
         />
         {baseURLError ? <Hint>{baseURLError}</Hint> : null}
         <Hint>
@@ -136,7 +136,7 @@ export function UpstreamProfileEditor({
       </Field>
 
       <Field label={<>API Key <Req /></>}>
-        <div className="relative">
+        <div className="relative min-w-0">
           <input
             type={showKey ? "text" : "password"}
             value={draftKey}
@@ -144,7 +144,7 @@ export function UpstreamProfileEditor({
             onChange={(e) => onChangeDraftKey(e.target.value)}
             spellCheck={false}
             autoComplete="off"
-            className={`focus-ring w-full border border-black/[0.08] bg-[var(--surface)] py-2 pl-3 pr-10 text-sm text-zinc-900 placeholder:text-zinc-400 dark:border-white/[0.08] dark:text-zinc-100 dark:placeholder:text-zinc-500 font-mono-token ${usesFluentUI ? "rounded-[10px]" : "rounded-[14px]"}`}
+            className={`focus-ring w-full min-w-0 border border-black/[0.08] bg-[var(--surface)] py-2 pl-3 pr-10 text-sm text-zinc-900 placeholder:text-zinc-400 dark:border-white/[0.08] dark:text-zinc-100 dark:placeholder:text-zinc-500 font-mono-token ${usesFluentUI ? "rounded-[10px]" : "rounded-[14px]"}`}
           />
           <button
             type="button"
@@ -166,7 +166,7 @@ export function UpstreamProfileEditor({
             placeholder="留空=默认 gpt-5.5"
             onChange={(e) => onPatchDraft({ textModelID: e.target.value })}
             spellCheck={false}
-            className={`focus-ring w-full border border-black/[0.08] bg-[var(--surface)] px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 dark:border-white/[0.08] dark:text-zinc-100 dark:placeholder:text-zinc-500 font-mono-token ${usesFluentUI ? "rounded-[10px]" : "rounded-[14px]"}`}
+            className={`focus-ring w-full min-w-0 border border-black/[0.08] bg-[var(--surface)] px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 dark:border-white/[0.08] dark:text-zinc-100 dark:placeholder:text-zinc-500 font-mono-token ${usesFluentUI ? "rounded-[10px]" : "rounded-[14px]"}`}
           />
         </Field>
       ) : null}
@@ -178,7 +178,7 @@ export function UpstreamProfileEditor({
           placeholder="留空=默认 gpt-image-2"
           onChange={(e) => onPatchDraft({ imageModelID: e.target.value })}
           spellCheck={false}
-          className={`focus-ring w-full border border-black/[0.08] bg-[var(--surface)] px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 dark:border-white/[0.08] dark:text-zinc-100 dark:placeholder:text-zinc-500 font-mono-token ${usesFluentUI ? "rounded-[10px]" : "rounded-[14px]"}`}
+          className={`focus-ring w-full min-w-0 border border-black/[0.08] bg-[var(--surface)] px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 dark:border-white/[0.08] dark:text-zinc-100 dark:placeholder:text-zinc-500 font-mono-token ${usesFluentUI ? "rounded-[10px]" : "rounded-[14px]"}`}
         />
       </Field>
 
@@ -190,7 +190,7 @@ export function UpstreamProfileEditor({
           min={0}
           step={1}
           onChange={(e) => onPatchDraft({ concurrencyLimit: Math.max(0, Math.floor(Number(e.target.value) || 0)) })}
-          className={`focus-ring w-full border border-black/[0.08] bg-[var(--surface)] px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 dark:border-white/[0.08] dark:text-zinc-100 dark:placeholder:text-zinc-500 font-mono-token ${usesFluentUI ? "rounded-[10px]" : "rounded-[14px]"}`}
+          className={`focus-ring w-full min-w-0 border border-black/[0.08] bg-[var(--surface)] px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 dark:border-white/[0.08] dark:text-zinc-100 dark:placeholder:text-zinc-500 font-mono-token ${usesFluentUI ? "rounded-[10px]" : "rounded-[14px]"}`}
         />
         <Hint>0/留空 = 不限制。填正整数后,此 profile 跨所有标签页最多同时运行这么多任务。</Hint>
       </Field>
@@ -223,12 +223,12 @@ export function UpstreamProfileEditor({
         </button>
       </div>
 
-      {!canSave ? <p className="text-[11px] text-zinc-500">BASE_URL 和 API Key 必须填齐才能保存。</p> : null}
+      {!canSave ? <p className="min-w-0 break-words text-[11px] text-zinc-500 [overflow-wrap:anywhere]">BASE_URL 和 API Key 必须填齐才能保存。</p> : null}
 
       {draft.apiMode === "images" ? (
         <div className={`${usesAppleUI ? "liquid-glass-panel" : ""} flex items-start gap-2 border border-[color:var(--accent)]/20 bg-[var(--accent-soft)] px-3 py-2 text-[11px] text-[var(--accent)] ${usesFluentUI ? "rounded-[10px]" : "rounded-[14px]"}`}>
           <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          <span>Images API 路径走标准 <code className="font-mono-token">/v1/images/generations</code> + <code className="font-mono-token">/v1/images/edits</code>,无 SSE 保活,长推理 CF 524 风险更高,但兼容性最广。</span>
+          <span className="min-w-0 break-words [overflow-wrap:anywhere]">Images API 路径走标准 <code className="font-mono-token">/v1/images/generations</code> + <code className="font-mono-token">/v1/images/edits</code>,无 SSE 保活,长推理 CF 524 风险更高,但兼容性最广。</span>
         </div>
       ) : null}
     </div>
@@ -237,8 +237,8 @@ export function UpstreamProfileEditor({
 
 function Field({ label, children }: { label: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div>
-      <label className="mb-1.5 block text-xs text-zinc-600 dark:text-zinc-400">{label}</label>
+    <div className="upstream-field min-w-0">
+      <label className="mb-1.5 block min-w-0 break-words text-xs text-zinc-600 [overflow-wrap:anywhere] dark:text-zinc-400">{label}</label>
       {children}
     </div>
   );
@@ -246,7 +246,7 @@ function Field({ label, children }: { label: React.ReactNode; children: React.Re
 
 function Hint({ children }: { children: React.ReactNode }) {
   return (
-    <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-500">{children}</p>
+    <p className="mt-1.5 min-w-0 break-words text-[11px] leading-relaxed text-zinc-500 [overflow-wrap:anywhere] dark:text-zinc-500">{children}</p>
   );
 }
 

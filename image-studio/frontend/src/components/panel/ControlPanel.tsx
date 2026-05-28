@@ -13,6 +13,7 @@ import { QUALITY_TIERS, STYLE_CHIPS } from "./panelOptions";
 import { PromptEditorSection } from "./PromptEditorSection";
 import { Section, Seg, SegItem } from "./panelChrome";
 import { SubmitBar } from "./SubmitBar";
+import { WindowsComposePanel } from "./WindowsComposePanel";
 import {
   ASPECT_PRESETS,
   RESOLUTION_PRESETS,
@@ -39,7 +40,8 @@ export function ControlPanel() {
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [promptPopover, setPromptPopover] = useState(false);
   const [macComposeOpen, setMacComposeOpen] = useState(false);
-  const { isAndroid, isAndroidPhone, isAndroidPad, isMac, usesAndroidUI, usesAppleUI, usesFluentUI } = usePlatform();
+  const [windowsComposeOpen, setWindowsComposeOpen] = useState(false);
+  const { isAndroid, isAndroidPhone, isAndroidPad, isMac, isWindows, usesAndroidUI, usesAppleUI, usesFluentUI } = usePlatform();
 
   if (isAndroidPhone) {
     return <AndroidPhoneComposePanel />;
@@ -67,6 +69,7 @@ export function ControlPanel() {
     prompt.trim() && (hasUsableResponsesProfile || (apiKey.trim() && baseURL.trim()))
   );
   const compactMacCompose = isMac;
+  const compactWindowsCompose = isWindows;
   const advancedSummary = [
     negativePrompt.trim() ? "已填负向提示词" : "无负向限制",
     outputFormat.toUpperCase(),
@@ -172,7 +175,7 @@ export function ControlPanel() {
         onOptimizePrompt={optimizePrompt}
       />
 
-      {!compactMacCompose ? (
+      {!compactMacCompose && !compactWindowsCompose ? (
         <DesktopComposeSections
           activeAspect={activeAspect}
           activeResolution={activeResolution}
@@ -194,6 +197,36 @@ export function ControlPanel() {
           size={size}
           sources={sources}
           styleTag={styleTag}
+        />
+      ) : null}
+
+      {compactWindowsCompose ? (
+        <WindowsComposePanel
+          composeOpen={windowsComposeOpen}
+          setComposeOpen={setWindowsComposeOpen}
+          styleTag={styleTag}
+          activeStyleLabel={activeStyleLabel}
+          activeAspect={activeAspect}
+          activeAspectLabel={activeAspectLabel}
+          activeResolution={activeResolution}
+          activeResolutionLabel={activeResolutionLabel}
+          activeQualityLabel={activeQualityLabel}
+          availableResolutions={availableResolutions}
+          batchCount={batchCount}
+          clearSources={clearSources}
+          currentImageSavedPath={currentImage?.savedPath ?? null}
+          handleAspectSelect={handleAspectSelect}
+          handleResolutionSelect={handleResolutionSelect}
+          imageModelID={imageModelID}
+          mode={mode}
+          onRemoveSource={removeSource}
+          quality={quality}
+          requestPolicy={requestPolicy}
+          selectSourceImage={selectSourceImage}
+          setField={setField as any}
+          size={size}
+          sources={sources}
+          apiMode={apiMode}
         />
       ) : null}
 

@@ -17,10 +17,11 @@ import {
 } from "./historyFilters";
 import { HistoryTile } from "./HistoryTile";
 import { useHistoryContextMenu } from "./useHistoryContextMenu";
+import { WindowsHistoryRail } from "./WindowsHistoryRail";
 import { qualityLabel, sizeLabel } from "./historyLabels";
 
-type ModeFilter = "all" | Mode;
-type DateFilter = RelativeHistoryDateFilter;
+export type ModeFilter = "all" | Mode;
+export type DateFilter = RelativeHistoryDateFilter;
 
 export function HistoryRail() {
   const {
@@ -113,6 +114,48 @@ export function HistoryRail() {
   });
 
   if (fullscreen) return null;
+
+  if (isWindows) {
+    return (
+      <WindowsHistoryRail
+        activeProfileId={activeProfileId}
+        apiKey={apiKey}
+        apiMode={apiMode}
+        baseURL={baseURL}
+        buildMenu={buildMenu}
+        closeMenu={closeMenu}
+        closeRaw={closeRaw}
+        compareB={compareB}
+        currentImage={currentImage}
+        dateF={dateF}
+        deleteHistoryItem={deleteHistoryItem}
+        editCount={editCount}
+        filtered={filtered}
+        generateCount={generateCount}
+        history={history}
+        historyFiltersActive={historyFiltersActive}
+        historyRailCollapsed={historyRailCollapsed}
+        isTestingKey={isTestingKey}
+        menu={menu}
+        modeF={modeF}
+        openHistoryTimeline={openHistoryTimeline}
+        openMenu={openMenu}
+        openUpstreamConfig={openUpstreamConfig}
+        profiles={profiles}
+        q={q}
+        rawPath={rawPath}
+        reuseAsSource={reuseAsSource}
+        selectCurrent={selectCurrent}
+        setActiveProfile={setActiveProfile}
+        setCompareB={setCompareB}
+        setDateF={setDateF}
+        setHistoryRailCollapsed={setHistoryRailCollapsed}
+        setModeF={setModeF}
+        setQ={setQ}
+        testAPIKey={testAPIKey}
+      />
+    );
+  }
 
   if (isAndroidPhone || isAndroidPad) {
     return (

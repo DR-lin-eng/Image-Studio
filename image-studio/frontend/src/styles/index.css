@@ -880,4 +880,7 @@ html[data-ui-family="apple"] .select:focus {
 @import "./_overlays.css";
 @import "./fluent/_windows-theme.css";
 @import "./fluent/_windows-controls.css";
+@import "./fluent/_windows-compose.css";
+@import "./fluent/_windows-history.css";
+@import "./fluent/_windows-flyouts.css";
 @import "./fluent/_responsive.css";

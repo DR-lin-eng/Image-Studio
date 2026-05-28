@@ -10,10 +10,14 @@
 ![wails](https://img.shields.io/badge/wails-v2-DF0000)
 ![platform](https://img.shields.io/badge/platform-windows%20%7C%20macos%20%7C%20linux-lightgrey)
 
+> 🧪 **抢先测试版本**:想体验 main 分支最新但还没打 tag 的功能?到 [DR-lin-eng/Image-Studio Actions](https://github.com/DR-lin-eng/Image-Studio/actions) 找最近一次成功的 build 下载 artifact。这些是 CI 自动产出,未经稳定性验证,装在测试环境 / 重要数据另作备份。
+
 ---
 
 <p align="center">
-  <img src="./docs/screenshot.png" alt="Image Studio 主界面" width="880">
+  <img src="./docs/screenshot1.png" alt="Image Studio 主界面 - 截图 1" width="880">
+  <br />
+  <img src="./docs/screenshot2.png" alt="Image Studio 主界面 - 截图 2" width="880">
   <br />
   <sub>左侧:控制面板(模式 / prompt / 风格 / 比例 / 质量) · 中:画板 + 工具栏 + 状态栏 · 右:历史记录</sub>
 </p>
@@ -410,17 +414,25 @@ Android 保存逻辑与桌面端不同:前端会优先调用壳层注入的 `win
 
 ---
 
-## 致谢
-
-- [**linux.do**](https://linux.do/) —— 感谢 L 站及其社区为项目开发与交流提供的支持与启发。
-
-灵感来自实际使用中频繁被中转站 524 截断的痛苦经历。
-
----
-
 ## License
 
 [MIT](./LICENSE) © 2026
+
+---
+
+## 致谢
+
+- <a href="https://linux.do/"><img src="./docs/linuxdo.png" alt="linux.do" height="20" align="absmiddle" /></a> [**linux.do**](https://linux.do/) —— 感谢 L 站及其社区为项目开发与交流提供的支持与启发。
+
+### 赞助商
+
+<p align="center">
+  <a href="https://www.fhl.mom"><img src="./docs/%E8%B5%9E%E5%8A%A9-www.FHL.mom.png" alt="赞助商 · www.fhl.mom" width="720"></a>
+  <br /><br />
+  <a href="https://gptcodex.top"><img src="./docs/%E8%B5%9E%E5%8A%A9-GPTCODEX.top.png" alt="赞助商 · gptcodex.top" width="720"></a>
+  <br /><br />
+  <a href="https://muxueai.pro"><img src="./docs/%E8%B5%9E%E5%8A%A9-muxueai.pro.png" alt="赞助商 · muxueai.pro" width="720"></a>
+</p>
 
 ---
 

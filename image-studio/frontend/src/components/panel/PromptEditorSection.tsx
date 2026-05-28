@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useRef } from "react";
 import { ListPlus, Sparkles } from "lucide-react";
 import { submitShortcutLabel } from "../../platform";
 import { usePlatform } from "../../platform/context";
@@ -34,6 +34,7 @@ export function PromptEditorSection({
   onOptimizePrompt: () => void;
 }) {
   const { isMac, usesFluentUI } = usePlatform();
+  const promptPopoverAnchorRef = useRef<HTMLButtonElement | null>(null);
 
   return (
     <section className={`platform-card relative overflow-visible ${promptPopover ? "z-30" : "z-0"} ${isMac ? "p-5" : "p-4"}`}>
@@ -60,6 +61,7 @@ export function PromptEditorSection({
         <div className={`${isMac ? "grid grid-cols-2 gap-2.5" : "flex gap-2.5 items-center"}`}>
           <div className={`relative ${isMac ? "min-w-0" : "shrink-0"}`}>
             <button
+              ref={promptPopoverAnchorRef}
               type="button"
               onClick={() => setPromptPopover((v) => !v)}
               title="prompt 模板与历史"
@@ -74,6 +76,7 @@ export function PromptEditorSection({
             {promptPopover && (
               <Suspense fallback={null}>
                 <PromptPopover
+                  anchorRef={promptPopoverAnchorRef}
                   onClose={() => setPromptPopover(false)}
                   onPick={(text) => {
                     const current = useStudioStore.getState().prompt;

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { useStudioStore } from "../../state/studioStore";
 import { usePlatform } from "../../platform/context";
@@ -14,15 +15,65 @@ const PROMPT_TEMPLATES: { label: string; text: string }[] = [
   { label: "像素风", text: "pixel art, 16-bit, retro game style, limited palette" },
 ];
 
-export function PromptPopover({ onClose, onPick }: { onClose: () => void; onPick: (text: string) => void }) {
+export function PromptPopover({
+  anchorRef,
+  onClose,
+  onPick,
+}: {
+  anchorRef: React.RefObject<HTMLElement | null>;
+  onClose: () => void;
+  onPick: (text: string) => void;
+}) {
   const history = useStudioStore((s) => s.promptHistory);
   const [tab, setTab] = useState<"templates" | "history">("templates");
   const { isMac, usesFluentUI, usesAppleUI } = usePlatform();
+  const popoverRef = useRef<HTMLDivElement | null>(null);
+  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
 
-  return (
+  useLayoutEffect(() => {
+    const compute = () => {
+      const anchor = anchorRef.current;
+      if (!anchor) return;
+      const rect = anchor.getBoundingClientRect();
+      const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
+      const width = Math.min(isMac ? 400 : 360, Math.max(280, viewportWidth - 24));
+      const left = Math.min(Math.max(12, rect.left), Math.max(12, viewportWidth - width - 12));
+      setPos({ top: rect.bottom + 12, left, width });
+    };
+    compute();
+    window.addEventListener("resize", compute);
+    window.addEventListener("scroll", compute, true);
+    return () => {
+      window.removeEventListener("resize", compute);
+      window.removeEventListener("scroll", compute, true);
+    };
+  }, [anchorRef, isMac]);
+
+  useEffect(() => {
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (popoverRef.current?.contains(target)) return;
+      if (anchorRef.current?.contains(target)) return;
+      onClose();
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("pointerdown", handlePointerDown, true);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown, true);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [anchorRef, onClose]);
+
+  if (!pos) return null;
+
+  return createPortal(
     <div
-      onClick={(e) => e.stopPropagation()}
-      className={`absolute left-0 top-[calc(100%+0.75rem)] z-[140] flex max-h-[360px] flex-col overflow-hidden border border-black/[0.08] bg-white/96 shadow-[0_28px_70px_rgb(15_23_42_/_0.22)] backdrop-blur-2xl dark:border-white/[0.08] dark:bg-[rgb(24_27_34_/_0.96)] ${usesAppleUI ? "liquid-glass-panel" : ""} ${isMac ? "w-[min(25rem,calc(100vw-3rem))]" : "w-[min(22.5rem,calc(100vw-3rem))]"} ${usesFluentUI ? "rounded-[12px]" : "rounded-[22px]"}`}
+      ref={popoverRef}
+      style={{ position: "fixed", top: pos.top, left: pos.left, width: pos.width, zIndex: 9050 }}
+      className={`flex max-h-[360px] flex-col overflow-hidden border border-black/[0.08] bg-white/96 shadow-[0_28px_70px_rgb(15_23_42_/_0.22)] backdrop-blur-2xl dark:border-white/[0.08] dark:bg-[rgb(24_27_34_/_0.96)] ${usesAppleUI ? "liquid-glass-panel" : ""} ${usesFluentUI ? "rounded-[12px]" : "rounded-[22px]"}`}
     >
       <div className="flex items-center border-b border-black/[0.06] px-2 py-1.5 dark:border-white/[0.05]">
         <button
@@ -83,6 +134,7 @@ export function PromptPopover({ onClose, onPick }: { onClose: () => void; onPick
           )
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -13,7 +13,7 @@ Image Studio 面向 OpenAI 兼容图像上游，解决长时间图像推理在 C
 
 项目不内置任何默认上游。首次启动会要求你填写 BASE_URL、API Key、文本模型与图像模型。
 
-> **抢先测试版本**:想体验 main 分支最新但还没打 tag 的功能，可以到 [DR-lin-eng/Image-Studio Actions](https://github.com/DR-lin-eng/Image-Studio/actions) 找最近一次成功的 build 下载 artifact。CI 产物未经稳定性验证，建议只装在测试环境，重要数据另行备份。
+> **抢先测试版本**:想体验 main 分支最新但还没打 tag 的功能，可以到 [DR-lin-eng/Image-Studio Actions](https://github.com/DR-lin-eng/Image-Studio/actions/workflows/release.yml) 找最近一次成功的 build 下载 artifact。CI 产物未经稳定性验证，建议只装在测试环境，重要数据另行备份。
 
 ---
 

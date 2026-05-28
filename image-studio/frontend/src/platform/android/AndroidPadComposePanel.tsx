@@ -1,6 +1,6 @@
 import { useState } from "react";
 import {
-  ListPlus, Sparkles,
+  CheckCircle2, ImagePlus, ListPlus, Sparkles,
 } from "lucide-react";
 import { useStudioStore } from "../../state/studioStore";
 import { QUALITY_TIERS, STYLE_CHIPS } from "../../components/panel/panelOptions";
@@ -32,8 +32,9 @@ export function AndroidPadComposePanel() {
   const [templateOpen, setTemplateOpen] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const promptLen = prompt.length;
-  const { androidWidthClass } = usePlatform();
+  const { androidOrientation, androidWidthClass } = usePlatform();
   const isMediumPad = androidWidthClass === "medium";
+  const isLandscapePad = androidOrientation === "landscape";
   const needsUpstreamSetup = !apiKey.trim() || !baseURL.trim();
   const hasUsableResponsesProfile = profiles.some(
     (p) => p.apiMode === "responses" && p.baseURL.trim(),
@@ -86,8 +87,40 @@ export function AndroidPadComposePanel() {
     selectSourceImage();
   };
 
+  const submitButton = needsUpstreamSetup ? (
+    <button
+      type="button"
+      onClick={() => { vibrateForPlatform(10); openUpstreamConfig("app"); }}
+      className="liquid-primary-button h-[52px] w-full text-[15px] font-semibold text-white"
+    >
+      配置上游
+    </button>
+  ) : isRunning ? (
+    <button
+      type="button"
+      onClick={() => { vibrateForPlatform(10); cancel(); }}
+      className="h-[52px] w-full rounded-[20px] border border-red-500/30 bg-red-500/10 text-[15px] font-medium text-red-500 transition-colors hover:bg-red-500/16"
+    >
+      取消生成
+    </button>
+  ) : (
+    <button
+      type="button"
+      onClick={handleSubmit}
+      disabled={!apiKey || !prompt.trim()}
+      className="liquid-primary-button h-[52px] w-full text-[15px] font-semibold text-white disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500 dark:disabled:bg-zinc-800"
+    >
+      {mode === "edit" ? "开始编辑" : "开始生成"}
+    </button>
+  );
+
   return (
-    <div className="control-panel android-pad-compose flex w-full flex-col gap-4 overflow-y-auto border-r border-[var(--border)] bg-[var(--bg)] px-4 py-4" style={{ paddingLeft: "calc(env(safe-area-inset-left, 0px) + 16px)", paddingRight: "calc(env(safe-area-inset-right, 0px) + 16px)" }}>
+    <div
+      className="control-panel android-pad-compose flex w-full flex-col gap-4 overflow-y-auto border-r border-[var(--border)] bg-[var(--bg)] px-4 py-4"
+      data-mode={mode}
+      data-orientation={androidOrientation}
+      style={{ paddingLeft: "calc(env(safe-area-inset-left, 0px) + 16px)", paddingRight: "calc(env(safe-area-inset-right, 0px) + 16px)" }}
+    >
       <section className="platform-card android-pad-overview p-4">
         <div className="android-pad-overview-row">
           <div className="android-pad-hero-copy">
@@ -96,7 +129,9 @@ export function AndroidPadComposePanel() {
               图像工作区
             </h2>
             <p className="mt-1 text-[12px] leading-6 text-zinc-500 dark:text-zinc-300">
-              {isMediumPad
+              {isLandscapePad
+                ? "横屏下聚焦参数与提示词，画布从左侧导航进入。"
+                : isMediumPad
                 ? "中等宽度下保留 rail 导航，把主要操作压在单列主区域里。"
                 : "参数在左，画布在中，大屏下保持一眼可扫的多窗格结构。"}
             </p>
@@ -114,140 +149,136 @@ export function AndroidPadComposePanel() {
         </div>
       </section>
 
-      <section className="platform-card android-pad-prompt p-5">
-        <div className="android-pad-section-head">
-          <label className="android-phone-kicker">{mode === "edit" ? "修改要求" : "提示词"}</label>
-          <span className="font-mono-token text-[11px] text-zinc-400 dark:text-zinc-500">{promptLen}</span>
-        </div>
-        <textarea
-          value={prompt}
-          placeholder={mode === "edit"
-            ? "描述如何修改源图，例如：把背景换成夜景、保留主体姿态"
-            : "描述你想生成的画面内容、光线、构图、风格、镜头感"}
-          onChange={(e) => setField("prompt", e.target.value)}
-          className="focus-ring mt-3 min-h-[170px] w-full resize-none border border-black/[0.08] bg-[var(--surface)] px-4 py-3 text-[15px] leading-7 text-zinc-900 placeholder:text-zinc-400 dark:border-white/[0.08] dark:text-zinc-100 dark:placeholder:text-zinc-500"
-        />
-        <div className="android-pad-action-row mt-3">
-          <div className="relative android-pad-action-slot">
+      <div className="android-pad-compose-grid">
+        <section className="platform-card android-pad-prompt p-5">
+          <div className="android-pad-section-head">
+            <label className="android-phone-kicker">{mode === "edit" ? "修改要求" : "提示词"}</label>
+            <span className="font-mono-token text-[11px] text-zinc-400 dark:text-zinc-500">{promptLen}</span>
+          </div>
+          <div className="android-pad-prompt-input-shell mt-3">
+            <textarea
+              value={prompt}
+              placeholder={mode === "edit"
+                ? "描述如何修改源图，例如：把背景换成夜景、保留主体姿态"
+                : "描述你想生成的画面内容、光线、构图、风格、镜头感"}
+              onChange={(e) => setField("prompt", e.target.value)}
+              className="focus-ring android-pad-prompt-textarea min-h-[170px] w-full resize-none border border-black/[0.08] bg-[var(--surface)] px-4 py-3 text-[15px] leading-7 text-zinc-900 placeholder:text-zinc-400 dark:border-white/[0.08] dark:text-zinc-100 dark:placeholder:text-zinc-500"
+            />
+          </div>
+          <div className="android-pad-action-row mt-3">
+            <div className="relative android-pad-action-slot">
+              <button
+                type="button"
+                onClick={() => { vibrateForPlatform(8); setTemplateOpen(true); }}
+                className={`platform-pill inline-flex min-h-[40px] items-center gap-1.5 px-3 text-[12px] ${
+                  templateOpen
+                    ? "bg-[var(--accent-soft)] text-[var(--accent)] ring-1 ring-[color:var(--accent)]/20"
+                    : "text-zinc-500 hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]"
+                }`}
+              >
+                <ListPlus className="h-3.5 w-3.5" /> 模板
+              </button>
+            </div>
             <button
               type="button"
-              onClick={() => { vibrateForPlatform(8); setTemplateOpen(true); }}
+              onClick={handleOptimize}
+              disabled={!optimizeReady || isOptimizingPrompt}
               className={`platform-pill inline-flex min-h-[40px] items-center gap-1.5 px-3 text-[12px] ${
-                templateOpen
-                  ? "bg-[var(--accent-soft)] text-[var(--accent)] ring-1 ring-[color:var(--accent)]/20"
+                isOptimizingPrompt
+                  ? "bg-[var(--accent-soft)] text-[var(--accent)]"
                   : "text-zinc-500 hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]"
-              }`}
+              } disabled:cursor-not-allowed disabled:opacity-50`}
             >
-              <ListPlus className="h-3.5 w-3.5" /> 模板 / 历史
+              <Sparkles className={`h-3.5 w-3.5 ${isOptimizingPrompt ? "animate-pulse" : ""}`} />
+              {isOptimizingPrompt ? "优化中..." : "优化"}
+            </button>
+            <button
+              type="button"
+              disabled={apiMode !== "responses"}
+              aria-pressed={noPromptRevision}
+              className={`android-pad-exact-toggle ${noPromptRevision ? "is-active" : ""} ${
+                apiMode !== "responses" ? "is-disabled" : ""
+              }`}
+              title={apiMode === "responses" ? "逐字把当前提示词发给图像模型" : "Images API 不支持该项"}
+              onClick={() => {
+                if (apiMode !== "responses") return;
+                vibrateForPlatform(5);
+                setField("noPromptRevision", !noPromptRevision);
+              }}
+            >
+              <span className="android-pad-exact-toggle-mark" aria-hidden="true">
+                {noPromptRevision ? <CheckCircle2 className="h-3 w-3" /> : null}
+              </span>
+              <span className="android-pad-exact-toggle-label">逐字</span>
             </button>
           </div>
-          <button
-            type="button"
-            onClick={handleOptimize}
-            disabled={!optimizeReady || isOptimizingPrompt}
-            className={`platform-pill inline-flex min-h-[40px] items-center gap-1.5 px-3 text-[12px] ${
-              isOptimizingPrompt
-                ? "bg-[var(--accent-soft)] text-[var(--accent)]"
-                : "text-zinc-500 hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]"
-            } disabled:cursor-not-allowed disabled:opacity-50`}
-          >
-            <Sparkles className={`h-3.5 w-3.5 ${isOptimizingPrompt ? "animate-pulse" : ""}`} />
-            {isOptimizingPrompt ? "优化中..." : "LLM 优化"}
-          </button>
-          <label
-            className={`platform-pill inline-flex min-h-[40px] items-center gap-1.5 px-3 text-[12px] ring-1 transition-colors ${
-              noPromptRevision
-                ? "bg-[var(--accent-soft)] text-[var(--accent)] ring-[color:var(--accent)]/20"
-                : "text-zinc-500 ring-transparent hover:ring-black/[0.08] dark:text-zinc-400 dark:hover:ring-white/[0.06]"
-            } ${apiMode !== "responses" ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
-            title={apiMode === "responses" ? "逐字把当前提示词发给图像模型" : "Images API 不支持该项"}
-          >
-            <input
-              type="checkbox"
-              checked={noPromptRevision}
-              disabled={apiMode !== "responses"}
-              onChange={(e) => { vibrateForPlatform(5); setField("noPromptRevision", e.target.checked); }}
-              className="sr-only"
+        </section>
+
+        <div className="android-pad-side-stack">
+          <AndroidPadParameterSection
+            activeAspect={activeAspect}
+            activeAspectLabel={activeAspectLabel}
+            activeResolution={activeResolution}
+            activeResolutionLabel={activeResolutionLabel}
+            activeQualityLabel={activeQualityLabel}
+            activeStyleLabel={activeStyleLabel}
+            availableResolutions={availableResolutions}
+            apiMode={apiMode}
+            batchCount={batchCount}
+            handleAspectSelect={handleAspectSelect}
+            handleResolutionSelect={handleResolutionSelect}
+            imageModelID={imageModelID}
+            isMediumPad={isMediumPad}
+            needsUpstreamSetup={needsUpstreamSetup}
+            onOpenUpstream={() => { vibrateForPlatform(8); openUpstreamConfig("app"); }}
+            quality={quality}
+            requestPolicy={requestPolicy}
+            setField={setField as any}
+            styleTag={styleTag}
+          />
+
+          <div className="android-pad-right-stack">
+            {mode === "edit" ? (
+              <AndroidPadSourceSection
+                clearSources={clearSources}
+                currentImage={currentImage}
+                editSourceLabel={editSourceLabel}
+                onSelectSource={handleSelectSource}
+                removeSource={removeSource}
+                sources={sources}
+              />
+            ) : (
+              <section className="platform-card android-pad-source-placeholder">
+                <ImagePlus className="h-4 w-4" />
+                <span>
+                  <span className="android-phone-kicker">参考图</span>
+                  <strong>无需参考图</strong>
+                </span>
+                <CheckCircle2 className="h-4 w-4" />
+              </section>
+            )}
+
+            <AndroidAdvancedSection
+              advancedOpen={advancedOpen}
+              apiMode={apiMode}
+              negativePrompt={negativePrompt}
+              noPromptRevision={noPromptRevision}
+              outputFormat={outputFormat}
+              seed={seed}
+              setAdvancedOpen={setAdvancedOpen}
+              setField={setField as any}
+              surface="pad"
             />
-            <span className={`flex h-3.5 w-3.5 items-center justify-center rounded border transition-colors ${noPromptRevision ? "border-[var(--accent)] bg-[var(--accent)]" : "border-zinc-400 dark:border-zinc-600"}`}>
-              {noPromptRevision ? <span className="h-1.5 w-1.5 rounded-sm bg-white" /> : null}
-            </span>
-            逐字提示词
-          </label>
+
+            <div className="android-pad-side-cta">
+              {submitButton}
+            </div>
+          </div>
         </div>
-      </section>
-
-      <AndroidPadParameterSection
-        activeAspect={activeAspect}
-        activeAspectLabel={activeAspectLabel}
-        activeResolution={activeResolution}
-        activeResolutionLabel={activeResolutionLabel}
-        activeQualityLabel={activeQualityLabel}
-        activeStyleLabel={activeStyleLabel}
-        availableResolutions={availableResolutions}
-        apiMode={apiMode}
-        batchCount={batchCount}
-        handleAspectSelect={handleAspectSelect}
-        handleResolutionSelect={handleResolutionSelect}
-        imageModelID={imageModelID}
-        isMediumPad={isMediumPad}
-        needsUpstreamSetup={needsUpstreamSetup}
-        onOpenUpstream={() => { vibrateForPlatform(8); openUpstreamConfig("app"); }}
-        quality={quality}
-        requestPolicy={requestPolicy}
-        setField={setField as any}
-        styleTag={styleTag}
-      />
-
-      {mode === "edit" ? (
-        <AndroidPadSourceSection
-          clearSources={clearSources}
-          currentImage={currentImage}
-          editSourceLabel={editSourceLabel}
-          onSelectSource={handleSelectSource}
-          removeSource={removeSource}
-          sources={sources}
-        />
-      ) : null}
-
-      <AndroidAdvancedSection
-        advancedOpen={advancedOpen}
-        apiMode={apiMode}
-        negativePrompt={negativePrompt}
-        noPromptRevision={noPromptRevision}
-        outputFormat={outputFormat}
-        seed={seed}
-        setAdvancedOpen={setAdvancedOpen}
-        setField={setField as any}
-      />
+      </div>
 
       <div className="android-pad-cta" style={{ paddingLeft: "calc(env(safe-area-inset-left, 0px) + 16px)", paddingRight: "calc(env(safe-area-inset-right, 0px) + 16px)" }}>
-        {needsUpstreamSetup ? (
-          <button
-            type="button"
-            onClick={() => { vibrateForPlatform(10); openUpstreamConfig("app"); }}
-            className="liquid-primary-button h-[52px] w-full text-[15px] font-semibold text-white"
-          >
-            配置上游
-          </button>
-        ) : isRunning ? (
-          <button
-            type="button"
-            onClick={() => { vibrateForPlatform(10); cancel(); }}
-            className="h-[52px] w-full rounded-[20px] border border-red-500/30 bg-red-500/10 text-[15px] font-medium text-red-500 transition-colors hover:bg-red-500/16"
-          >
-            取消生成
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={!apiKey || !prompt.trim()}
-            className="liquid-primary-button h-[52px] w-full text-[15px] font-semibold text-white disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500 dark:disabled:bg-zinc-800"
-          >
-            {mode === "edit" ? "开始编辑" : "开始生成"}
-          </button>
-        )}
+        {submitButton}
       </div>
       <AndroidPromptTemplateModal
         open={templateOpen}

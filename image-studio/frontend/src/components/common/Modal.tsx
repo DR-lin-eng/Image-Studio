@@ -4,13 +4,17 @@ import { usePlatform } from "../../platform/context";
 
 // 居中 modal:点击背景 / Esc 关闭。
 export function Modal({
-  open, onClose, title, children, width = 480,
+  open, onClose, title, children, width = 480, backdropClassName = "", cardClassName = "", headerClassName = "", bodyClassName = "",
 }: {
   open: boolean;
   onClose: () => void;
   title?: string;
   children: ReactNode;
   width?: number;
+  backdropClassName?: string;
+  cardClassName?: string;
+  headerClassName?: string;
+  bodyClassName?: string;
 }) {
   const { isAndroidPhone, usesFluentUI, usesAppleUI } = usePlatform();
   useEffect(() => {
@@ -25,16 +29,16 @@ export function Modal({
   if (!open) return null;
   return (
     <div
-      className={`app-modal-backdrop ${isAndroidPhone ? "app-modal-backdrop-phone" : "app-modal-backdrop-desktop"}`}
+      className={`app-modal-backdrop ${isAndroidPhone ? "app-modal-backdrop-phone" : "app-modal-backdrop-desktop"} ${backdropClassName}`}
       onClick={onClose}
     >
       <div
         style={{ width }}
         onClick={(e) => e.stopPropagation()}
-        className={`app-modal-card ${usesAppleUI ? "liquid-glass-panel" : ""} ${isAndroidPhone ? "app-modal-card-phone" : "app-modal-card-desktop"} ${usesFluentUI ? "app-modal-card-windows" : ""}`}
+        className={`app-modal-card ${usesAppleUI ? "liquid-glass-panel" : ""} ${isAndroidPhone ? "app-modal-card-phone" : "app-modal-card-desktop"} ${usesFluentUI ? "app-modal-card-windows" : ""} ${cardClassName}`}
       >
         {title && (
-          <div className={`app-modal-header ${isAndroidPhone ? "app-modal-header-phone" : "app-modal-header-desktop"}`}>
+          <div className={`app-modal-header ${isAndroidPhone ? "app-modal-header-phone" : "app-modal-header-desktop"} ${headerClassName}`}>
             <h3 className="m-0 text-[15px] font-semibold tracking-[-0.01em] text-zinc-900 dark:text-zinc-100">{title}</h3>
             <button
               onClick={onClose}
@@ -45,7 +49,7 @@ export function Modal({
             </button>
           </div>
         )}
-        <div className={`modal-scroll-body app-modal-body ${isAndroidPhone ? "app-modal-body-phone" : "app-modal-body-desktop"}`}>{children}</div>
+        <div className={`modal-scroll-body app-modal-body ${isAndroidPhone ? "app-modal-body-phone" : "app-modal-body-desktop"} ${bodyClassName}`}>{children}</div>
       </div>
     </div>
   );

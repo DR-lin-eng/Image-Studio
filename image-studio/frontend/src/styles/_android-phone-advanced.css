@@ -172,6 +172,69 @@ html[data-target-platform="android"] .android-advanced-summary-grid > span > str
   font-size: 12px;
 }
 
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-advanced-toggle {
+  height: 100%;
+  min-height: 0;
+  gap: 6px;
+  align-items: flex-start;
+  overflow: visible;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-advanced-toggle strong {
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-pad-advanced-block .android-advanced-toggle > span:first-child > strong {
+  max-width: none;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-advanced-toggle > span:first-child {
+  min-height: 0;
+  overflow: visible;
+  flex: 1 1 auto;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-advanced-summary-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  margin-top: 5px;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-advanced-summary-grid > span {
+  min-height: 32px;
+  border-radius: 11px;
+  padding: 4px 6px;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-advanced-summary-grid > span > span {
+  font-size: 8px;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-advanced-summary-grid > span > strong {
+  font-size: 10px;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-advanced-toggle-state {
+  min-height: 32px;
+  align-self: flex-start;
+  padding-inline: 9px;
+  font-size: 10px;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"][data-mode="edit"] .android-advanced-toggle {
+  padding: 7px !important;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-pad-advanced-block .android-advanced-toggle {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"][data-mode="generate"] .android-pad-advanced-block .android-advanced-toggle {
+  align-content: start;
+}
+
 html[data-platform="android"] .android-phone-advanced-switch {
   display: flex;
   width: 100%;

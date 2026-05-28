@@ -61,7 +61,7 @@
 | 🖼 **完整图像编辑器** | Konva 画布、蒙版+橡皮、4 种标注、旋转/翻转/裁剪(就地编辑不污染历史)、历史对比 |
 | 🧩 **多标签 workspace** | 浏览器风的多 tab,每个独立 prompt/参数/源图;切换不丢现场 |
 | 🔧 **首次启动引导** | apiKey / baseURL 缺失时自动弹「上游配置」窗口,5 字段一次填完(API 形态、BASE_URL、API Key、文本模型、图像模型) |
-| ✏️ **不优化提示词开关** | Responses API 默认让文本模型把你的 prompt 重写一遍。勾上后顶层加 instructions 让模型逐字使用,适合已经精修过的 prompt |
+| ✏️ **不优化提示词开关** | Responses API 默认让文本模型把你的 prompt 重写一遍。勾上后顶层加 instructions 让模型逐字使用,适合已经精修过的 prompt。详见 [功能说明](./docs/no-prompt-revision/README.md) |
 | 🪟 **首次启动配置 + 详情抽屉** | 生成成功后的 toast 带「查看详情」按钮,弹出右抽屉显示图片预览 + 全部参数 + 原/优化版 prompt + 文件路径,可一键复制 / 用作下次 prompt |
 | 🎨 **现代 UI**(v0.1.2) | Tailwind v4 + Apple 风格的浅深色语义 + lucide-react 图标;按平台切换系统字体栈和主题 token;暗色启动无白闪 |
 | 💾 **100% 本地数据** | 无遥测、无云端账户、无内购;API key、历史、生成图都在你的机器上 |
@@ -190,7 +190,7 @@ macOS 推荐直接 `bash scripts/package-local-macos-app.sh`，产物在 `image-
 填好保存后:
 
 7. 选模式(📝 文生图 / 🖼 图生图),输入 prompt(下方可选模板/历史),选风格 / 比例 / 质量
-8. 如果你已经精修过 prompt 不想被模型再优化一遍,勾上 prompt 输入框下的 **「不优化提示词」**(仅 Responses API 模式有效)
+8. 如果你已经精修过 prompt 不想被模型再优化一遍,勾上 prompt 输入框下的 **「不优化提示词」**(仅 Responses API 模式有效,详见 [功能说明](./docs/no-prompt-revision/README.md))
 9. 按 `⌘ + Enter`(macOS) / `Ctrl + Enter`(Windows/Linux) 或点击 **「生成」**
 10. 生成成功后右上角 toast 会带「查看详情」按钮,弹出右抽屉显示全部参数 + 原/优化版 prompt + 文件路径
 
@@ -233,7 +233,7 @@ macOS 推荐直接 `bash scripts/package-local-macos-app.sh`，产物在 `image-
 - 文生图 / 图生图(支持多张参考图,可拖动重排顺序)
 - 输入图源:文件对话框 / 拖拽窗口 / `⌘V`(macOS) 或 `Ctrl+V` 粘贴 / 从历史复用 / 双击历史项
 - 参数:**Auto + 5 种比例**(1:1 / 2:3 / 3:2 / 16:9 / 9:16)· **Auto + 3 档质量**(1K/2K/4K)· **输出格式**(PNG/JPEG/WebP)· seed · negative prompt · 5 种风格 chip
-- **不优化提示词** 开关:Responses API 模式下勾上后顶层加 instructions 让模型逐字使用 prompt
+- **不优化提示词** 开关:Responses API 模式下勾上后顶层加 instructions 让模型逐字使用 prompt。详见 [功能说明](./docs/no-prompt-revision/README.md)
 - **双 API 形态**:Responses API(SSE 保活)/ Images API(标准 generations + edits)随时切换
 - 上游可配:BASE_URL、文本模型 ID、图像模型 ID
 - prompt 历史(自动去重,cap 50)+ 8 个内置模板(写实/二次元/水彩/像素等)

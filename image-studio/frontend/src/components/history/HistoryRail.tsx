@@ -52,7 +52,7 @@ export function HistoryRail() {
     });
   }, [history, deferredQ, modeF, dateF]);
   const recentHistory = filtered.slice(0, 6);
-  const phoneHistory = filtered.slice(0, 24);
+  const androidHistory = filtered.slice(0, isAndroidPad ? 48 : 24);
   const latestHistory = filtered[0] ?? null;
   const generateCount = history.filter((item) => item.mode === "generate").length;
   const editCount = history.length - generateCount;
@@ -112,9 +112,12 @@ export function HistoryRail() {
 
   if (fullscreen) return null;
 
-  if (isAndroidPhone) {
+  if (isAndroidPhone || isAndroidPad) {
     return (
-      <aside className="history-rail android-history-page box-border flex w-full shrink-0 flex-col overflow-y-auto border-0 bg-[var(--bg)]">
+      <aside
+        className={`history-rail android-history-page ${isAndroidPad ? "android-history-page-pad" : ""} box-border flex w-full shrink-0 flex-col overflow-y-auto border-0 bg-[var(--bg)]`}
+        data-android-history-layout={isAndroidPad ? "pad" : "phone"}
+      >
         <section className="android-history-hero">
           <div>
             <div className="android-history-kicker">本地图库</div>
@@ -235,7 +238,7 @@ export function HistoryRail() {
             <small>{filtered.length}{filtered.length !== history.length ? ` / ${history.length}` : ""}</small>
           </div>
 
-          {phoneHistory.length === 0 ? (
+          {androidHistory.length === 0 ? (
             <div className="android-history-empty">
               <div className="android-history-empty-icon"><ImageIcon className="h-5 w-5" /></div>
               <strong>{historyFiltersActive ? "没有匹配项" : "还没有历史结果"}</strong>
@@ -243,7 +246,7 @@ export function HistoryRail() {
             </div>
           ) : (
             <div className="android-history-grid">
-              {phoneHistory.map((h) => (
+              {androidHistory.map((h) => (
                 <AndroidHistoryTile
                   key={h.id}
                   item={h}
@@ -257,7 +260,7 @@ export function HistoryRail() {
             </div>
           )}
 
-          {filtered.length > phoneHistory.length ? (
+          {filtered.length > androidHistory.length ? (
             <button type="button" className="android-history-more" onClick={openHistoryTimeline}>
               查看更多历史
             </button>

@@ -13,6 +13,7 @@ export function AndroidAdvancedSection({
   seed,
   setAdvancedOpen,
   setField,
+  surface = "phone",
 }: {
   advancedOpen: boolean;
   apiMode: "responses" | "images";
@@ -22,6 +23,7 @@ export function AndroidAdvancedSection({
   seed: number;
   setAdvancedOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setField: (key: string, value: any) => void;
+  surface?: "phone" | "pad";
 }) {
   const openAdvanced = () => {
     vibrateForPlatform(8);
@@ -30,9 +32,12 @@ export function AndroidAdvancedSection({
   const negativeState = negativePrompt.trim() ? "已填写" : "未填写";
   const outputFormatLabel = OUTPUT_FORMAT_OPTIONS.find((item) => item.value === outputFormat)?.label ?? outputFormat;
   const exactPromptState = apiMode === "responses" ? (noPromptRevision ? "已开启" : "已关闭") : "不可用";
+  const title = surface === "pad" ? "4 项高级设置" : "负向提示词、Seed 与输出格式";
+  const negativeLabel = surface === "pad" ? "负向" : "负向提示词";
+  const exactPromptLabel = surface === "pad" ? "逐字" : "逐字提示词";
 
   return (
-    <section className="android-advanced-block">
+    <section className={`android-advanced-block ${surface === "pad" ? "android-pad-advanced-block" : ""}`}>
       <button
         type="button"
         onClick={openAdvanced}
@@ -40,10 +45,10 @@ export function AndroidAdvancedSection({
       >
         <span>
           <span className="android-phone-kicker !mb-0">高级参数</span>
-          <strong>负向提示词、Seed 与输出格式</strong>
+          <strong>{title}</strong>
           <span className="android-advanced-summary-grid">
             <span>
-              <span>负向提示词</span>
+              <span>{negativeLabel}</span>
               <strong>{negativeState}</strong>
             </span>
             <span>
@@ -55,7 +60,7 @@ export function AndroidAdvancedSection({
               <strong>{seed > 0 ? seed : "随机"}</strong>
             </span>
             <span>
-              <span>逐字提示词</span>
+              <span>{exactPromptLabel}</span>
               <strong>{exactPromptState}</strong>
             </span>
           </span>

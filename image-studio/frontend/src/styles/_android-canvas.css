@@ -776,3 +776,116 @@ html[data-platform="android"][data-android-window-height="compact"] .android-can
   height: 44px;
   border-radius: 15px;
 }
+
+html[data-target-platform="android-pad"][data-android-orientation="landscape"] .studio[data-android-view="canvas"] {
+  padding-bottom: 0;
+}
+
+html[data-target-platform="android-pad"][data-android-orientation="landscape"] .android-canvas-workspace {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) calc(env(safe-area-inset-right, 0px) + 14px) calc(env(safe-area-inset-bottom, 0px) + 10px) calc(env(safe-area-inset-left, 0px) + 14px);
+}
+
+html[data-target-platform="android-pad"][data-android-orientation="landscape"] .android-canvas-header {
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  min-height: 58px;
+  border-radius: 22px;
+  padding: 8px;
+}
+
+html[data-target-platform="android-pad"][data-android-orientation="landscape"] .android-canvas-status-dot {
+  width: 42px;
+  height: 42px;
+  border-radius: 16px;
+}
+
+html[data-target-platform="android-pad"][data-android-orientation="landscape"] .android-canvas-title {
+  font-size: 14px;
+}
+
+html[data-target-platform="android-pad"][data-android-orientation="landscape"] .android-canvas-status-chip {
+  min-height: 34px;
+  min-width: 44px;
+  border-radius: 14px;
+  padding-inline: 9px;
+}
+
+html[data-target-platform="android-pad"][data-android-orientation="landscape"] .android-canvas-stage-panel {
+  border-radius: 24px;
+}
+
+html[data-target-platform="android-pad"][data-android-orientation="landscape"] .android-canvas-empty {
+  inset: auto 16px 16px 16px;
+  grid-template-columns: 42px minmax(0, 1fr) minmax(220px, 0.9fr);
+  align-items: center;
+  border-radius: 22px;
+  padding: 12px;
+}
+
+html[data-target-platform="android-pad"][data-android-orientation="landscape"] .android-canvas-empty-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 15px;
+}
+
+html[data-target-platform="android-pad"][data-android-orientation="landscape"] .android-canvas-empty-copy strong {
+  font-size: 16px;
+}
+
+html[data-target-platform="android-pad"][data-android-orientation="landscape"] .android-canvas-empty-copy span {
+  font-size: 11px;
+}
+
+html[data-target-platform="android-pad"][data-android-orientation="landscape"] .android-canvas-empty-actions {
+  grid-column: auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+html[data-target-platform="android-pad"][data-android-orientation="landscape"] .android-canvas-empty-actions button {
+  min-height: 44px;
+  border-radius: 16px;
+}
+
+html[data-target-platform="android-pad"][data-android-orientation="landscape"] .android-canvas-source-strip {
+  min-height: 64px;
+  border-radius: 20px;
+  padding: 6px;
+}
+
+html[data-target-platform="android-pad"][data-android-orientation="landscape"] .android-canvas-source-tile,
+html[data-target-platform="android-pad"][data-android-orientation="landscape"] .android-canvas-source-add {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+}
+
+html[data-target-platform="android-pad"][data-android-orientation="landscape"] .android-canvas-dock {
+  border-radius: 22px;
+  padding: 6px;
+}
+
+html[data-target-platform="android-pad"][data-android-orientation="landscape"] .android-canvas-dock-scroll {
+  gap: 7px;
+  padding-bottom: 0;
+}
+
+html[data-target-platform="android-pad"][data-android-orientation="landscape"] .android-canvas-tool-segment,
+html[data-target-platform="android-pad"][data-android-orientation="landscape"] .android-canvas-dock-group,
+html[data-target-platform="android-pad"][data-android-orientation="landscape"] .android-canvas-context-card {
+  min-height: 48px;
+  border-radius: 17px;
+  padding: 4px;
+}
+
+html[data-target-platform="android-pad"][data-android-orientation="landscape"] .android-canvas-tool-segment button {
+  min-width: 54px;
+  min-height: 44px;
+  border-radius: 14px;
+}
+
+html[data-target-platform="android-pad"][data-android-orientation="landscape"] .android-canvas-icon-button {
+  width: 44px;
+  height: 44px;
+  border-radius: 15px;
+}

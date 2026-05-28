@@ -1138,9 +1138,30 @@ html[data-target-platform="android"] .android-phone-summary-card > button {
 
 html[data-target-platform="android-pad"] .android-pad-compose {
   display: flex;
+  box-sizing: border-box;
+  max-width: 100%;
+  min-width: 0;
   flex-direction: column;
   gap: 14px;
   padding: 14px 14px 18px;
+}
+
+html[data-target-platform="android-pad"][data-android-orientation="landscape"] .studio[data-android-view="compose"] {
+  grid-template-columns: 80px minmax(0, 1fr);
+}
+
+html[data-target-platform="android-pad"][data-android-orientation="landscape"] .studio[data-android-view="compose"] .canvas-shell,
+html[data-target-platform="android-pad"][data-android-orientation="landscape"] .studio[data-android-view="compose"] .history-rail {
+  display: none;
+}
+
+html[data-target-platform="android-pad"][data-android-orientation="landscape"] .studio[data-android-view="compose"] .control-panel {
+  display: flex;
+  box-sizing: border-box;
+  min-width: 0;
+  width: 100%;
+  max-width: none;
+  border-right: 0;
 }
 
 html[data-target-platform="android-pad"][data-android-window-width="medium"] .android-pad-compose {
@@ -1169,6 +1190,43 @@ html[data-target-platform="android-pad"] .android-pad-parameter-card {
   gap: 0;
 }
 
+html[data-target-platform="android-pad"] .android-pad-compose-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  min-width: 0;
+}
+
+html[data-target-platform="android-pad"] .android-pad-side-stack {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 14px;
+}
+
+html[data-target-platform="android-pad"] .android-pad-right-stack {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 14px;
+}
+
+html[data-target-platform="android-pad"][data-android-window-width="expanded"] .android-pad-compose[data-orientation="landscape"] .android-pad-compose-grid {
+  grid-template-columns: minmax(270px, 1fr) minmax(208px, 0.7fr) minmax(184px, 0.58fr);
+  grid-template-rows: minmax(0, 1fr);
+  align-items: stretch;
+  gap: 12px;
+}
+
+html[data-target-platform="android-pad"][data-android-window-width="expanded"] .android-pad-compose[data-orientation="landscape"][data-mode="edit"] .android-pad-compose-grid {
+  grid-template-columns: minmax(260px, 1.02fr) minmax(208px, 0.72fr) minmax(190px, 0.62fr);
+}
+
+html[data-target-platform="android-pad"][data-android-window-width="expanded"] .android-pad-compose[data-orientation="landscape"] .android-pad-side-stack {
+  display: contents;
+  gap: 10px;
+}
+
 html[data-target-platform="android-pad"] .android-pad-hero-copy,
 html[data-target-platform="android-pad"] .android-pad-parameter-copy {
   min-width: 0;
@@ -1192,6 +1250,40 @@ html[data-target-platform="android-pad"] .android-pad-overview h2 {
 
 html[data-target-platform="android-pad"] .android-pad-overview p {
   max-width: 42ch;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-pad-overview {
+  padding: 9px 12px !important;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-pad-overview-row {
+  align-items: center;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-pad-overview h2 {
+  margin-top: 2px;
+  font-size: 16px;
+  line-height: 1.2;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-pad-overview p {
+  display: none;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-inline-metrics {
+  margin-top: 6px !important;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding-bottom: 1px;
+  scrollbar-width: none;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-inline-metrics::-webkit-scrollbar {
+  display: none;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-inline-metrics > span {
+  flex: 0 0 auto;
 }
 
 html[data-target-platform="android-pad"][data-android-window-width="medium"] .android-pad-overview p {
@@ -1229,6 +1321,10 @@ html[data-target-platform="android-pad"] .android-pad-mode-switch .android-mode-
   width: 100%;
 }
 
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-pad-mode-switch .android-mode-switch-button {
+  min-height: 36px;
+}
+
 html[data-target-platform="android-pad"] .android-pad-mode-switch .android-mode-switch-pad {
   width: 100%;
 }
@@ -1239,6 +1335,87 @@ html[data-target-platform="android-pad"] .android-pad-prompt textarea {
   min-height: 184px;
   border-radius: 22px;
   box-shadow: inset 0 1px 1px rgb(15 23 42 / 0.04);
+}
+
+html[data-target-platform="android-pad"] .android-pad-prompt-input-shell {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  border: 1px solid rgb(15 23 42 / 0.07);
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, rgb(248 250 249 / 0.98), rgb(244 248 246 / 0.92));
+  padding: 7px;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.78),
+    0 10px 24px rgb(15 23 42 / 0.05);
+}
+
+html.dark[data-target-platform="android-pad"] .android-pad-prompt-input-shell {
+  border-color: rgb(255 255 255 / 0.08);
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.055), rgb(255 255 255 / 0.035));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06);
+}
+
+html[data-target-platform="android-pad"] .android-pad-prompt-textarea {
+  min-height: 0;
+  flex: 1 1 auto;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  outline: none;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-pad-prompt {
+  grid-column: 1;
+  grid-row: 1;
+  min-height: 0;
+  height: auto;
+  align-self: stretch;
+  overflow: hidden;
+  padding: 14px !important;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-pad-prompt textarea {
+  min-height: 0;
+  max-height: none;
+  flex: 1 1 auto;
+  border-radius: 18px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-pad-prompt-input-shell {
+  min-height: 0;
+  margin-top: 10px !important;
+  border-radius: 22px;
+  padding: 6px;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"][data-mode="edit"] .android-pad-prompt-input-shell {
+  min-height: 128px;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-pad-section-head {
+  flex: 0 0 auto;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-pad-action-row {
+  flex: 0 0 auto;
+}
+
+html[data-target-platform="android-pad"][data-android-window-width="expanded"] .android-pad-compose[data-orientation="landscape"] .android-pad-action-row {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+html[data-target-platform="android-pad"][data-android-window-width="expanded"] .android-pad-compose[data-orientation="landscape"] .android-pad-action-row > button,
+html[data-target-platform="android-pad"][data-android-window-width="expanded"] .android-pad-compose[data-orientation="landscape"] .android-pad-action-row > label,
+html[data-target-platform="android-pad"][data-android-window-width="expanded"] .android-pad-compose[data-orientation="landscape"] .android-pad-action-slot > button {
+  min-height: 38px;
+  padding-inline: 6px;
+  font-size: 11px;
 }
 
 html[data-target-platform="android-pad"][data-android-window-width="medium"] .android-pad-prompt {
@@ -1295,11 +1472,138 @@ html[data-target-platform="android-pad"] .android-pad-action-row > label {
   justify-content: center;
 }
 
+html[data-target-platform="android-pad"] .android-pad-compose .android-pad-exact-toggle {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  box-sizing: border-box;
+  border: 1px solid rgb(15 23 42 / 0.08);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.9), rgb(248 250 249 / 0.78));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.72),
+    0 8px 18px rgb(15 23 42 / 0.05);
+  color: rgb(82 82 91);
+  cursor: pointer;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 760;
+  line-height: 1;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease,
+    box-shadow 140ms ease,
+    color 140ms ease,
+    transform 80ms ease;
+}
+
+html[data-target-platform="android-pad"][data-android-window-width="expanded"] .android-pad-compose[data-orientation="landscape"] .android-pad-action-row > .android-pad-exact-toggle {
+  min-height: 40px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose .android-pad-exact-toggle:hover,
+html[data-target-platform="android-pad"] .android-pad-compose .android-pad-exact-toggle:focus-within {
+  border-color: rgb(0 121 107 / 0.22);
+  background: rgb(239 250 247 / 0.94);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.76),
+    0 10px 22px rgb(0 121 107 / 0.1);
+  color: var(--accent);
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose .android-pad-exact-toggle:active {
+  transform: scale(0.985);
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose .android-pad-exact-toggle.is-active {
+  border-color: rgb(0 121 107 / 0.24);
+  background: linear-gradient(180deg, rgb(230 247 242 / 0.98), rgb(217 241 234 / 0.94));
+  color: var(--accent);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.72),
+    0 10px 24px rgb(0 121 107 / 0.12);
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose .android-pad-exact-toggle.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+html[data-target-platform="android-pad"] .android-pad-exact-toggle-label {
+  min-width: 0;
+  white-space: nowrap;
+}
+
+html[data-target-platform="android-pad"] .android-pad-exact-toggle-mark {
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  border: 1px solid rgb(15 23 42 / 0.18);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.72);
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+html[data-target-platform="android-pad"] .android-pad-exact-toggle.is-active .android-pad-exact-toggle-mark {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: white;
+  box-shadow: 0 4px 10px rgb(0 121 107 / 0.16);
+}
+
+html.dark[data-target-platform="android-pad"] .android-pad-compose .android-pad-exact-toggle {
+  border-color: rgb(255 255 255 / 0.08);
+  background: rgb(255 255 255 / 0.05);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06);
+  color: rgb(212 212 216);
+}
+
+html.dark[data-target-platform="android-pad"] .android-pad-compose .android-pad-exact-toggle:hover,
+html.dark[data-target-platform="android-pad"] .android-pad-compose .android-pad-exact-toggle:focus-within,
+html.dark[data-target-platform="android-pad"] .android-pad-compose .android-pad-exact-toggle.is-active {
+  border-color: rgb(45 212 191 / 0.2);
+  background: rgb(20 83 75 / 0.24);
+  color: rgb(153 246 228);
+}
+
+html.dark[data-target-platform="android-pad"] .android-pad-exact-toggle-mark {
+  border-color: rgb(255 255 255 / 0.18);
+  background: rgb(255 255 255 / 0.08);
+}
+
+html.dark[data-target-platform="android-pad"] .android-pad-exact-toggle.is-active .android-pad-exact-toggle-mark {
+  border-color: rgb(45 212 191 / 0.9);
+  background: rgb(20 184 166);
+  color: rgb(15 23 42);
+}
+
 html[data-target-platform="android-pad"] .android-pad-parameter-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
+}
+
+html[data-target-platform="android-pad"] .android-pad-parameter-actions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 html[data-target-platform="android-pad"] .android-pad-parameter-grid {
@@ -1319,6 +1623,137 @@ html[data-target-platform="android-pad"][data-android-window-width="medium"] .an
 html[data-target-platform="android-pad"][data-android-window-width="medium"] .android-pad-parameter-grid {
   grid-template-columns: minmax(0, 1fr);
   gap: 10px;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-pad-parameter-card,
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-source-summary-card,
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-advanced-toggle {
+  border-radius: 20px;
+  padding: 10px !important;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-pad-parameter-head {
+  flex-direction: column;
+  height: 100%;
+  gap: 8px;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-pad-parameter-card {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: stretch;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-pad-right-stack {
+  grid-column: 3;
+  grid-row: 1;
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-self: stretch;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-pad-source-placeholder,
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-pad-source-card {
+  align-self: stretch;
+  min-width: 0;
+  min-height: 0;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"][data-mode="edit"] .android-pad-right-stack {
+  grid-template-rows: minmax(84px, auto) minmax(137px, 1fr) auto;
+  gap: 7px;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-advanced-block {
+  align-self: stretch;
+  min-width: 0;
+  min-height: 0;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-pad-side-cta {
+  align-self: end;
+  min-width: 0;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"][data-mode="generate"] .android-pad-source-placeholder {
+  display: none;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"][data-mode="generate"] .android-pad-right-stack {
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"][data-mode="generate"] .android-pad-right-stack .android-advanced-block {
+  grid-row: 1;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"][data-mode="generate"] .android-pad-right-stack .android-pad-side-cta {
+  grid-row: 2;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-source-summary-card {
+  justify-content: space-between;
+  max-height: 102px;
+  overflow: hidden;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"][data-mode="edit"] .android-source-summary-card {
+  gap: 6px;
+  max-height: 88px;
+  padding: 8px !important;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-source-summary-grid,
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-source-list {
+  display: none;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-source-summary-title {
+  margin-top: 2px;
+  font-size: 13px;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-source-actions {
+  margin-top: 0;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-source-primary-action,
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-source-clear-action {
+  min-height: 36px;
+  border-radius: 14px;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"][data-mode="edit"] .android-source-primary-action,
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"][data-mode="edit"] .android-source-clear-action {
+  min-height: 32px;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-source-summary-head {
+  align-items: center;
+  gap: 8px;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-source-summary-icon {
+  color: var(--accent);
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-source-summary-copy .android-phone-kicker {
+  font-size: 9px;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-pad-parameter-actions {
+  width: 100%;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-pad-parameter-actions .android-parameter-upstream-button {
+  flex: 1 1 0;
+  min-height: 42px;
 }
 
 html[data-target-platform="android-pad"][data-android-window-width="medium"] .android-pad-compose .platform-chip,
@@ -1361,6 +1796,81 @@ html[data-target-platform="android-pad"] .android-pad-advanced-toggle {
   border-radius: 24px;
 }
 
+html[data-target-platform="android-pad"] .android-pad-source-placeholder {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  border-radius: 24px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  padding: 12px;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-pad-source-placeholder {
+  min-height: 66px;
+  padding: 9px;
+  border-radius: 18px;
+}
+
+html[data-target-platform="android-pad"] .android-pad-source-placeholder > svg:first-child {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  padding: 8px;
+  border-radius: 14px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-pad-source-placeholder > svg:first-child {
+  width: 30px;
+  height: 30px;
+  padding: 7px;
+}
+
+html[data-target-platform="android-pad"] .android-pad-source-placeholder strong {
+  display: block;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-target-platform="android-pad"] .android-pad-source-placeholder > svg:last-child {
+  color: var(--accent);
+}
+
+html[data-target-platform="android-pad"] .android-pad-side-cta {
+  display: none;
+}
+
+html[data-target-platform="android-pad"] .android-pad-side-cta > button {
+  display: inline-flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  border-radius: 20px;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-pad-side-cta {
+  display: block;
+  margin-top: 0;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-pad-side-cta > button {
+  min-height: 44px;
+  border-radius: 18px;
+}
+
+html.dark[data-target-platform="android-pad"] .android-pad-source-placeholder {
+  border-color: rgb(255 255 255 / 0.08);
+  background: rgb(255 255 255 / 0.04);
+}
+
 html[data-target-platform="android-pad"] .android-pad-cta {
   position: sticky;
   bottom: 0;
@@ -1382,6 +1892,33 @@ html[data-target-platform="android-pad"] .android-pad-cta > button {
   align-items: center;
   justify-content: center;
   border-radius: 22px;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-pad-cta {
+  display: none;
+  margin-top: 0;
+  padding-inline: 0 !important;
+}
+
+html[data-target-platform="android-pad"][data-android-window-height="compact"] .android-pad-compose[data-orientation="landscape"] {
+  height: 100%;
+  gap: 10px;
+  overflow: hidden;
+  padding-top: 10px !important;
+  padding-bottom: 10px !important;
+}
+
+html[data-target-platform="android-pad"][data-android-window-height="compact"] .android-pad-compose[data-orientation="landscape"] .android-pad-compose-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+html[data-target-platform="android-pad"][data-android-window-height="compact"] .android-pad-compose[data-orientation="landscape"] .android-pad-prompt {
+  height: auto;
+}
+
+html[data-target-platform="android-pad"][data-android-window-height="compact"] .android-pad-compose[data-orientation="landscape"] .android-pad-action-row {
+  margin-top: 10px !important;
 }
 
 html[data-target-platform="android-pad"] .android-pad-history {

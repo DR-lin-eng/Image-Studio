@@ -24,6 +24,7 @@ export function AndroidShell({
   const isLandscape = androidOrientation === "landscape";
   const showRail = (isPad || isLandscape) && !fullscreen;
   const showBottomNav = !isPad && !isLandscape && !fullscreen;
+  const usePadWorkspace = isPad && androidView === "compose" && isExpandedPad && !isLandscape;
 
   const handleViewChange = (view: AndroidView) => {
     if (view !== androidView) {
@@ -38,7 +39,7 @@ export function AndroidShell({
         className={`studio ${fullscreen ? "fullscreen" : ""} ${isPad ? "android-pad" : "android-phone"}`}
         data-android-view={androidView}
         data-android-target={isPad ? "android-pad" : "android"}
-        data-android-pad-layout={isPad && androidView === "compose" && isExpandedPad ? "workspace" : undefined}
+        data-android-pad-layout={usePadWorkspace ? "workspace" : undefined}
         data-android-pad-density={isPad ? (isExpandedPad ? "expanded" : "medium") : undefined}
       >
         {showRail ? <AndroidRail active={androidView} onChange={handleViewChange} /> : null}

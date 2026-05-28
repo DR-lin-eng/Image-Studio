@@ -1,4 +1,4 @@
-import { ImagePlus, Trash2, Wand2, X } from "lucide-react";
+import { CheckCircle2, ImagePlus, Trash2, X } from "lucide-react";
 import type { HistoryItem, SourceImage } from "../../types/domain";
 import { vibrateForPlatform } from "./bridge";
 
@@ -50,7 +50,7 @@ export function AndroidPadSourceSection({
             </span>
           </div>
         </div>
-        <Wand2 className="android-source-summary-icon" />
+        <CheckCircle2 className="android-source-summary-icon" />
       </div>
       {sources.length > 0 ? (
         <div className="android-source-list">

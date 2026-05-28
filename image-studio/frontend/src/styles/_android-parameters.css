@@ -716,6 +716,46 @@ html[data-target-platform="android-pad"] .android-parameter-modal-summary .andro
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-pad-parameter-head .android-parameter-summary-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 8px;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-pad-parameter-head .android-parameter-summary,
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-pad-parameter-head .android-parameter-summary-copy {
+  min-height: 0;
+  overflow: hidden;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-pad-parameter-head .android-parameter-summary-item {
+  min-height: 42px;
+  border-radius: 15px;
+  padding: 5px 8px;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-pad-parameter-head .android-parameter-summary-title {
+  font-size: 15px;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-pad-parameter-head .android-parameter-summary-item > span {
+  font-size: 9px;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-pad-parameter-head .android-parameter-summary-item > strong {
+  font-size: 12px;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-pad-parameter-actions {
+  flex: 0 0 auto;
+}
+
+html[data-target-platform="android-pad"] .android-pad-compose[data-orientation="landscape"] .android-pad-parameter-actions .android-parameter-upstream-button {
+  min-height: 36px;
+  border-radius: 14px;
+  font-size: 11px;
+}
+
 html[data-target-platform="android-pad"] .android-pad-parameter-head .android-parameter-summary-detail,
 html[data-target-platform="android-pad"] .android-parameter-modal-summary .android-parameter-summary-detail {
   display: inline-flex;

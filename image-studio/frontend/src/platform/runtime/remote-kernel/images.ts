@@ -16,6 +16,48 @@ import {
   type RemoteJobResult,
 } from "./types.ts";
 
+function parseSSEEvent(line: string): any | null {
+  const stripped = line.trim();
+  if (!stripped.startsWith("data: ")) return null;
+  const payload = stripped.slice(6).trim();
+  if (!payload || payload === "[DONE]") return null;
+  try {
+    return JSON.parse(payload);
+  } catch {
+    return null;
+  }
+}
+
+function parseImagesStreamEvent(
+  event: any,
+  callbacks: RemoteJobCallbacks,
+): ExtractedImageResult | null {
+  const type = event?.type;
+  if (type === "image_generation.partial_image" || type === "image_edit.partial_image") {
+    if (event.b64_json) {
+      callbacks.onPartialImage?.({
+        imageB64: event.b64_json,
+        partialImageIndex: typeof event.partial_image_index === "number" ? event.partial_image_index : undefined,
+        sourceEvent: "images_partial",
+      });
+    }
+    return null;
+  }
+  if (type === "image_generation.completed" || type === "image_edit.completed") {
+    if (event.b64_json) {
+      return {
+        imageB64: event.b64_json,
+        revisedPrompt: "",
+        sourceEvent: "images_api",
+      };
+    }
+  }
+  if (event?.object === "image.generation.result" || event?.object === "image.edit.result") {
+    return parseImagesResponse(JSON.stringify(event), 200);
+  }
+  return null;
+}
+
 function parseImagesResponse(raw: string, status: number): ExtractedImageResult {
   let parsed: any;
   try {
@@ -49,6 +91,28 @@ function parseImagesResponse(raw: string, status: number): ExtractedImageResult 
   };
 }
 
+function parseImagesStreamRaw(
+  raw: string,
+  callbacks: RemoteJobCallbacks,
+  emitPartials = false,
+): ExtractedImageResult | null {
+  let fallbackPartial = "";
+  const partialCallbacks = emitPartials ? callbacks : { signal: callbacks.signal };
+  for (const line of raw.split(/\r?\n/)) {
+    const event = parseSSEEvent(line);
+    if (!event) continue;
+    if ((event.type === "image_generation.partial_image" || event.type === "image_edit.partial_image") && event.b64_json) {
+      fallbackPartial = event.b64_json;
+    }
+    const result = parseImagesStreamEvent(event, partialCallbacks);
+    if (result) return result;
+  }
+  if (fallbackPartial) {
+    return { imageB64: fallbackPartial, revisedPrompt: "", sourceEvent: "images_api_partial" };
+  }
+  return null;
+}
+
 export async function requestImagesOnce(
   request: RemoteJobRequest,
   attempt: number,
@@ -64,31 +128,97 @@ export async function requestImagesOnce(
   }, STATUS_INTERVAL_MS);
   try {
     if (shouldUseAndroidNativeHTTP()) {
+      let rawFromLines = "";
+      let nativeStreamResult: ExtractedImageResult | null = null;
+      let nativeBytesReceived = 0;
+      const consumeNativeLine = (line: string) => {
+        rawFromLines += `${line}\n`;
+        nativeBytesReceived += line.length + 1;
+        const event = parseSSEEvent(line);
+        const parsed = event ? parseImagesStreamEvent(event, callbacks) : null;
+        if (parsed) nativeStreamResult = parsed;
+        callbacks.onProgress?.("已收到 Images API 流式事件", nowSeconds(startedAt), nativeBytesReceived);
+      };
       const response = await nativeHttpRequestText(
         built.url,
         "POST",
         {
           Authorization: `Bearer ${request.payload.apiKey}`,
-          Accept: "application/json",
+          Accept: "text/event-stream, application/json",
           ...(built.headers ?? {}),
         },
         built.body,
         callbacks.signal,
+        consumeNativeLine,
       );
-      const rawPath = registerRawText("images", attempt, response.body);
-      const result = parseImagesResponse(response.body, response.status);
+      const rawBody = response.body || rawFromLines;
+      const rawPath = registerRawText("images", attempt, rawBody);
+      const isStream = String(response.contentType || "").toLowerCase().includes("text/event-stream");
+      const result = isStream
+        ? nativeStreamResult ?? parseImagesStreamRaw(rawBody, callbacks)
+        : parseImagesResponse(rawBody, response.status);
+      if (!result) throw new RemoteKernelError("上游没有返回可用图片", rawPath);
       return { ...result, rawPath, prompt: request.payload.prompt, mode: request.payload.mode };
     }
     const response = await fetch(built.url, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${request.payload.apiKey}`,
-        Accept: "application/json",
+        Accept: "text/event-stream, application/json",
         ...(built.headers ?? {}),
       },
       body: built.body,
       signal: callbacks.signal,
     });
+    const contentType = response.headers.get("content-type")?.toLowerCase() || "";
+    if (response.body && contentType.includes("text/event-stream")) {
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let raw = "";
+      let pending = "";
+      let result: ExtractedImageResult | null = null;
+      let bytesReceived = 0;
+      try {
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          bytesReceived += value.byteLength;
+          const chunk = decoder.decode(value, { stream: true });
+          raw += chunk;
+          pending += chunk;
+          let newline = pending.indexOf("\n");
+          while (newline >= 0) {
+            const line = pending.slice(0, newline).replace(/\r$/, "");
+            pending = pending.slice(newline + 1);
+            const event = parseSSEEvent(line);
+            const parsed = event ? parseImagesStreamEvent(event, callbacks) : null;
+            if (parsed) result = parsed;
+            callbacks.onProgress?.("已收到 Images API 流式事件", nowSeconds(startedAt), bytesReceived);
+            newline = pending.indexOf("\n");
+          }
+        }
+        raw += decoder.decode();
+        if (pending.trim()) {
+          const event = parseSSEEvent(pending);
+          const parsed = event ? parseImagesStreamEvent(event, callbacks) : null;
+          if (parsed) result = parsed;
+        }
+      } catch (error) {
+        const fallback = parseImagesStreamRaw(raw, callbacks);
+        if (fallback?.imageB64) {
+          const rawPath = registerRawText("images", attempt, raw);
+          return { ...fallback, rawPath, prompt: request.payload.prompt, mode: request.payload.mode };
+        }
+        throw error;
+      }
+      const rawPath = registerRawText("images", attempt, raw);
+      if (!response.ok) {
+        throw new RemoteKernelError(`上游返回 HTTP ${response.status}`, rawPath);
+      }
+      result ??= parseImagesStreamRaw(raw, callbacks);
+      if (!result) throw new RemoteKernelError("上游没有返回可用图片", rawPath);
+      return { ...result, rawPath, prompt: request.payload.prompt, mode: request.payload.mode };
+    }
     const raw = await response.text();
     const rawPath = registerRawText("images", attempt, raw);
     const result = parseImagesResponse(raw, response.status);

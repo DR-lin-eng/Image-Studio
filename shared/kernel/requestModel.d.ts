@@ -4,6 +4,7 @@ export const DEFAULT_SIZE: string;
 export const DEFAULT_QUALITY: string;
 export const DEFAULT_OUTPUT_FORMAT: string;
 export const DEFAULT_REQUEST_POLICY: string;
+export const DEFAULT_PARTIAL_IMAGES: number;
 export const MAX_ATTEMPTS: number;
 export const RETRY_BACKOFF_MS: number;
 export const STATUS_INTERVAL_MS: number;
@@ -23,6 +24,7 @@ export type SharedImageRequestPayload = {
   requestPolicy?: RequestPolicy;
   noPromptRevision?: boolean;
   mode?: string;
+  partialImages?: number;
 };
 
 export function normalizeBaseURL(raw: string): string;
@@ -32,6 +34,7 @@ export function normalizeTextModel(modelID: string): string;
 export function normalizeImageModel(modelID: string): string;
 export function normalizePromptText(prompt: string): string;
 export function normalizeNegativePrompt(negativePrompt: string): string;
+export function normalizePartialImages(value: unknown): number;
 export function isCompatRequestPolicy(requestPolicy: string): boolean;
 export function classifyImageModel(modelID: string): "gpt-image" | "dalle2" | "dalle3" | "other";
 export function supportsImagesResponseFormat(imageModelID: string, mode?: string): boolean;

@@ -143,6 +143,13 @@ async function startRemoteJob(options: GenerateOptionsLike): Promise<JobStartedL
         signal: controller.signal,
         onLog: (line) => emitLocalEvent(`log:${jobId}`, line),
         onProgress: (stage, elapsed, bytes) => emitLocalEvent(`progress:${jobId}`, { stage, elapsed, bytes }),
+        onPartialImage: (partial) => emitLocalEvent(`preview:${jobId}`, {
+          imageB64: partial.imageB64,
+          revisedPrompt: partial.revisedPrompt || "",
+          partialImageIndex: partial.partialImageIndex ?? -1,
+          mode: options.mode || "generate",
+          prompt: options.prompt,
+        }),
       });
       if (controller.signal.aborted) return;
       const saved = registerVirtualImage({

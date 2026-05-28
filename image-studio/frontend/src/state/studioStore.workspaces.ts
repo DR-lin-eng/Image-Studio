@@ -5,6 +5,7 @@ import {
 import type { HistoryItem, Workspace } from "../types/domain";
 import type { StudioState } from "./studioStore.types";
 import { historyItemsByIds, saveActiveWorkspaceSnapshot } from "./studioStore.runtime";
+import { streamPreviewItemFromWorkspace } from "./studioStore.streamPreview";
 
 type StateAdapter = {
   getState: () => StudioState;
@@ -36,6 +37,7 @@ export function createWorkspaceActions(store: StateAdapter) {
         jobsTotal: 0,
         jobsCompleted: 0,
         progress: null,
+        streamPreview: null,
         lastLogLine: "",
         errorMessage: null,
         errorRawPath: null,
@@ -63,6 +65,7 @@ export function createWorkspaceActions(store: StateAdapter) {
         jobsTotal: 0,
         jobsCompleted: 0,
         progress: null,
+        streamPreview: null,
         lastLogLine: "",
         errorMessage: null,
         errorRawPath: null,
@@ -77,9 +80,10 @@ export function createWorkspaceActions(store: StateAdapter) {
       const persisted = saveActiveWorkspaceSnapshot(state);
       const target = persisted.find((workspace) => workspace.id === id);
       if (!target) return;
-      const newCurrent = target.currentImageId
+      const persistedCurrent = target.currentImageId
         ? state.history.find((item) => item.id === target.currentImageId) ?? null
         : null;
+      const newCurrent = streamPreviewItemFromWorkspace(target, persistedCurrent) ?? persistedCurrent;
       const batchResults = historyItemsByIds(state.history, target.batchResultIds ?? []);
       const runningJobs = target.runningJobIds ?? [];
       store.setState({
@@ -104,6 +108,7 @@ export function createWorkspaceActions(store: StateAdapter) {
         jobsTotal: target.jobsTotal ?? 0,
         jobsCompleted: target.jobsCompleted ?? 0,
         progress: target.progress ?? null,
+        streamPreview: target.streamPreview ?? null,
         lastLogLine: target.lastLogLine ?? "",
         errorMessage: target.errorMessage ?? null,
         errorRawPath: target.errorRawPath ?? null,
@@ -121,16 +126,17 @@ export function createWorkspaceActions(store: StateAdapter) {
       const closingJobIds = state.workspaces.find((workspace) => workspace.id === id)?.runningJobIds ?? [];
       for (const jobId of closingJobIds) {
         try { void wailsCancel(jobId); } catch {}
-        EventsOff(`progress:${jobId}`, `log:${jobId}`, `result:${jobId}`, `error:${jobId}`);
+        EventsOff(`progress:${jobId}`, `log:${jobId}`, `preview:${jobId}`, `result:${jobId}`, `error:${jobId}`);
       }
       const nextMeta = { ...state.runningJobMeta };
       for (const jobId of closingJobIds) delete nextMeta[jobId];
       const remaining = state.workspaces.filter((workspace) => workspace.id !== id);
       if (state.activeWorkspaceId === id) {
         const next = remaining[0];
-        const newCurrent = next.currentImageId
+        const persistedCurrent = next.currentImageId
           ? state.history.find((item) => item.id === next.currentImageId) ?? null
           : null;
+        const newCurrent = streamPreviewItemFromWorkspace(next, persistedCurrent) ?? persistedCurrent;
         const batchResults = historyItemsByIds(state.history, next.batchResultIds ?? []);
         const runningJobs = next.runningJobIds ?? [];
         store.setState({
@@ -156,6 +162,7 @@ export function createWorkspaceActions(store: StateAdapter) {
           jobsTotal: next.jobsTotal ?? 0,
           jobsCompleted: next.jobsCompleted ?? 0,
           progress: next.progress ?? null,
+          streamPreview: next.streamPreview ?? null,
           lastLogLine: next.lastLogLine ?? "",
           errorMessage: next.errorMessage ?? null,
           errorRawPath: next.errorRawPath ?? null,

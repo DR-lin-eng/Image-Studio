@@ -287,6 +287,59 @@ html[data-target-platform="macos"] .source-strip {
   animation: checker-drift 6s linear infinite;
   will-change: background-position;
 }
+
+.stream-preview-overlay {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 6;
+  pointer-events: none;
+}
+
+.stream-preview-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 26px;
+  border: 1px solid color-mix(in srgb, var(--accent) 34%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+  color: var(--accent);
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  box-shadow: 0 10px 24px rgb(15 23 42 / 0.12);
+  backdrop-filter: blur(14px);
+}
+
+.stream-preview-badge svg {
+  width: 13px;
+  height: 13px;
+  animation: stream-preview-pulse 1.4s ease-in-out infinite;
+}
+
+.stream-preview-badge-compact {
+  min-height: 22px;
+  padding-inline: 8px;
+  font-size: 10px;
+}
+
+.stream-preview-badge-fluent {
+  border-radius: 8px;
+}
+
+html.dark .stream-preview-badge {
+  background: color-mix(in srgb, var(--accent) 22%, rgb(24 24 27));
+  box-shadow: 0 10px 26px rgb(0 0 0 / 0.26);
+}
+
+@keyframes stream-preview-pulse {
+  0%, 100% { opacity: 0.55; transform: scale(0.96); }
+  50% { opacity: 1; transform: scale(1.05); }
+}
+
 @keyframes checker-drift {
   0% {
     background-position: 0 0, 0 12px, 12px -12px, 12px 0;

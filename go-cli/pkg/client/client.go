@@ -22,6 +22,17 @@ func RequestAndExtract(
 	rawSink io.Writer,
 	onProgress func(stage string, elapsedSeconds int, bytesReceived int64),
 ) (ImageResult, error) {
+	return RequestAndExtractWithPartial(ctx, transport, opts, rawSink, onProgress, nil)
+}
+
+func RequestAndExtractWithPartial(
+	ctx context.Context,
+	transport Transport,
+	opts Options,
+	rawSink io.Writer,
+	onProgress func(stage string, elapsedSeconds int, bytesReceived int64),
+	onPartial func(PartialImage),
+) (ImageResult, error) {
 	payload, err := BuildPayload(opts)
 	if err != nil {
 		return ImageResult{}, err
@@ -44,7 +55,7 @@ func RequestAndExtract(
 		Payload: payload,
 	}
 
-	collector := newResponseCollector(rawSink)
+	collector := newResponseCollectorWithPartial(rawSink, onPartial)
 
 	progressCh := make(chan string, 16)
 	done := make(chan error, 1)
@@ -117,10 +128,23 @@ func RequestAndExtractWithRetries(
 	onLog func(string),
 	onProgress func(stage string, elapsed int, bytes int64),
 ) (ImageResult, string, error) {
+	return RequestAndExtractWithRetriesAndPartial(ctx, transport, opts, outputDir, timestamp, onLog, onProgress, nil)
+}
+
+func RequestAndExtractWithRetriesAndPartial(
+	ctx context.Context,
+	transport Transport,
+	opts Options,
+	outputDir string,
+	timestamp string,
+	onLog func(string),
+	onProgress func(stage string, elapsed int, bytes int64),
+	onPartial func(PartialImage),
+) (ImageResult, string, error) {
 	if opts.APIMode == APIModeImages {
-		return imagesAPIWithRetries(ctx, opts, outputDir, timestamp, onLog, onProgress)
+		return imagesAPIWithRetries(ctx, opts, outputDir, timestamp, onLog, onProgress, onPartial)
 	}
-	return responsesAPIWithRetries(ctx, transport, opts, outputDir, timestamp, onLog, onProgress)
+	return responsesAPIWithRetries(ctx, transport, opts, outputDir, timestamp, onLog, onProgress, onPartial)
 }
 
 func responsesAPIWithRetries(
@@ -131,6 +155,7 @@ func responsesAPIWithRetries(
 	timestamp string,
 	onLog func(string),
 	onProgress func(stage string, elapsed int, bytes int64),
+	onPartial func(PartialImage),
 ) (ImageResult, string, error) {
 	if onLog == nil {
 		onLog = func(string) {}
@@ -153,7 +178,7 @@ func responsesAPIWithRetries(
 			return ImageResult{}, lastPath, fmt.Errorf("create raw response file: %w", err)
 		}
 
-		result, reqErr := RequestAndExtract(ctx, transport, opts, f, onProgress)
+		result, reqErr := RequestAndExtractWithPartial(ctx, transport, opts, f, onProgress, onPartial)
 		f.Close()
 
 		if reqErr == nil {
@@ -221,6 +246,7 @@ func imagesAPIWithRetries(
 	timestamp string,
 	onLog func(string),
 	onProgress func(stage string, elapsed int, bytes int64),
+	onPartial func(PartialImage),
 ) (ImageResult, string, error) {
 	if onLog == nil {
 		onLog = func(string) {}
@@ -241,7 +267,7 @@ func imagesAPIWithRetries(
 		if err != nil {
 			return ImageResult{}, lastPath, fmt.Errorf("create raw response file: %w", err)
 		}
-		result, reqErr := RequestImagesAPI(ctx, opts, f, onProgress)
+		result, reqErr := RequestImagesAPIWithPartial(ctx, opts, f, onProgress, onPartial)
 		f.Close()
 
 		if reqErr == nil {

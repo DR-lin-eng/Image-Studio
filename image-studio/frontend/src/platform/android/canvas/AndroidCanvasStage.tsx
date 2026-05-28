@@ -8,6 +8,7 @@ import { AnnotationShape } from "../../../components/canvas/AnnotationShape";
 import { BatchResultGrid } from "../../../components/canvas/BatchResultGrid";
 import { CompareOverlay } from "../../../components/canvas/CompareOverlay";
 import { copyImageB64ToClipboard, useImageFromSource } from "../../../components/canvas/canvasImage";
+import { StreamPreviewBadge } from "../../../components/canvas/StreamPreviewBadge";
 import { useCanvasShortcuts } from "../../../components/canvas/useCanvasShortcuts";
 import { vibrateForPlatform } from "../bridge";
 
@@ -33,6 +34,7 @@ export function AndroidCanvasStage() {
     undo, redo,
     compareB, compareSplit, setCompareSplit, setCompareB,
     isRunning, cancel, errorMessage, setField,
+    streamPreview,
     toggleFullscreen,
     batchResults, resultGridOpen, selectBatchResult, closeResultGrid,
     canvasViewResetTick,
@@ -512,6 +514,11 @@ export function AndroidCanvasStage() {
               ) : null}
             </Layer>
           </Stage>
+        </div>
+      ) : null}
+      {streamPreview && currentImage ? (
+        <div className="stream-preview-overlay">
+          <StreamPreviewBadge compact />
         </div>
       ) : null}
     </div>

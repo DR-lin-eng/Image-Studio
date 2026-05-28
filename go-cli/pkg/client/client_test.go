@@ -89,6 +89,58 @@ func TestRequestAndExtractWithRetries_HappyPath(t *testing.T) {
 	}
 }
 
+func TestRequestAndExtractWithRetriesEmitsPartialImages(t *testing.T) {
+	pngB64 := base64.StdEncoding.EncodeToString([]byte("\x89PNG\r\n\x1a\npartial"))
+	finalB64 := base64.StdEncoding.EncodeToString([]byte("\x89PNG\r\n\x1a\nfinal"))
+	ev := func(m map[string]any) string {
+		b, _ := json.Marshal(m)
+		return "data: " + string(b)
+	}
+	lines := []string{
+		ev(map[string]any{
+			"type":                "response.image_generation_call.partial_image",
+			"partial_image_index": 1,
+			"partial_image_b64":   pngB64,
+			"revised_prompt":      "partial rev",
+		}),
+		ev(map[string]any{
+			"type": "response.output_item.done",
+			"item": map[string]any{
+				"type":   "image_generation_call",
+				"result": finalB64,
+			},
+		}),
+	}
+	srv := startSSEServer(t, lines, http.StatusOK)
+	transport := &injectingTransport{inner: &NativeTransport{}, url: srv.URL}
+	var partials []PartialImage
+
+	res, _, err := RequestAndExtractWithRetriesAndPartial(
+		context.Background(),
+		transport,
+		Options{APIKey: "sk-test", Prompt: "hello", BaseURL: "https://test.local"},
+		t.TempDir(),
+		"20260518-200002",
+		nil,
+		nil,
+		func(partial PartialImage) {
+			partials = append(partials, partial)
+		},
+	)
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if res.ImageB64 != finalB64 {
+		t.Fatalf("final image = %q, want %q", res.ImageB64, finalB64)
+	}
+	if len(partials) != 1 {
+		t.Fatalf("partials = %d, want 1", len(partials))
+	}
+	if partials[0].ImageB64 != pngB64 || partials[0].PartialImageIndex != 1 || partials[0].RevisedPrompt != "partial rev" {
+		t.Fatalf("unexpected partial: %+v", partials[0])
+	}
+}
+
 func TestRequestAndExtractWithRetries_RetryOn524(t *testing.T) {
 	// First attempt returns Cloudflare 524 HTML (retryable); second attempt succeeds.
 	pngB64 := base64.StdEncoding.EncodeToString([]byte("\x89PNG\r\n\x1a\nfake"))

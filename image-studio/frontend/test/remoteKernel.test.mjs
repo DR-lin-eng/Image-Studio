@@ -186,6 +186,61 @@ test("runRemoteImageJob retries retryable responses and returns parsed SSE image
   });
 });
 
+test("runRemoteImageJob emits Responses API partial image previews", async () => {
+  let capturedBody = null;
+  const partials = [];
+  await withPatchedGlobals(async () => {
+    globalThis.fetch = async (_url, init) => {
+      capturedBody = JSON.parse(init.body);
+      return new Response(
+        'data: {"type":"response.image_generation_call.partial_image","partial_image_index":1,"partial_image_b64":"cGFydGlhbA==","revised_prompt":"partial rev"}\n' +
+        'data: {"type":"response.output_item.done","item":{"type":"image_generation_call","result":"ZmluYWw=","revised_prompt":"final rev"}}\n',
+        { status: 200, headers: { "content-type": "text/event-stream" } },
+      );
+    };
+  }, async () => {
+    const kernel = await loadRemoteKernel();
+    const result = await kernel.runRemoteImageJob(
+      {
+        payload: {
+          apiKey: "key",
+          mode: "generate",
+          prompt: "cat",
+          size: "1024x1024",
+          quality: "low",
+          outputFormat: "png",
+          imagePaths: [],
+          imagePath: "",
+          maskB64: "",
+          seed: 0,
+          negativePrompt: "",
+          baseURL: "https://upstream.example",
+          textModelID: "gpt-5.5",
+          imageModelID: "gpt-image-2",
+          apiMode: "responses",
+          requestPolicy: "openai",
+          noPromptRevision: false,
+          partialImages: 2,
+        },
+      },
+      {
+        signal: new AbortController().signal,
+        onPartialImage: (partial) => partials.push(partial),
+      },
+    );
+    assert.equal(capturedBody.tools[0].partial_images, 2);
+    assert.equal(result.imageB64, "ZmluYWw=");
+    assert.deepEqual(partials, [
+      {
+        imageB64: "cGFydGlhbA==",
+        revisedPrompt: "partial rev",
+        partialImageIndex: 1,
+        sourceEvent: "responses_partial",
+      },
+    ]);
+  });
+});
+
 test("runRemoteImageJob parses Images API JSON mode", async () => {
   let captured = null;
   await withPatchedGlobals(async () => {
@@ -220,6 +275,7 @@ test("runRemoteImageJob parses Images API JSON mode", async () => {
           textModelID: "",
           imageModelID: "gpt-image-2",
           apiMode: "images",
+          requestPolicy: "openai",
           noPromptRevision: false,
         },
       },
@@ -230,6 +286,66 @@ test("runRemoteImageJob parses Images API JSON mode", async () => {
     assert.equal(result.imageB64, "img-data");
     assert.equal(result.revisedPrompt, "img-rev");
     assert.equal(result.sourceEvent, "images_api");
+  });
+});
+
+test("runRemoteImageJob emits Images API stream partial image previews", async () => {
+  let captured = null;
+  const partials = [];
+  await withPatchedGlobals(async () => {
+    globalThis.fetch = async (url, init) => {
+      captured = {
+        url: String(url),
+        body: JSON.parse(init.body),
+      };
+      return new Response(
+        'data: {"type":"image_generation.partial_image","partial_image_index":0,"b64_json":"cGFydGlhbA=="}\n' +
+        'data: {"type":"image_generation.completed","b64_json":"ZmluYWw="}\n',
+        { status: 200, headers: { "content-type": "text/event-stream" } },
+      );
+    };
+  }, async () => {
+    const kernel = await loadRemoteKernel();
+    const result = await kernel.runRemoteImageJob(
+      {
+        payload: {
+          apiKey: "key",
+          mode: "generate",
+          prompt: "bird",
+          size: "1024x1024",
+          quality: "medium",
+          outputFormat: "png",
+          imagePaths: [],
+          imagePath: "",
+          maskB64: "",
+          seed: 0,
+          negativePrompt: "",
+          baseURL: "https://upstream.example",
+          textModelID: "",
+          imageModelID: "gpt-image-2",
+          apiMode: "images",
+          requestPolicy: "openai",
+          noPromptRevision: false,
+          partialImages: 3,
+        },
+      },
+      {
+        signal: new AbortController().signal,
+        onPartialImage: (partial) => partials.push(partial),
+      },
+    );
+    assert.equal(captured.url, "https://upstream.example/v1/images/generations");
+    assert.equal(captured.body.stream, true);
+    assert.equal(captured.body.partial_images, 3);
+    assert.equal(result.imageB64, "ZmluYWw=");
+    assert.equal(result.sourceEvent, "images_api");
+    assert.deepEqual(partials, [
+      {
+        imageB64: "cGFydGlhbA==",
+        partialImageIndex: 0,
+        sourceEvent: "images_partial",
+      },
+    ]);
   });
 });
 
@@ -430,6 +546,8 @@ test("probeUpstreamConnection rejects non-2xx with summarized message", async ()
 });
 
 test("Android shell remote kernel can use native HTTP bridge to bypass browser fetch", async () => {
+  const partials = [];
+  const progressEvents = [];
   await withPatchedGlobals(async () => {
     globalThis.window.AndroidImageStudio = {
       invoke(requestId, method, payloadJson) {
@@ -446,9 +564,14 @@ test("Android shell remote kernel can use native HTTP bridge to bypass browser f
               return;
             }
             if (payload.url.endsWith("/v1/responses")) {
+              assert.equal(payload.streamLines, true);
+              window.__imageStudioNativeProgress?.(payload.requestKey, {
+                line: 'data: {"type":"response.image_generation_call.partial_image","partial_image_index":0,"partial_image_b64":"cGFydGlhbA=="}',
+              });
               window.__imageStudioNativeResolve?.(requestId, {
                 status: 200,
-                body: 'data: {"type":"response.output_item.done","item":{"type":"image_generation_call","result":"YW5kcm9pZA==","revised_prompt":"native bridge"}}\n',
+                body: 'data: {"type":"response.image_generation_call.partial_image","partial_image_index":0,"partial_image_b64":"cGFydGlhbA=="}\n' +
+                  'data: {"type":"response.output_item.done","item":{"type":"image_generation_call","result":"YW5kcm9pZA==","revised_prompt":"native bridge"}}\n',
                 contentType: "text/event-stream",
               });
               return;
@@ -497,9 +620,17 @@ test("Android shell remote kernel can use native HTTP bridge to bypass browser f
           noPromptRevision: false,
         },
       },
-      { signal: new AbortController().signal },
+      {
+        signal: new AbortController().signal,
+        onPartialImage: (partial) => partials.push(partial),
+        onProgress: (...args) => progressEvents.push(args),
+      },
     );
     assert.equal(result.imageB64, "YW5kcm9pZA==");
     assert.equal(result.revisedPrompt, "native bridge");
+    assert.equal(partials.length, 1);
+    assert.equal(partials[0].imageB64, "cGFydGlhbA==");
+    assert.equal(partials[0].partialImageIndex, 0);
+    assert.ok(progressEvents.some(([stage]) => stage === "已收到图片数据片段"));
   });
 });

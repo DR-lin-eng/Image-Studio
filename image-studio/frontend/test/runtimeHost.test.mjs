@@ -250,6 +250,122 @@ test("runtimeHost remote mode emits job lifecycle events", async () => {
   });
 });
 
+test("runtimeHost remote mode forwards partial image previews", async () => {
+  await withPatchedGlobals(async () => {
+    globalThis.fetch = async (url) => {
+      if (String(url).endsWith("/v1/responses")) {
+        return new Response(
+          'data: {"type":"response.image_generation_call.partial_image","partial_image_index":0,"partial_image_b64":"cGFydGlhbA==","revised_prompt":"partial rev"}\n' +
+          'data: {"type":"response.output_item.done","item":{"type":"image_generation_call","result":"ZmluYWw=","revised_prompt":"final rev"}}\n',
+          { status: 200, headers: { "content-type": "text/event-stream" } },
+        );
+      }
+      throw new Error(`unexpected fetch ${url}`);
+    };
+  }, async () => {
+    const runtimeHost = await loadRuntimeHost();
+    runtimeHost.setKernelRuntimeMode("remote");
+
+    const started = await runtimeHost.Generate({
+      apiKey: "key",
+      mode: "generate",
+      prompt: "cat",
+      size: "1024x1024",
+      quality: "low",
+      outputFormat: "png",
+      imagePaths: [],
+      imagePath: "",
+      maskB64: "",
+      seed: 0,
+      negativePrompt: "",
+      baseURL: "https://upstream.example",
+      textModelID: "gpt-5.5",
+      imageModelID: "gpt-image-2",
+      apiMode: "responses",
+      noPromptRevision: false,
+      concurrencyLimit: 0,
+      partialImages: 1,
+    });
+
+    const seen = { preview: [], result: [] };
+    const offPreview = runtimeHost.EventsOn(`preview:${started.jobId}`, (payload) => {
+      seen.preview.push(payload);
+    });
+    const offResult = runtimeHost.EventsOn(`result:${started.jobId}`, (payload) => {
+      seen.result.push(payload);
+    });
+
+    await new Promise((resolve) => setImmediate(resolve));
+    offPreview();
+    offResult();
+
+    assert.equal(seen.preview.length, 1);
+    assert.equal(seen.preview[0].imageB64, "cGFydGlhbA==");
+    assert.equal(seen.preview[0].partialImageIndex, 0);
+    assert.equal(seen.preview[0].mode, "generate");
+    assert.equal(seen.preview[0].prompt, "cat");
+    assert.equal(seen.result[0].imageB64, "ZmluYWw=");
+  });
+});
+
+test("runtimeHost remote images mode forwards partial image previews", async () => {
+  await withPatchedGlobals(async () => {
+    globalThis.fetch = async (url) => {
+      if (String(url).endsWith("/v1/images/generations")) {
+        return new Response(
+          'data: {"type":"image_generation.partial_image","partial_image_index":1,"b64_json":"aW1hZ2VzLXBhcnRpYWw="}\n' +
+          'data: {"type":"image_generation.completed","b64_json":"aW1hZ2VzLWZpbmFs"}\n',
+          { status: 200, headers: { "content-type": "text/event-stream" } },
+        );
+      }
+      throw new Error(`unexpected fetch ${url}`);
+    };
+  }, async () => {
+    const runtimeHost = await loadRuntimeHost();
+    runtimeHost.setKernelRuntimeMode("remote");
+
+    const started = await runtimeHost.Generate({
+      apiKey: "key",
+      mode: "generate",
+      prompt: "cat",
+      size: "1024x1024",
+      quality: "low",
+      outputFormat: "png",
+      imagePaths: [],
+      imagePath: "",
+      maskB64: "",
+      seed: 0,
+      negativePrompt: "",
+      baseURL: "https://upstream.example",
+      textModelID: "",
+      imageModelID: "gpt-image-2",
+      apiMode: "images",
+      requestPolicy: "openai",
+      noPromptRevision: false,
+      concurrencyLimit: 0,
+      partialImages: 1,
+    });
+
+    const seen = { preview: [], result: [] };
+    const offPreview = runtimeHost.EventsOn(`preview:${started.jobId}`, (payload) => {
+      seen.preview.push(payload);
+    });
+    const offResult = runtimeHost.EventsOn(`result:${started.jobId}`, (payload) => {
+      seen.result.push(payload);
+    });
+
+    await new Promise((resolve) => setImmediate(resolve));
+    offPreview();
+    offResult();
+
+    assert.equal(seen.preview.length, 1);
+    assert.equal(seen.preview[0].imageB64, "aW1hZ2VzLXBhcnRpYWw=");
+    assert.equal(seen.preview[0].partialImageIndex, 1);
+    assert.equal(seen.preview[0].mode, "generate");
+    assert.equal(seen.result[0].imageB64, "aW1hZ2VzLWZpbmFs");
+  });
+});
+
 test("runtimeHost Android transforms persist GPU-backed results to host files", async () => {
   await withPatchedGlobals(async () => {
     globalThis.createImageBitmap = async () => ({

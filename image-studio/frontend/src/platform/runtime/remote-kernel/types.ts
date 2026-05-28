@@ -27,9 +27,16 @@ export type RemoteGeneratePayload = {
   requestPolicy: RequestPolicy;
   noPromptRevision: boolean;
   concurrencyLimit?: number;
+  partialImages?: number;
 };
 
 export type ProgressCallback = (stage: string, elapsedSeconds: number, bytesReceived: number) => void;
+export type PartialImageCallback = (partial: {
+  imageB64: string;
+  revisedPrompt?: string;
+  partialImageIndex?: number;
+  sourceEvent?: "responses_partial" | "images_partial";
+}) => void;
 
 export type RemoteJobRequest = {
   payload: RemoteGeneratePayload;
@@ -40,6 +47,7 @@ export type RemoteJobCallbacks = {
   signal: AbortSignal;
   onLog?: (line: string) => void;
   onProgress?: ProgressCallback;
+  onPartialImage?: PartialImageCallback;
 };
 
 export type RemoteJobResult = {

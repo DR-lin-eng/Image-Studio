@@ -23,6 +23,7 @@ function makeWorkspace(id, overrides = {}) {
     jobsTotal: 0,
     jobsCompleted: 0,
     progress: null,
+    streamPreview: null,
     lastLogLine: "",
     errorMessage: null,
     lastPayload: null,
@@ -65,6 +66,7 @@ test("reads runtime from the active workspace mirror and background tabs", () =>
     jobsTotal: 1,
     jobsCompleted: 0,
     progress: { stage: "x", elapsed: 1, bytes: 2 },
+    streamPreview: { jobId: "job-a", imageB64: "abc", updatedAt: 1 },
     lastLogLine: "log",
     errorMessage: null,
     lastPayload: null,
@@ -77,6 +79,7 @@ test("reads runtime from the active workspace mirror and background tabs", () =>
   const bg = runtime.workspaceRuntimeFromState(state, "b");
   assert.equal(active.isRunning, true);
   assert.deepEqual(active.runningJobs, ["job-a"]);
+  assert.equal(active.streamPreview.imageB64, "abc");
   assert.equal(bg.isRunning, true);
   assert.deepEqual(bg.runningJobs, ["job-b"]);
   assert.equal(bg.jobsCompleted, 2);

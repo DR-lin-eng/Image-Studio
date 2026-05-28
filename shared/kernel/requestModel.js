@@ -4,6 +4,7 @@ export const DEFAULT_SIZE = "1024x1024";
 export const DEFAULT_QUALITY = "auto";
 export const DEFAULT_OUTPUT_FORMAT = "png";
 export const DEFAULT_REQUEST_POLICY = "openai";
+export const DEFAULT_PARTIAL_IMAGES = 1;
 export const MAX_ATTEMPTS = 3;
 export const RETRY_BACKOFF_MS = 15_000;
 export const STATUS_INTERVAL_MS = 10_000;
@@ -36,6 +37,12 @@ export function normalizePromptText(prompt) {
 
 export function normalizeNegativePrompt(negativePrompt) {
   return String(negativePrompt || "").trim();
+}
+
+export function normalizePartialImages(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) return DEFAULT_PARTIAL_IMAGES;
+  return Math.max(0, Math.min(3, Math.floor(numeric)));
 }
 
 export function isCompatRequestPolicy(requestPolicy) {
@@ -93,7 +100,7 @@ export function buildResponsesImageTool(payload, sourceDataURLs, options = {}) {
     quality,
     output_format: outputFormat,
     moderation: "low",
-    partial_images: 0,
+    partial_images: normalizePartialImages(payload.partialImages),
   };
   if (compatExtensions && payload.seed) tool.seed = payload.seed;
   if (compatExtensions && negativePrompt) tool.negative_prompt = negativePrompt;

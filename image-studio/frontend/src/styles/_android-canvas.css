@@ -142,6 +142,20 @@ html[data-platform="android"] .android-canvas-status-chip.active {
   color: var(--accent);
 }
 
+html[data-platform="android"] .android-canvas-status-chip.stream-preview-chip {
+  min-width: 0;
+  padding-inline: 7px;
+}
+
+html[data-platform="android"] .android-canvas-status-chip.stream-preview-chip .stream-preview-badge {
+  min-height: 24px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
 html[data-platform="android"] .android-canvas-main {
   min-width: 0;
   min-height: 0;

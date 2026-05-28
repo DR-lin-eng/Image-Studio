@@ -290,6 +290,7 @@ func (s *Service) runJob(ctx context.Context, jobID string, opts GenerateOptions
 		APIMode:          apiMode,
 		RequestPolicy:    client.RequestPolicy(strings.TrimSpace(opts.RequestPolicy)),
 		NoPromptRevision: opts.NoPromptRevision,
+		PartialImages:    opts.PartialImages,
 	}
 	if mode == client.ModeEdit {
 		paths, cleanup, prepErr := prepareUploadSourcePaths(opts.collectPaths())
@@ -354,10 +355,19 @@ func (s *Service) runJob(ctx context.Context, jobID string, opts GenerateOptions
 			Stage: stage, Elapsed: elapsed, Bytes: bytes,
 		})
 	}
+	previewFn := func(partial client.PartialImage) {
+		runtime.EventsEmit(s.ctx, "preview:"+jobID, PreviewPayload{
+			ImageB64:          partial.ImageB64,
+			RevisedPrompt:     partial.RevisedPrompt,
+			PartialImageIndex: partial.PartialImageIndex,
+			Mode:              string(mode),
+			Prompt:            opts.Prompt,
+		})
+	}
 
 	// raw response(SSE 文本 / Images API JSON)落到 log 子目录;PNG 落到 images 子目录。
-	result, rawPath, err := client.RequestAndExtractWithRetries(
-		ctx, transport, clientOpts, logDir, timestamp, logFn, progressFn,
+	result, rawPath, err := client.RequestAndExtractWithRetriesAndPartial(
+		ctx, transport, clientOpts, logDir, timestamp, logFn, progressFn, previewFn,
 	)
 	if err != nil {
 		// 即使失败也把 rawPath 透给前端,「查看日志」按钮直接打开它。

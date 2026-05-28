@@ -1,15 +1,59 @@
 package client
 
 import (
+	"bytes"
+	"context"
 	"encoding/base64"
+	"fmt"
 	"io"
 	"mime"
 	"mime/multipart"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+func TestRequestImagesAPIWithPartialStreamsPreviews(t *testing.T) {
+	partialB64 := base64.StdEncoding.EncodeToString([]byte("partial"))
+	finalB64 := base64.StdEncoding.EncodeToString([]byte("final"))
+	var requestBody []byte
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestBody, _ = io.ReadAll(r.Body)
+		w.Header().Set("Content-Type", "text/event-stream")
+		fmt.Fprintf(w, "data: {\"type\":\"image_generation.partial_image\",\"partial_image_index\":0,\"b64_json\":\"%s\"}\n", partialB64)
+		fmt.Fprintf(w, "data: {\"type\":\"image_generation.completed\",\"b64_json\":\"%s\"}\n", finalB64)
+	}))
+	defer srv.Close()
+
+	var partials []PartialImage
+	res, err := RequestImagesAPIWithPartial(context.Background(), Options{
+		APIKey:        "sk-test",
+		Prompt:        "cat",
+		BaseURL:       srv.URL,
+		APIMode:       APIModeImages,
+		PartialImages: 2,
+	}, &bytes.Buffer{}, nil, func(partial PartialImage) {
+		partials = append(partials, partial)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(requestBody), `"stream":true`) {
+		t.Fatalf("request body missing stream=true: %s", requestBody)
+	}
+	if !strings.Contains(string(requestBody), `"partial_images":2`) {
+		t.Fatalf("request body missing partial_images=2: %s", requestBody)
+	}
+	if res.ImageB64 != finalB64 || res.SourceEvent != "images_api" {
+		t.Fatalf("unexpected result: %+v", res)
+	}
+	if len(partials) != 1 || partials[0].ImageB64 != partialB64 || partials[0].PartialImageIndex != 0 {
+		t.Fatalf("unexpected partials: %+v", partials)
+	}
+}
 
 func TestBuildEditsMultipartSetsMaskMimeType(t *testing.T) {
 	dir := t.TempDir()
@@ -29,6 +73,7 @@ func TestBuildEditsMultipartSetsMaskMimeType(t *testing.T) {
 		"",
 		0,
 		RequestPolicyOpenAI,
+		DefaultPartialImages,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -79,6 +124,7 @@ func TestBuildEditsMultipartOmitsMaskWhenEmpty(t *testing.T) {
 		"",
 		0,
 		RequestPolicyOpenAI,
+		DefaultPartialImages,
 	)
 	if err != nil {
 		t.Fatal(err)

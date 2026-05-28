@@ -12,6 +12,7 @@ import { EmptyState } from "./EmptyState";
 import { useImageFromSource, copyImageB64ToClipboard } from "./canvasImage";
 import { AnnotationShape } from "./AnnotationShape";
 import { useCanvasShortcuts } from "./useCanvasShortcuts";
+import { StreamPreviewBadge } from "./StreamPreviewBadge";
 
 export function CanvasStage() {
   const {
@@ -24,6 +25,7 @@ export function CanvasStage() {
     undoStack, redoStack, undo, redo,
     compareB, compareSplit, setCompareSplit, setCompareB,
     isRunning, cancel, errorMessage, setField,
+    streamPreview,
     toggleFullscreen,
     batchResults, resultGridOpen, selectBatchResult, closeResultGrid,
     canvasViewResetTick,
@@ -381,6 +383,11 @@ export function CanvasStage() {
         style={{ cursor: !currentImage ? "default" : (effectiveTool === "pan" ? (spacePan ? "grabbing" : "grab") : "crosshair") }}
       >
         {!currentImage && <EmptyState />}
+        {streamPreview && currentImage ? (
+          <div className="stream-preview-overlay">
+            <StreamPreviewBadge />
+          </div>
+        ) : null}
         {showingResultGrid && (
           <BatchResultGrid
             items={batchResults}

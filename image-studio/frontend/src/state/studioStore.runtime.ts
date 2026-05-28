@@ -18,6 +18,7 @@ import type {
   Workspace,
 } from "../types/domain";
 import type { StudioState } from "./studioStore.types";
+import { currentImageIdForWorkspaceSnapshot } from "./studioStore.streamPreview";
 
 export function historyItemsByIds(history: HistoryItem[], ids: string[]): HistoryItem[] {
   if (ids.length === 0) return [];
@@ -119,13 +120,14 @@ export function saveActiveWorkspaceSnapshot(s: StudioState): Workspace[] {
       seed: s.seed,
       batchCount: s.batchCount,
       sources: s.sources,
-      currentImageId: s.currentImage?.id ?? null,
+      currentImageId: currentImageIdForWorkspaceSnapshot(s.currentImage, s.streamPreview, w.currentImageId),
       batchResultIds: s.batchResults.map((item) => item.id),
       resultGridOpen: s.resultGridOpen,
       runningJobIds: s.runningJobs,
       jobsTotal: s.jobsTotal,
       jobsCompleted: s.jobsCompleted,
       progress: s.progress,
+      streamPreview: s.streamPreview,
       lastLogLine: s.lastLogLine,
       errorMessage: s.errorMessage,
       lastPayload: s.lastPayload,

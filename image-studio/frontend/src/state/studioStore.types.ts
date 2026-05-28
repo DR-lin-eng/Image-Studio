@@ -12,6 +12,7 @@ import type {
   RequestPolicy,
   SizeValue,
   SourceImage,
+  StreamPreview,
   ThemeMode,
   Toast,
   UpstreamProfile,
@@ -72,6 +73,7 @@ export interface StudioState {
   jobsTotal: number;
   jobsCompleted: number;
   progress: ProgressInfo | null;
+  streamPreview: StreamPreview | null;
   lastLogLine: string;
   errorMessage: string | null;
   errorRawPath: string | null;

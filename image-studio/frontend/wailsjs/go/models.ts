@@ -20,6 +20,7 @@ export namespace backend {
 	    requestPolicy: string;
 	    noPromptRevision: boolean;
 	    concurrencyLimit: number;
+	    partialImages: number;
 
 	    static createFrom(source: any = {}) {
 	        return new GenerateOptions(source);
@@ -46,6 +47,7 @@ export namespace backend {
 	        this.requestPolicy = source["requestPolicy"];
 	        this.noPromptRevision = source["noPromptRevision"];
 	        this.concurrencyLimit = source["concurrencyLimit"];
+	        this.partialImages = source["partialImages"];
 	    }
 	}
 	export class ImageTransformResult {

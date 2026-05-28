@@ -342,6 +342,7 @@ class AndroidImageStudioBridge(
         val headersJson = payload.optJSONObject("headers")
         val bodyBase64 = payload.optString("bodyBase64")
         val contentType = payload.optString("contentType")
+        val streamLines = payload.optBoolean("streamLines", false)
         thread(name = "image-studio-http-$requestKey") {
             try {
                 val connection = (URL(url).openConnection() as HttpURLConnection).apply {
@@ -369,7 +370,18 @@ class AndroidImageStudioBridge(
                 }
                 val status = connection.responseCode
                 val stream = if (status >= 400) connection.errorStream else connection.inputStream
-                val body = stream?.bufferedReader()?.use { it.readText() } ?: ""
+                val body = if (streamLines) {
+                    val lines = mutableListOf<String>()
+                    stream?.bufferedReader()?.useLines { sequence ->
+                        sequence.forEach { line ->
+                            lines.add(line)
+                            emitNativeProgress(requestKey, mapOf("line" to line))
+                        }
+                    }
+                    if (lines.isEmpty()) "" else lines.joinToString(separator = "\n", postfix = "\n")
+                } else {
+                    stream?.bufferedReader()?.use { it.readText() } ?: ""
+                }
                 val result = mapOf(
                     "status" to status,
                     "body" to body,
@@ -573,6 +585,18 @@ class AndroidImageStudioBridge(
                 "window.__imageStudioNativeReject(${JSONObject.quote(requestId)}, ${JSONObject.quote(message)})",
                 null,
             )
+        }
+    }
+
+    private fun emitNativeProgress(requestId: String, payload: Any?) {
+        val serialized = when (payload) {
+            null -> "null"
+            is String -> JSONObject.quote(payload)
+            is Number, is Boolean -> payload.toString()
+            else -> JSONObject.wrap(payload)?.toString() ?: "null"
+        }
+        webView.post {
+            webView.evaluateJavascript("window.__imageStudioNativeProgress?.(${JSONObject.quote(requestId)}, $serialized)", null)
         }
     }
 

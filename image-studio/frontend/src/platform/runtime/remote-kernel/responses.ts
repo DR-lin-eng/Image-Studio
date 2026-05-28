@@ -55,6 +55,29 @@ function summarizeSSELine(line: string): string {
   }
 }
 
+function parseSSELineEvent(line: string): any | null {
+  const stripped = line.trim();
+  if (!stripped.startsWith("data: ")) return null;
+  const payload = stripped.slice(6).trim();
+  if (!payload || payload === "[DONE]") return null;
+  try {
+    return JSON.parse(payload);
+  } catch {
+    return null;
+  }
+}
+
+function emitPartialPreview(event: any, callbacks: RemoteJobCallbacks) {
+  if (event?.type !== "response.image_generation_call.partial_image") return;
+  if (!event.partial_image_b64) return;
+  callbacks.onPartialImage?.({
+    imageB64: event.partial_image_b64,
+    revisedPrompt: event.revised_prompt || undefined,
+    partialImageIndex: typeof event.partial_image_index === "number" ? event.partial_image_index : undefined,
+    sourceEvent: "responses_partial",
+  });
+}
+
 function walkForImageCall(value: any): any | null {
   if (!value) return null;
   if (Array.isArray(value)) {
@@ -154,6 +177,16 @@ export async function requestResponsesOnce(
   }, STATUS_INTERVAL_MS);
   try {
     if (shouldUseAndroidNativeHTTP()) {
+      const consumeNativeLine = (line: string) => {
+        bytesReceived += line.length + 1;
+        emitPartialPreview(parseSSELineEvent(line), callbacks);
+        const summary = summarizeSSELine(line);
+        if (summary) {
+          lastStage = summary;
+          callbacks.onLog?.(summary);
+          callbacks.onProgress?.(lastStage, nowSeconds(startedAt), bytesReceived);
+        }
+      };
       const response = await nativeHttpRequestText(
         url,
         "POST",
@@ -164,17 +197,11 @@ export async function requestResponsesOnce(
         },
         body,
         callbacks.signal,
+        consumeNativeLine,
       );
       raw = response.body || "";
-      const lines = raw.split(/\r?\n/);
-      for (const line of lines) {
-        bytesReceived += line.length;
-        const summary = summarizeSSELine(line);
-        if (summary) {
-          lastStage = summary;
-          callbacks.onLog?.(summary);
-          callbacks.onProgress?.(lastStage, nowSeconds(startedAt), bytesReceived);
-        }
+      if (bytesReceived === 0) {
+        for (const line of raw.split(/\r?\n/)) consumeNativeLine(line);
       }
       const rawPath = registerRawText("responses", attempt, raw);
       if (response.status < 200 || response.status >= 300) {
@@ -223,6 +250,7 @@ export async function requestResponsesOnce(
         while (newline >= 0) {
           const line = pending.slice(0, newline).replace(/\r$/, "");
           pending = pending.slice(newline + 1);
+          emitPartialPreview(parseSSELineEvent(line), callbacks);
           const summary = summarizeSSELine(line);
           if (summary) {
             lastStage = summary;
@@ -234,6 +262,7 @@ export async function requestResponsesOnce(
       }
       raw += decoder.decode();
       if (pending.trim()) {
+        emitPartialPreview(parseSSELineEvent(pending), callbacks);
         const summary = summarizeSSELine(pending);
         if (summary) {
           lastStage = summary;

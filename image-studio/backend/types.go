@@ -7,15 +7,15 @@ import "strings"
 // GenerateOptions is the request shape sent by the frontend.
 // Fields mirror client.Options but with friendlier names for TS.
 type GenerateOptions struct {
-	APIKey  string `json:"apiKey"`
-	Mode    string `json:"mode"` // "generate" | "edit"
+	APIKey string `json:"apiKey"`
+	Mode   string `json:"mode"` // "generate" | "edit"
 	// RequestedJobID allows the frontend to pre-bind event listeners before
 	// dispatching the request, avoiding a race where a very fast result event
 	// arrives before the UI has attached `result:<jobId>` handlers.
 	RequestedJobID string `json:"requestedJobId"`
-	Prompt  string `json:"prompt"`
-	Size    string `json:"size"`
-	Quality string `json:"quality"`
+	Prompt         string `json:"prompt"`
+	Size           string `json:"size"`
+	Quality        string `json:"quality"`
 	// OutputFormat:"png" | "jpeg" | "webp"。空时回退到 client.OutputFormat 默认("png")。
 	OutputFormat string `json:"outputFormat"`
 
@@ -41,6 +41,8 @@ type GenerateOptions struct {
 	NoPromptRevision bool `json:"noPromptRevision"`
 	// ConcurrencyLimit is enforced per APIMode. 0 means unlimited.
 	ConcurrencyLimit int `json:"concurrencyLimit"`
+	// PartialImages controls Responses API stream preview count. 0 keeps the app default.
+	PartialImages int `json:"partialImages"`
 }
 
 // PromptOptimizeOptions is the request shape for one-click prompt revision.
@@ -88,6 +90,16 @@ type ResultPayload struct {
 	RawPath       string `json:"rawPath"`   // raw SSE dump location
 	Mode          string `json:"mode"`
 	Prompt        string `json:"prompt"`
+}
+
+// PreviewPayload is emitted as `preview:<jobId>` while Responses API streams
+// intermediate image-generation previews.
+type PreviewPayload struct {
+	ImageB64          string `json:"imageB64"`
+	RevisedPrompt     string `json:"revisedPrompt,omitempty"`
+	PartialImageIndex int    `json:"partialImageIndex"`
+	Mode              string `json:"mode"`
+	Prompt            string `json:"prompt"`
 }
 
 // ErrorPayload is emitted as `error:<jobId>` when a run fails.

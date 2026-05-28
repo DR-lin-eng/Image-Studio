@@ -133,6 +133,14 @@ export interface ProgressInfo {
   bytes: number;
 }
 
+export interface StreamPreview {
+  jobId: string;
+  imageB64: string;
+  revisedPrompt?: string;
+  partialImageIndex?: number;
+  updatedAt: number;
+}
+
 export interface Workspace {
   id: string;
   name: string;
@@ -157,6 +165,7 @@ export interface Workspace {
   jobsTotal: number;
   jobsCompleted: number;
   progress: ProgressInfo | null;
+  streamPreview: StreamPreview | null;
   lastLogLine: string;
   errorMessage: string | null;
   // 最近一次失败时上游原始响应文件的绝对路径(SSE / Images API JSON)。前端

@@ -65,6 +65,7 @@ import {
 import { base64ToBlob } from "../lib/images";
 import { isMac, readRuntimePlatformState } from "../platform";
 import { saveImageForPlatform } from "../platform/android/bridge";
+import { dispatchFullscreenResize, setNativeFullscreen } from "../platform/nativeFullscreen";
 import {
   activeRuntimePatch,
   apiModeLabel,
@@ -316,6 +317,26 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     } else if (key === "outputFormat") {
       try { localStorage.setItem("gptcodex.outputFormat", String(value)); } catch {}
     }
+  },
+  setFullscreen: async (value) => {
+    const next = !!value;
+    set({ fullscreen: next });
+    dispatchFullscreenResize();
+    try {
+      await setNativeFullscreen(next);
+    } catch (error: any) {
+      const platform = readRuntimePlatformState();
+      const message = platform.isAndroid
+        ? `Android 原生全屏切换失败:${error?.message ?? error}`
+        : `原生全屏切换失败:${error?.message ?? error}`;
+      get().pushToast(message, "error", 6000);
+    } finally {
+      dispatchFullscreenResize();
+      set((state) => ({ canvasViewResetTick: state.canvasViewResetTick + 1 }));
+    }
+  },
+  toggleFullscreen: async () => {
+    await get().setFullscreen(!get().fullscreen);
   },
 
   setAPIKey: async (v) => {

@@ -889,3 +889,17 @@ html[data-target-platform="android-pad"][data-android-orientation="landscape"] .
   height: 44px;
   border-radius: 15px;
 }
+
+html[data-ui-family="android"] .studio.fullscreen {
+  grid-template-columns: minmax(0, 1fr) !important;
+  grid-template-areas: "main" !important;
+}
+
+html[data-ui-family="android"] .studio.fullscreen .canvas-shell {
+  display: flex !important;
+  grid-area: main !important;
+}
+
+html[data-ui-family="android"] .studio.fullscreen .android-rail {
+  display: none !important;
+}

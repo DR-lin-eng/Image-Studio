@@ -8,6 +8,9 @@ export type RuntimeBinding = {
   WindowSetSystemDefaultTheme?: () => void;
   WindowSetLightTheme?: () => void;
   WindowSetDarkTheme?: () => void;
+  WindowFullscreen?: () => void;
+  WindowUnfullscreen?: () => void;
+  WindowIsFullscreen?: () => Promise<boolean>;
 };
 
 type BrowserWindow = Window & {

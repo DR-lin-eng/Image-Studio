@@ -278,7 +278,7 @@ html.dark .app-modal-header {
   overflow: hidden;
   transition: grid-template-columns 200ms ease;
 }
-.studio.fullscreen { grid-template-columns: 0 minmax(0, 1fr) 0; }
+.studio.fullscreen { grid-template-columns: minmax(0, 1fr); }
 .studio.fullscreen .panel,
 .studio.fullscreen .history,
 .studio.fullscreen .control-panel,
@@ -2281,7 +2281,19 @@ html[data-target-platform="android-pad"] .app-header {
 }
 
 html[data-target-platform="android-pad"] .studio.fullscreen {
-  grid-template-columns: 0 0 minmax(0, 1fr) 0;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+html[data-target-platform="android"] .studio.fullscreen,
+html[data-target-platform="android-pad"] .studio.fullscreen {
+  grid-template-areas: "main";
+  padding-bottom: 0;
+}
+
+html[data-target-platform="android"] .studio.fullscreen .canvas-shell,
+html[data-target-platform="android-pad"] .studio.fullscreen .canvas-shell {
+  display: flex !important;
+  grid-area: main;
 }
 
 html[data-target-platform="android-pad"] .android-rail {

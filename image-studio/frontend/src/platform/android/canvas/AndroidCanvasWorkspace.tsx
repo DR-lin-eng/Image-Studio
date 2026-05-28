@@ -84,6 +84,7 @@ export function AndroidCanvasWorkspace() {
     clearSources,
     reuseAsSource,
     pushToast,
+    toggleFullscreen,
   } = useStudioStore();
   const { isAndroidPad, androidOrientation } = usePlatform();
   const [sourceOpen, setSourceOpen] = useState(true);
@@ -281,7 +282,7 @@ export function AndroidCanvasWorkspace() {
           </div>
 
           <div className="android-canvas-dock-group">
-            <DockIconButton title={fullscreen ? "退出全屏" : "全屏"} onClick={() => runAction(() => setField("fullscreen", !fullscreen), 8)}>
+            <DockIconButton title={fullscreen ? "退出全屏" : "全屏"} onClick={() => runAction(toggleFullscreen, 8)}>
               {fullscreen ? <Minimize /> : <Maximize />}
             </DockIconButton>
             <DockIconButton title="详情" disabled={!hasImage} onClick={() => currentImage && runAction(() => openResultDetail(currentImage), 8)}>

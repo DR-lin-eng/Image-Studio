@@ -4,6 +4,7 @@ import { useStudioStore } from "../../state/studioStore";
 export function useGlobalShortcuts({ isMac }: { isMac: boolean }) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return;
       const meta = event.ctrlKey || event.metaKey;
       if (!meta) return;
 
@@ -28,7 +29,7 @@ export function useGlobalShortcuts({ isMac }: { isMac: boolean }) {
         if (state.workspaces.length > 1) state.closeWorkspace(state.activeWorkspaceId);
       } else if (isMac && event.ctrlKey && event.metaKey && key === "f") {
         event.preventDefault();
-        state.setField("fullscreen", !state.fullscreen);
+        void state.toggleFullscreen();
       }
     };
 

@@ -19,7 +19,7 @@ type UseCanvasShortcutsArgs = {
   setBrushSize: (value: number) => void;
   setCompareB: (item: HistoryItem | null) => void;
   setErrorMessage: (value: string | null) => void;
-  setFullscreen: (value: boolean) => void;
+  toggleFullscreen: () => void | Promise<void>;
   setSelectedAnnotationId: (value: string | null) => void;
   setTool: (value: Tool) => void;
   undo: () => void;
@@ -41,7 +41,7 @@ export function useCanvasShortcuts({
   setBrushSize,
   setCompareB,
   setErrorMessage,
-  setFullscreen,
+  toggleFullscreen,
   setSelectedAnnotationId,
   setTool,
   undo,
@@ -53,6 +53,7 @@ export function useCanvasShortcuts({
     };
 
     const onKeyDown = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
       if (isTypingInField(e)) return;
       const meta = e.ctrlKey || e.metaKey;
       const k = e.key.toLowerCase();
@@ -81,7 +82,7 @@ export function useCanvasShortcuts({
       }
       if ((!isMac && k === "f11") || (isMac && e.ctrlKey && e.metaKey && k === "f")) {
         e.preventDefault();
-        setFullscreen(!document.fullscreenElement);
+        void toggleFullscreen();
         return;
       }
       if (meta && k === "c" && currentImage) {
@@ -136,7 +137,7 @@ export function useCanvasShortcuts({
     setBrushSize,
     setCompareB,
     setErrorMessage,
-    setFullscreen,
+    toggleFullscreen,
     setSelectedAnnotationId,
     setTool,
     undo,

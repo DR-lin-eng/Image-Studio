@@ -19,7 +19,7 @@ export function Toolbar() {
     annotations, selectedAnnotationId,
     fullscreen,
     batchResults, resultGridOpen, openResultGrid, closeResultGrid,
-    setField, saveCurrentImageAs,
+    setField, toggleFullscreen, saveCurrentImageAs,
     resetMask, clearAnnotations,
     undoStack, redoStack, undo, redo,
     rotateCurrent, flipCurrent, cropToRect,
@@ -149,7 +149,7 @@ export function Toolbar() {
               <ActionSection
                 fullscreen={fullscreen}
                 hasImage={!!currentImage}
-                onToggleFullscreen={() => setField("fullscreen", !fullscreen)}
+                onToggleFullscreen={() => void toggleFullscreen()}
                 onOpenDetail={() => currentImage && openResultDetail(currentImage)}
                 onClearCanvas={() => setField("currentImage", null)}
                 onSaveAs={saveCurrentImageAs}
@@ -244,7 +244,7 @@ export function Toolbar() {
         <ActionSection
           fullscreen={fullscreen}
           hasImage={!!currentImage}
-          onToggleFullscreen={() => setField("fullscreen", !fullscreen)}
+          onToggleFullscreen={() => void toggleFullscreen()}
           onOpenDetail={() => currentImage && openResultDetail(currentImage)}
           onClearCanvas={() => setField("currentImage", null)}
           onSaveAs={saveCurrentImageAs}

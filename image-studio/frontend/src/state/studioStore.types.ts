@@ -111,6 +111,8 @@ export interface StudioState {
   undoStack: UndoEntry[];
   redoStack: UndoEntry[];
   setField: <K extends keyof StudioState>(key: K, value: StudioState[K]) => void;
+  setFullscreen: (value: boolean) => Promise<void>;
+  toggleFullscreen: () => Promise<void>;
   setAPIKey: (v: string) => Promise<void>;
   clearError: () => void;
   createProfile: (input: {

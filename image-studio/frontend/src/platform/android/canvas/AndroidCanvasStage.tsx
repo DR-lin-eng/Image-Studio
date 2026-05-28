@@ -33,6 +33,7 @@ export function AndroidCanvasStage() {
     undo, redo,
     compareB, compareSplit, setCompareSplit, setCompareB,
     isRunning, cancel, errorMessage, setField,
+    toggleFullscreen,
     batchResults, resultGridOpen, selectBatchResult, closeResultGrid,
     canvasViewResetTick,
   } = useStudioStore();
@@ -378,7 +379,7 @@ export function AndroidCanvasStage() {
     setBrushSize: (value) => setField("brushSize", value),
     setCompareB,
     setErrorMessage: (value) => setField("errorMessage", value),
-    setFullscreen: (value) => setField("fullscreen", value),
+    toggleFullscreen,
     setSelectedAnnotationId: (value) => setField("selectedAnnotationId", value),
     setTool: (value) => setField("tool", value),
     undo,

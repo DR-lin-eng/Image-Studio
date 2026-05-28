@@ -14,7 +14,11 @@ import android.provider.MediaStore
 import android.util.Base64
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
+import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import org.json.JSONObject
 import org.json.JSONArray
 import android.provider.OpenableColumns
@@ -45,6 +49,7 @@ class AndroidImageStudioBridge(
     private var pendingOpenImageRequestId: String? = null
     private var pendingImportHistoryRequestId: String? = null
     private val httpRequests = ConcurrentHashMap<String, HttpURLConnection>()
+    @Volatile private var fullscreen = false
 
     companion object {
         private const val maxDialogReadBytes: Long = 50L * 1024L * 1024L
@@ -118,6 +123,11 @@ class AndroidImageStudioBridge(
                     vibrate(args.optLong(0, 50L))
                     null
                 }
+                "SetFullscreen" -> {
+                    setFullscreen(args.optBoolean(0, false))
+                    null
+                }
+                "IsFullscreen" -> fullscreen
                 else -> throw UnsupportedOperationException("$method is not implemented in Android shell yet")
             }
             resolve(requestId, result)
@@ -293,6 +303,35 @@ class AndroidImageStudioBridge(
         } else {
             @Suppress("DEPRECATION")
             vibrator.vibrate(milliseconds)
+        }
+    }
+
+    @JavascriptInterface
+    fun setFullscreen(enabled: Boolean) {
+        fullscreen = enabled
+        val activity = context as? AppCompatActivity ?: return
+        activity.runOnUiThread {
+            WindowCompat.setDecorFitsSystemWindows(activity.window, false)
+            val controller = WindowInsetsControllerCompat(activity.window, webView)
+            if (enabled) {
+                controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                controller.hide(WindowInsetsCompat.Type.systemBars())
+            } else {
+                controller.show(WindowInsetsCompat.Type.systemBars())
+            }
+            webView.post {
+                webView.evaluateJavascript(
+                    """
+                    (() => {
+                      window.dispatchEvent(new Event('resize'));
+                      if (window.visualViewport) {
+                        window.visualViewport.dispatchEvent(new Event('resize'));
+                      }
+                    })();
+                    """.trimIndent(),
+                    null,
+                )
+            }
         }
     }
 

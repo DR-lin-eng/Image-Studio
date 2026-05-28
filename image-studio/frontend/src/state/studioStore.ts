@@ -187,7 +187,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   imageModelID: "",
   apiMode: "responses",
   requestPolicy: "openai",
-  noPromptRevision: false,
+  noPromptRevision: true,
   profiles: [],
   activeProfileId: "",
   sources: [],
@@ -312,8 +312,6 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     if (key === "kernelRuntimeMode") {
       try { localStorage.setItem("gptcodex.kernelRuntimeMode", String(value)); } catch {}
       setKernelRuntimeMode(value as KernelRuntimeMode);
-    } else if (key === "noPromptRevision") {
-      try { localStorage.setItem("gptcodex.noPromptRevision", value ? "1" : "0"); } catch {}
     } else if (key === "outputFormat") {
       try { localStorage.setItem("gptcodex.outputFormat", String(value)); } catch {}
     }
@@ -497,7 +495,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       imageModelID: s.imageModelID,
       requestPolicy: s.requestPolicy,
       apiMode: s.apiMode,
-      noPromptRevision: s.noPromptRevision,
+      noPromptRevision: true,
       concurrencyLimit,
     };
     const remotePayload: RuntimeGenerateOptions = {
@@ -586,7 +584,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
         imageModelID: preview.profile.imageModelID,
         apiMode: preview.profile.apiMode,
         requestPolicy: preview.profile.requestPolicy,
-        noPromptRevision: false,
+        noPromptRevision: true,
         profiles: [preview.profile],
         activeProfileId: preview.profile.id,
         sources: preview.sources,
@@ -671,10 +669,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       const v = localStorage.getItem("gptcodex.kernelRuntimeMode");
       if (v === "auto" || v === "local" || v === "remote") kernelRuntimeMode = v;
     } catch {}
-    let noPromptRevision = false;
-    try {
-      noPromptRevision = localStorage.getItem("gptcodex.noPromptRevision") === "1";
-    } catch {}
+    const noPromptRevision = true;
     let outputFormat: OutputFormatValue = "png";
     try {
       const v = localStorage.getItem("gptcodex.outputFormat");
@@ -1038,7 +1033,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       return;
     }
     if (!optimizeBaseURL) {
-      s.pushToast("先在上游配置里填入可用于 llmapi 的 Responses API 地址", "warn", 5000);
+      s.pushToast("先在上游配置里填入可用于 AI 优化的 Responses API 地址", "warn", 5000);
       return;
     }
     if (!s.prompt.trim()) {

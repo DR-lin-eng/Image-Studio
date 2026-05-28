@@ -122,9 +122,7 @@ export function buildResponsesPayload(payload, sourceDataURLs, options = {}) {
     store: false,
     stream: true,
   };
-  if (payload.noPromptRevision) {
-    request.instructions = NO_PROMPT_REVISION_INSTRUCTIONS;
-  }
+  request.instructions = NO_PROMPT_REVISION_INSTRUCTIONS;
   return request;
 }
 

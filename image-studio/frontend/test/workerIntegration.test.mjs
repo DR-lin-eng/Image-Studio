@@ -134,6 +134,8 @@ test("desktop remote kernel can reach mock upstream through worker for responses
       assert.equal(result.revisedPrompt, "worker revised");
       assert.equal(upstream.requests[0].url, "/v1/models");
       assert.equal(upstream.requests[1].url, "/v1/responses");
+      const responseBody = JSON.parse(upstream.requests[1].body.toString("utf8"));
+      assert.ok(responseBody.instructions.includes("VERBATIM"));
     });
   } finally {
     await upstream.close();

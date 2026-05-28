@@ -167,10 +167,9 @@ type Options struct {
 	TextModelID     string
 	ImageModelID    string
 
-	// NoPromptRevision:Responses API 模式下,默认文本模型会把用户 prompt 改写
-	// 一遍再喂给 image_generation 工具(返回里的 revised_prompt 字段就是改写版)。
-	// 设为 true 时在 payload 顶层加 instructions 让模型逐字使用,适合用户已经
-	// 精修过 prompt、不想被二次发挥的场景。Images API 路径忽略此字段(本来就不重写)。
+	// NoPromptRevision is kept for backward compatibility. Responses API
+	// payloads now always add instructions that ask the text model to pass the
+	// prompt to image_generation verbatim. Images API ignores this field.
 	NoPromptRevision bool
 
 }

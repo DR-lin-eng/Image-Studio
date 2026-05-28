@@ -26,7 +26,7 @@ export function AndroidPadComposePanel() {
   const {
     apiKey, mode, prompt, negativePrompt, size, quality, seed, styleTag, outputFormat,
     batchCount, sources, currentImage, isRunning, isOptimizingPrompt, apiMode, requestPolicy, baseURL, imageModelID,
-    profiles, noPromptRevision, setField, selectSourceImage, removeSource, clearSources,
+    profiles, setField, selectSourceImage, removeSource, clearSources,
     openUpstreamConfig, submit, cancel, optimizePrompt,
   } = useStudioStore();
   const [templateOpen, setTemplateOpen] = useState(false);
@@ -190,26 +190,7 @@ export function AndroidPadComposePanel() {
               } disabled:cursor-not-allowed disabled:opacity-50`}
             >
               <Sparkles className={`h-3.5 w-3.5 ${isOptimizingPrompt ? "animate-pulse" : ""}`} />
-              {isOptimizingPrompt ? "优化中..." : "优化"}
-            </button>
-            <button
-              type="button"
-              disabled={apiMode !== "responses"}
-              aria-pressed={noPromptRevision}
-              className={`android-pad-exact-toggle ${noPromptRevision ? "is-active" : ""} ${
-                apiMode !== "responses" ? "is-disabled" : ""
-              }`}
-              title={apiMode === "responses" ? "逐字把当前提示词发给图像模型" : "Images API 不支持该项"}
-              onClick={() => {
-                if (apiMode !== "responses") return;
-                vibrateForPlatform(5);
-                setField("noPromptRevision", !noPromptRevision);
-              }}
-            >
-              <span className="android-pad-exact-toggle-mark" aria-hidden="true">
-                {noPromptRevision ? <CheckCircle2 className="h-3 w-3" /> : null}
-              </span>
-              <span className="android-pad-exact-toggle-label">逐字</span>
+              {isOptimizingPrompt ? "优化中..." : "AI 优化"}
             </button>
           </div>
         </section>
@@ -260,9 +241,7 @@ export function AndroidPadComposePanel() {
 
             <AndroidAdvancedSection
               advancedOpen={advancedOpen}
-              apiMode={apiMode}
               negativePrompt={negativePrompt}
-              noPromptRevision={noPromptRevision}
               outputFormat={outputFormat}
               seed={seed}
               setAdvancedOpen={setAdvancedOpen}

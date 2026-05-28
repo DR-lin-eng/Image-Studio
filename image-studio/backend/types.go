@@ -36,7 +36,8 @@ type GenerateOptions struct {
 	ImageModelID   string `json:"imageModelID"`   // overrides the default image model
 	APIMode        string `json:"apiMode"`        // "responses" (default) | "images"
 	RequestPolicy  string `json:"requestPolicy"`  // "openai" (default) | "compat"
-	// NoPromptRevision:true 时禁止 Responses API 文本模型改写 prompt;Images API 路径忽略。
+	// NoPromptRevision is kept for backward compatibility; Responses API
+	// requests now always ask the text model to keep the prompt verbatim.
 	NoPromptRevision bool `json:"noPromptRevision"`
 	// ConcurrencyLimit is enforced per APIMode. 0 means unlimited.
 	ConcurrencyLimit int `json:"concurrencyLimit"`

@@ -36,7 +36,7 @@ Image Studio 面向 OpenAI 兼容图像上游，解决长时间图像推理在 C
 | 首次配置、API 形态选择、参数策略 | [docs/usage.md](./docs/usage.md) |
 | 数据存储位置、524/504、模型权限、字段兼容问题 | [docs/troubleshooting.md](./docs/troubleshooting.md) |
 | 仓库结构、前端分层、内核/Worker/Android 关系 | [docs/project-structure.md](./docs/project-structure.md) |
-| 不优化提示词开关细节 | [docs/no-prompt-revision/README.md](./docs/no-prompt-revision/README.md) |
+| 原始提示词传递策略 | [docs/no-prompt-revision/README.md](./docs/no-prompt-revision/README.md) |
 | Android 壳层维护说明 | [android-shell/README.md](./android-shell/README.md) |
 | 跨平台内核计划与验证背景 | [docs/cross-platform-kernel-plan.md](./docs/cross-platform-kernel-plan.md) |
 
@@ -51,7 +51,7 @@ Image Studio 面向 OpenAI 兼容图像上游，解决长时间图像推理在 C
 | 多 workspace | 每个标签独立保存 prompt、参数、源图与当前画板状态。 |
 | 平台化 UI | macOS Apple 风格、Windows Fluent 风格、Linux 通用桌面风格、Android Material 3 phone/pad 自适应壳层。 |
 | 本地数据 | API Key、历史、图片和日志默认都保存在本机；外部请求只发往你配置的上游 BASE_URL。 |
-### 可以使用「不优化提示词」开关。细节见 [no-prompt-revision](./docs/no-prompt-revision/README.md)。
+| 原始提示词 | Responses API 请求默认要求文本模型把用户 prompt 原样交给图像工具。 |
 ## 安装
 
 稳定版本到 [Releases](https://github.com/RoseKhlifa/Image-Studio/releases) 下载。当前发布链路会产出:

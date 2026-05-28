@@ -32,7 +32,7 @@
 - SSE 事件会持续到达，网关更不容易把连接判定为空闲。
 - 本地有 3 次自动重试和 15 秒 backoff。
 - 如果 final image 未拿到但已经收到 `partial_image_b64`，会尽量保存最后一个部分结果。
-- 可以使用「不优化提示词」开关。细节见 [no-prompt-revision](./no-prompt-revision/README.md)。
+- 生成请求默认要求上游按原始 prompt 传给图像工具，不再提供提示词改写开关。细节见 [no-prompt-revision](./no-prompt-revision/README.md)。
 
 ### Images API
 
@@ -79,7 +79,7 @@
 1. 选择「文生图」。
 2. 输入 prompt。
 3. 选择比例、质量、输出格式、风格。
-4. 根据需要设置 seed、negative prompt 或「不优化提示词」。
+4. 根据需要设置 seed 或 negative prompt。
 5. 点击「生成」，或使用 `Cmd+Enter` / `Ctrl+Enter`。
 
 图生图:

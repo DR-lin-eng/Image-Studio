@@ -31,7 +31,6 @@ export function ControlPanel() {
     sources, currentImage,
     errorMessage, errorRawPath, isRunning, lastPayload, isTestingKey, isOptimizingPrompt,
     apiMode, requestPolicy, baseURL, profiles, imageModelID,
-    noPromptRevision,
     setField, clearError, pushToast,
     selectSourceImage, removeSource, clearSources,
     openUpstreamConfig,
@@ -168,10 +167,7 @@ export function ControlPanel() {
         setPromptPopover={setPromptPopover}
         optimizeReady={optimizeReady}
         isOptimizingPrompt={isOptimizingPrompt}
-        apiMode={apiMode}
-        noPromptRevision={noPromptRevision}
         onSetPrompt={(value) => setField("prompt", value)}
-        onToggleNoPromptRevision={(checked) => setField("noPromptRevision", checked)}
         onOptimizePrompt={optimizePrompt}
       />
 

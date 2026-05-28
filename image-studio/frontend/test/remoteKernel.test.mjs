@@ -389,8 +389,10 @@ test("runRemoteImageJob omits relay-only fields by default and includes them in 
     );
     assert.equal(capturedBodies[0].tools[0].seed, undefined);
     assert.equal(capturedBodies[0].tools[0].negative_prompt, undefined);
+    assert.ok(capturedBodies[0].instructions.includes("VERBATIM"));
     assert.equal(capturedBodies[1].tools[0].seed, 123);
     assert.equal(capturedBodies[1].tools[0].negative_prompt, "avoid blur");
+    assert.ok(capturedBodies[1].instructions.includes("VERBATIM"));
   });
 });
 

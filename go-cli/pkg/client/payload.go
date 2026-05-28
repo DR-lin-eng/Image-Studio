@@ -92,11 +92,9 @@ func BuildPayload(opts Options) ([]byte, error) {
 		"store":       false,
 		"stream":      true,
 	}
-	if opts.NoPromptRevision {
-		// 实测此条 instructions 能让 gpt-5.5 把用户 prompt 字字传给 image_generation,
-		// 而不是惯常的「改写润色再生」流程。改 wording 可能失效 —— 经验值。
-		payload["instructions"] = "You are a tool runner. Pass the user prompt to image_generation VERBATIM. DO NOT rewrite, expand, polish, or revise it in any way. Use the exact text the user gave."
-	}
+	// 实测此条 instructions 能让 gpt-5.5 把用户 prompt 字字传给 image_generation,
+	// 而不是惯常的「改写润色再生」流程。改 wording 可能失效 —— 经验值。
+	payload["instructions"] = "You are a tool runner. Pass the user prompt to image_generation VERBATIM. DO NOT rewrite, expand, polish, or revise it in any way. Use the exact text the user gave."
 
 	// Use a non-escaping encoder so 中文 prompts don't get \uXXXX-mangled.
 	var buf strings.Builder

@@ -264,6 +264,7 @@ test("kernel generate keeps requestPolicy for shared payload building", async ()
     });
     assert.equal(response.status, 200);
     assert.equal(captured.url, "https://upstream.example/v1/responses");
+    assert.ok(captured.body.instructions.includes("VERBATIM"));
     assert.equal(captured.body.tools[0].seed, 123);
     assert.equal(captured.body.tools[0].negative_prompt, "avoid blur");
   });

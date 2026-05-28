@@ -14,10 +14,7 @@ export function PromptEditorSection({
   setPromptPopover,
   optimizeReady,
   isOptimizingPrompt,
-  apiMode,
-  noPromptRevision,
   onSetPrompt,
-  onToggleNoPromptRevision,
   onOptimizePrompt,
 }: {
   mode: "generate" | "edit";
@@ -27,10 +24,7 @@ export function PromptEditorSection({
   setPromptPopover: (open: boolean | ((v: boolean) => boolean)) => void;
   optimizeReady: boolean;
   isOptimizingPrompt: boolean;
-  apiMode: "responses" | "images";
-  noPromptRevision: boolean;
   onSetPrompt: (value: string) => void;
-  onToggleNoPromptRevision: (checked: boolean) => void;
   onOptimizePrompt: () => void;
 }) {
   const { isMac, usesFluentUI } = usePlatform();
@@ -95,35 +89,13 @@ export function PromptEditorSection({
                 ? "bg-[var(--accent-soft)] text-[var(--accent)]"
                 : "text-zinc-500 hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]"
             } disabled:cursor-not-allowed disabled:opacity-50 ${usesFluentUI ? "rounded-[8px]" : "rounded-full"}`}
-            title="调用 Responses/llmapi 优化当前提示词"
+            title="调用 Responses API 优化当前提示词"
           >
             <Sparkles className={`w-3 h-3 ${isOptimizingPrompt ? "animate-pulse" : ""}`} />
-            {isOptimizingPrompt ? "优化中..." : "LLM 优化"}
+            {isOptimizingPrompt ? "优化中..." : "AI 优化"}
           </button>
         </div>
         <div className={`flex ${isMac ? "items-center justify-between gap-2.5" : "ml-auto items-center gap-2.5"}`}>
-          <label
-            title={apiMode === "responses"
-              ? "勾上后 Responses API 文本模型不会优化你的 prompt,逐字传给图像模型"
-              : "Images API 形态本就不优化 prompt,此开关无效"}
-            className={`platform-pill inline-flex min-w-0 items-center gap-1.5 ${isMac ? "min-h-[36px] px-3.5 py-2 text-[12px] font-medium" : "px-3 py-1.5 text-[10px]"} ring-1 transition-colors ${
-              noPromptRevision
-                ? "bg-[var(--accent-soft)] text-[var(--accent)] ring-[color:var(--accent)]/20"
-                : "text-zinc-500 dark:text-zinc-400 ring-transparent hover:ring-black/[0.08] dark:hover:ring-white/[0.06]"
-            } ${apiMode !== "responses" ? "opacity-50 cursor-not-allowed" : "cursor-pointer"} ${usesFluentUI ? "rounded-[8px]" : "rounded-full"}`}
-          >
-            <input
-              type="checkbox"
-              checked={noPromptRevision}
-              disabled={apiMode !== "responses"}
-              onChange={(e) => onToggleNoPromptRevision(e.target.checked)}
-              className="sr-only peer"
-            />
-            <span className={`flex h-3.5 w-3.5 items-center justify-center rounded border transition-colors ${noPromptRevision ? "border-[var(--accent)] bg-[var(--accent)]" : "border-zinc-400 dark:border-zinc-600"}`}>
-              {noPromptRevision && <span className="h-1.5 w-1.5 rounded-sm bg-white" />}
-            </span>
-            不优化提示词
-          </label>
           <span className={`${isMac ? "ml-auto rounded-full bg-black/[0.03] px-2.5 py-1.5 text-[11px] dark:bg-white/[0.04]" : "text-[10px]"} text-zinc-400 dark:text-zinc-500`}>{submitShortcutLabel}</span>
         </div>
       </div>

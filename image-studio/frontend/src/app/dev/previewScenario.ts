@@ -24,7 +24,7 @@ export function applyMacWorkspacePreviewToStore(workspaceId = "preview-workspace
     imageModelID: preview.profile.imageModelID,
     apiMode: preview.profile.apiMode,
     requestPolicy: preview.profile.requestPolicy,
-    noPromptRevision: false,
+    noPromptRevision: true,
     profiles: [preview.profile],
     activeProfileId: preview.profile.id,
     sources: preview.sources,

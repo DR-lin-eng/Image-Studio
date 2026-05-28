@@ -27,7 +27,7 @@ export function AndroidPhoneComposePanel() {
     apiKey, mode, prompt, negativePrompt, size, quality, seed, styleTag,
     outputFormat, batchCount, sources, currentImage, errorMessage, errorRawPath,
     isRunning, lastPayload, isOptimizingPrompt, apiMode, requestPolicy, baseURL, profiles, imageModelID,
-    noPromptRevision, setField, clearError, pushToast, selectSourceImage,
+    setField, clearError, pushToast, selectSourceImage,
     removeSource, clearSources, openUpstreamConfig, submit, cancel, retryLast, optimizePrompt,
   } = useStudioStore();
   const [templateOpen, setTemplateOpen] = useState(false);
@@ -225,7 +225,7 @@ export function AndroidPhoneComposePanel() {
             } disabled:cursor-not-allowed disabled:opacity-50`}
           >
             <Sparkles className={`h-3.5 w-3.5 ${isOptimizingPrompt ? "animate-pulse" : ""}`} />
-            {isOptimizingPrompt ? "优化中..." : "LLM 优化"}
+            {isOptimizingPrompt ? "优化中..." : "AI 优化"}
           </button>
         </div>
       </section>
@@ -267,9 +267,7 @@ export function AndroidPhoneComposePanel() {
       {!needsUpstreamSetup ? (
         <AndroidPhoneAdvancedSection
           advancedOpen={advancedOpen}
-          apiMode={apiMode}
           negativePrompt={negativePrompt}
-          noPromptRevision={noPromptRevision}
           outputFormat={outputFormat}
           seed={seed}
           setAdvancedOpen={setAdvancedOpen}

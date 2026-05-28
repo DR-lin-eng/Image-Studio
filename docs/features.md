@@ -13,7 +13,7 @@
 - 参数策略:
   - `OpenAI 标准`:只发送官方公开字段。
   - `兼容中转扩展`:额外发送部分 relay 常见扩展字段，例如 seed / negative_prompt。
-- prompt 辅助:prompt 历史、内置模板、一键优化 prompt、Responses API 下的「不优化提示词」开关。
+- prompt 辅助:prompt 历史、内置模板、一键 AI 优化 prompt；Responses API 请求默认要求上游按原始 prompt 生成。
 
 ## 画板
 

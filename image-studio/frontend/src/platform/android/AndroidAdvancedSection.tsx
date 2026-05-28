@@ -6,9 +6,7 @@ import { vibrateForPlatform } from "./bridge";
 
 export function AndroidAdvancedSection({
   advancedOpen,
-  apiMode,
   negativePrompt,
-  noPromptRevision,
   outputFormat,
   seed,
   setAdvancedOpen,
@@ -16,9 +14,7 @@ export function AndroidAdvancedSection({
   surface = "phone",
 }: {
   advancedOpen: boolean;
-  apiMode: "responses" | "images";
   negativePrompt: string;
-  noPromptRevision: boolean;
   outputFormat: OutputFormatValue;
   seed: number;
   setAdvancedOpen: React.Dispatch<React.SetStateAction<boolean>>;
@@ -31,10 +27,8 @@ export function AndroidAdvancedSection({
   };
   const negativeState = negativePrompt.trim() ? "已填写" : "未填写";
   const outputFormatLabel = OUTPUT_FORMAT_OPTIONS.find((item) => item.value === outputFormat)?.label ?? outputFormat;
-  const exactPromptState = apiMode === "responses" ? (noPromptRevision ? "已开启" : "已关闭") : "不可用";
-  const title = surface === "pad" ? "4 项高级设置" : "负向提示词、Seed 与输出格式";
+  const title = surface === "pad" ? "3 项高级设置" : "负向提示词、Seed 与输出格式";
   const negativeLabel = surface === "pad" ? "负向" : "负向提示词";
-  const exactPromptLabel = surface === "pad" ? "逐字" : "逐字提示词";
 
   return (
     <section className={`android-advanced-block ${surface === "pad" ? "android-pad-advanced-block" : ""}`}>
@@ -59,10 +53,6 @@ export function AndroidAdvancedSection({
               <span>Seed</span>
               <strong>{seed > 0 ? seed : "随机"}</strong>
             </span>
-            <span>
-              <span>{exactPromptLabel}</span>
-              <strong>{exactPromptState}</strong>
-            </span>
           </span>
         </span>
         <span className="android-advanced-toggle-state">编辑</span>
@@ -75,9 +65,7 @@ export function AndroidAdvancedSection({
         width={680}
       >
         <AndroidAdvancedEditor
-          apiMode={apiMode}
           negativePrompt={negativePrompt}
-          noPromptRevision={noPromptRevision}
           outputFormat={outputFormat}
           seed={seed}
           setField={setField}
@@ -88,43 +76,18 @@ export function AndroidAdvancedSection({
 }
 
 function AndroidAdvancedEditor({
-  apiMode,
   negativePrompt,
-  noPromptRevision,
   outputFormat,
   seed,
   setField,
 }: {
-  apiMode: "responses" | "images";
   negativePrompt: string;
-  noPromptRevision: boolean;
   outputFormat: OutputFormatValue;
   seed: number;
   setField: (key: string, value: any) => void;
 }) {
   return (
     <div className="android-advanced-modal-panel">
-      <button
-        type="button"
-        role="switch"
-        aria-checked={noPromptRevision}
-        onClick={() => {
-          if (apiMode !== "responses") return;
-          vibrateForPlatform(5);
-          setField("noPromptRevision", !noPromptRevision);
-        }}
-        className={`android-phone-advanced-switch ${noPromptRevision ? "active" : ""} ${apiMode !== "responses" ? "disabled" : ""}`}
-        title={apiMode === "responses" ? "逐字把当前提示词发给图像模型" : "Images API 不支持该项"}
-      >
-        <span className="android-phone-advanced-copy">
-          <span className="android-phone-advanced-title">逐字提示词</span>
-          <span className="android-phone-advanced-caption">按原始 prompt 生成</span>
-        </span>
-        <span className={`android-phone-switch ${noPromptRevision ? "active" : ""}`}>
-          <span className={`android-phone-switch-knob ${noPromptRevision ? "active" : ""}`} />
-        </span>
-      </button>
-
       <div className="android-phone-advanced-section">
         <div className="android-phone-advanced-label">负向提示词</div>
         <textarea

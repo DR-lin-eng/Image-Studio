@@ -10,7 +10,7 @@ const ISSUES_URL = "https://github.com/RoseKhlifa/Image-Studio/issues";
 
 export function FooterBar() {
   const { fullscreen, history, runningJobs, isRunning, workspaces, pushToast } = useStudioStore();
-  const { isAndroid, isMac, usesFluentUI, usesAppleUI } = usePlatform();
+  const { isAndroid, isMac, isWindows, usesFluentUI, usesAppleUI } = usePlatform();
   if (fullscreen) return null;
   if (isAndroid) return null;
   if (isMac) return null;
@@ -32,7 +32,7 @@ export function FooterBar() {
   }
 
   return (
-    <footer className={`flex items-center justify-between border-t border-[var(--border)] bg-[var(--toolbar)] px-4 text-[11px] text-zinc-500 backdrop-blur-2xl dark:text-zinc-400 ${usesAppleUI ? "liquid-glass-bar" : ""} ${usesFluentUI ? "min-h-[36px]" : "min-h-10"}`}>
+    <footer className={`${isWindows ? "footer-bar" : ""} flex items-center justify-between border-t border-[var(--border)] bg-[var(--toolbar)] px-4 text-[11px] text-zinc-500 backdrop-blur-2xl dark:text-zinc-400 ${usesAppleUI ? "liquid-glass-bar" : ""} ${usesFluentUI ? "min-h-[36px]" : "min-h-10"}`}>
       <div className="flex items-center gap-1">
         <FooterBtn onClick={openOutputLocation}>
           <Folder className="h-3 w-3" /> {androidTarget.isAndroid ? "保存位置" : "输出目录"}

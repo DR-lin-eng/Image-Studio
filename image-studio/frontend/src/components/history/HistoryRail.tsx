@@ -38,7 +38,7 @@ export function HistoryRail() {
   const [modeF, setModeF] = useState<ModeFilter>("all");
   const [dateF, setDateF] = useState<DateFilter>("all");
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const { isAndroidPhone, isAndroidPad, isMac, usesFluentUI, usesAndroidUI, usesAppleUI } = usePlatform();
+  const { isAndroidPhone, isAndroidPad, isMac, isWindows, usesFluentUI, usesAndroidUI, usesAppleUI } = usePlatform();
   // 防快速连点产生竞态:每次点击递增 epoch,后台 materialize 全图 resolve
   // 时跟当前 epoch 比对,过时的就丢弃。之前的写法是先 await 再 setField,
   // 慢的请求会在用户已经点了另一张图之后把画布盖回去。
@@ -52,6 +52,8 @@ export function HistoryRail() {
     });
   }, [history, deferredQ, modeF, dateF]);
   const recentHistory = filtered.slice(0, 6);
+  const visibleDesktopHistory = isWindows ? filtered : recentHistory;
+  const desktopHistoryCollapsed = !isWindows && historyRailCollapsed;
   const androidHistory = filtered.slice(0, isAndroidPad ? 48 : 24);
   const latestHistory = filtered[0] ?? null;
   const generateCount = history.filter((item) => item.mode === "generate").length;
@@ -383,7 +385,7 @@ export function HistoryRail() {
                 <Filter className="h-3 w-3" /> 筛选
               </button>
             ) : null}
-            {!isAndroidPhone && filtered.length > 6 ? (
+            {!isAndroidPhone && !isWindows && filtered.length > 6 ? (
               <button
                 type="button"
                 onClick={openHistoryTimeline}
@@ -392,7 +394,7 @@ export function HistoryRail() {
                 <GalleryVerticalEnd className="h-3 w-3" /> 更多
               </button>
             ) : null}
-            {!isAndroidPhone ? (
+            {!isAndroidPhone && !isWindows ? (
               <button
                 type="button"
                 onClick={() => setHistoryRailCollapsed(!historyRailCollapsed)}
@@ -438,7 +440,9 @@ export function HistoryRail() {
 
         {!isAndroidPhone && !isMac && (
           <p className="mt-2 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-300">
-            {isAndroidPad
+            {isWindows
+              ? "点击查看 · Shift+点击对比 · 双击设源图 · 右键更多"
+              : isAndroidPad
               ? "点缩略图查看，Shift 可对比，双击可设为源图。"
               : "点击查看 · Shift+点击对比 · 双击设源图 · 更多菜单"}
           </p>
@@ -460,19 +464,19 @@ export function HistoryRail() {
         </button>
       )}
 
-      {isMac && !historyRailCollapsed && recentHistory.length > 0 ? (
+      {isMac && !desktopHistoryCollapsed && visibleDesktopHistory.length > 0 ? (
         <p className="text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">
           单击查看 · 双击设源图 · Shift+点击对比 · 更多菜单查看完整操作
         </p>
       ) : null}
 
-      {historyRailCollapsed ? null : recentHistory.length === 0 ? (
+      {desktopHistoryCollapsed ? null : visibleDesktopHistory.length === 0 ? (
         <div className={`platform-card border border-black/[0.05] bg-white/70 text-center text-[12px] text-zinc-500 shadow-[var(--shadow-card)] dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-zinc-300 ${isAndroidPhone ? "py-4" : "py-8"} ${usesFluentUI ? "rounded-[12px]" : "rounded-[20px]"}`}>
           {q || modeF !== "all" || dateF !== "all" ? "没有匹配项" : "还没有结果"}
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-2.5">
-          {recentHistory.map((h) => (
+          {visibleDesktopHistory.map((h) => (
             <HistoryTile
               key={h.id}
               item={h}

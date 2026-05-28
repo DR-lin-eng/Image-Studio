@@ -3,7 +3,7 @@ import { usePlatform } from "../../platform/context";
 import { HitokotoStrip } from "./HitokotoStrip";
 
 export function AppHeaderBrand() {
-  const { isAndroidPhone, isAndroidPad, usesFluentUI, isMac, usesAndroidUI } = usePlatform();
+  const { isAndroidPhone, isAndroidPad, usesFluentUI, isMac, isWindows, usesAndroidUI } = usePlatform();
 
   if (usesAndroidUI) {
     return (
@@ -28,6 +28,22 @@ export function AppHeaderBrand() {
             <span className="truncate">{isAndroidPad ? "自适应大屏工作区" : "移动创作工作区"}</span>
           </div>
         ) : null}
+      </>
+    );
+  }
+
+  if (isWindows) {
+    return (
+      <>
+        <div
+          className="text-[14px] font-[600] tracking-[0] text-zinc-900 dark:text-zinc-100"
+          style={{ fontFamily: "var(--title-font)" }}
+        >
+          Image Studio
+        </div>
+        <div className="mt-0 flex min-w-0 items-center text-[10px] text-zinc-500 dark:text-zinc-400">
+          <HitokotoStrip />
+        </div>
       </>
     );
   }

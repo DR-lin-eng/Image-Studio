@@ -8,7 +8,7 @@ import { WorkspaceTabItem } from "./WorkspaceTabItem";
 // 单 workspace 时不显示。
 export function WorkspaceBar() {
   const { workspaces, activeWorkspaceId, newWorkspace, switchWorkspace, closeWorkspace, renameWorkspace, fullscreen } = useStudioStore();
-  const { isAndroidPhone, isMac, usesFluentUI, usesAppleUI } = usePlatform();
+  const { isAndroidPhone, isMac, isWindows, usesFluentUI, usesAppleUI } = usePlatform();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
 
@@ -28,7 +28,7 @@ export function WorkspaceBar() {
   }
 
   return (
-    <div className={`drag-region flex items-center overflow-x-auto border-b border-[var(--border)] bg-[var(--toolbar)] backdrop-blur-2xl ${usesAppleUI ? "liquid-glass-bar" : ""} ${usesFluentUI ? "gap-1 px-3 py-1.5" : isMac ? "mac-workspace-bar gap-1.5 py-1.5" : "gap-1 px-4 py-1.5"}`}>
+    <div className={`${isWindows ? "workspace-bar" : ""} drag-region flex items-center overflow-x-auto border-b border-[var(--border)] bg-[var(--toolbar)] backdrop-blur-2xl ${usesAppleUI ? "liquid-glass-bar" : ""} ${usesFluentUI ? "gap-1 px-3 py-1.5" : isMac ? "mac-workspace-bar gap-1.5 py-1.5" : "gap-1 px-4 py-1.5"}`}>
       {workspaces.map((w) => {
         const active = w.id === activeWorkspaceId;
         const isEditing = editingId === w.id;

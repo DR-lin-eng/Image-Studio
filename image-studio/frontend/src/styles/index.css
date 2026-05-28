@@ -864,7 +864,9 @@ html[data-ui-family="apple"] .select:focus {
    每改完一个组件,删一段对应 CSS。 */
 @import "./_buttons.css";
 @import "./_form.css";
-@import "./_fluent-desktop.css";
+@import "./fluent/_tokens.css";
+@import "./fluent/_shared-shell.css";
+@import "./fluent/_shared-controls.css";
 @import "./_layout.css";
 @import "./_android-phone-advanced.css";
 @import "./_android-settings.css";
@@ -876,3 +878,6 @@ html[data-ui-family="apple"] .select:focus {
 @import "./_canvas.css";
 @import "./_history.css";
 @import "./_overlays.css";
+@import "./fluent/_windows-theme.css";
+@import "./fluent/_windows-controls.css";
+@import "./fluent/_responsive.css";

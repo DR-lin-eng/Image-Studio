@@ -176,7 +176,11 @@ func (s *Service) OptimizePrompt(opts PromptOptimizeOptions) (string, error) {
 	if modelID == "" {
 		modelID = client.TextModel
 	}
-	return optimizePromptWithLLM(s.ctx, baseURL, opts.APIKey, modelID, opts.Mode, opts.Prompt, refPaths)
+	proxyConfig, err := client.NormalizeProxyConfig(opts.ProxyMode, opts.ProxyURL)
+	if err != nil {
+		return "", err
+	}
+	return optimizePromptWithLLM(s.ctx, baseURL, opts.APIKey, modelID, opts.Mode, opts.Prompt, refPaths, proxyConfig)
 }
 
 // Cancel terminates a running job. Safe to call with unknown IDs.
@@ -289,6 +293,7 @@ func (s *Service) runJob(ctx context.Context, jobID string, opts GenerateOptions
 		BaseURL:          opts.BaseURL,
 		TextModelID:      opts.TextModelID,
 		ImageModelID:     opts.ImageModelID,
+		Proxy:            client.ProxyConfig{Mode: opts.ProxyMode, URL: opts.ProxyURL},
 		APIMode:          apiMode,
 		RequestPolicy:    client.RequestPolicy(strings.TrimSpace(opts.RequestPolicy)),
 		NoPromptRevision: opts.NoPromptRevision,
@@ -318,7 +323,7 @@ func (s *Service) runJob(ctx context.Context, jobID string, opts GenerateOptions
 		}
 	}
 
-	transport, err := client.PickTransport()
+	transport, err := client.PickTransportWithProxy(clientOpts.Proxy)
 	if err != nil {
 		s.emitError(jobID, err)
 		return

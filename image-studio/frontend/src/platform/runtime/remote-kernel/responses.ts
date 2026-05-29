@@ -176,6 +176,7 @@ export async function requestResponsesOnce(
     callbacks.onProgress?.(lastStage, nowSeconds(startedAt), bytesReceived);
   }, STATUS_INTERVAL_MS);
   try {
+    const proxyMode = request.payload.proxyMode === "none" || request.payload.proxyMode === "custom" ? request.payload.proxyMode : "system";
     if (shouldUseAndroidNativeHTTP()) {
       const consumeNativeLine = (line: string) => {
         bytesReceived += line.length + 1;
@@ -198,6 +199,7 @@ export async function requestResponsesOnce(
         body,
         callbacks.signal,
         consumeNativeLine,
+        { proxyMode, proxyURL: request.payload.proxyURL || "" },
       );
       raw = response.body || "";
       if (bytesReceived === 0) {
@@ -212,6 +214,9 @@ export async function requestResponsesOnce(
         throw new RemoteKernelError(describeProblem(raw), rawPath);
       }
       return { ...result, rawPath, prompt: request.payload.prompt, mode: request.payload.mode };
+    }
+    if (proxyMode !== "system") {
+      throw new RemoteKernelError("当前远程内核不能控制代理,请切回本地内核或使用 Android 原生运行");
     }
 
     const response = await fetch(url, {

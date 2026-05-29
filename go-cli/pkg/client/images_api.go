@@ -244,8 +244,13 @@ func RequestImagesAPIWithPartial(
 	req.Header.Set("Accept", "text/event-stream, application/json")
 	req.Header.Set("User-Agent", UserAgent())
 
+	transport, err := NewHTTPTransport(opts.Proxy)
+	if err != nil {
+		return ImageResult{}, err
+	}
 	httpClient := &http.Client{
-		Timeout: 8 * time.Minute,
+		Timeout:   8 * time.Minute,
+		Transport: transport,
 	}
 
 	startedAt := time.Now()

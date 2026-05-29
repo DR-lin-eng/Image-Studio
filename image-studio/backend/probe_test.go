@@ -72,6 +72,32 @@ func TestProbeUpstreamSummarizesNon2xx(t *testing.T) {
 	}
 }
 
+func TestProbeUpstreamUsesCustomProxy(t *testing.T) {
+	var proxiedURL string
+	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		proxiedURL = r.URL.String()
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":[{"id":"proxied-model"}]}`))
+	}))
+	defer proxy.Close()
+
+	got, err := probeUpstream(context.Background(), ProbeUpstreamOptions{
+		APIKey:    "sk-test",
+		BaseURL:   "http://127.0.0.1:65535",
+		ProxyMode: "custom",
+		ProxyURL:  proxy.URL,
+	})
+	if err != nil {
+		t.Fatalf("ProbeUpstream returned error: %v", err)
+	}
+	if got.ModelCount != 1 {
+		t.Fatalf("model count = %d, want 1", got.ModelCount)
+	}
+	if proxiedURL != "http://127.0.0.1:65535/v1/models" {
+		t.Fatalf("proxied URL = %q", proxiedURL)
+	}
+}
+
 func TestServiceProbeUpstreamRequiresStartup(t *testing.T) {
 	svc := NewService()
 	_, err := svc.ProbeUpstream(ProbeUpstreamOptions{APIKey: "sk-test", BaseURL: "http://127.0.0.1:1"})

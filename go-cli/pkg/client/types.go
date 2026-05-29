@@ -168,6 +168,10 @@ type Options struct {
 	TextModelID  string
 	ImageModelID string
 
+	// Proxy controls outbound upstream HTTP(S) requests.
+	// Empty Mode defaults to system proxy settings.
+	Proxy ProxyConfig
+
 	// NoPromptRevision is kept for backward compatibility. Responses API
 	// payloads now always add instructions that ask the text model to pass the
 	// prompt to image_generation verbatim. Images API ignores this field.

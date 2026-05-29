@@ -36,6 +36,8 @@ type GenerateOptions struct {
 	ImageModelID   string `json:"imageModelID"`   // overrides the default image model
 	APIMode        string `json:"apiMode"`        // "responses" (default) | "images"
 	RequestPolicy  string `json:"requestPolicy"`  // "openai" (default) | "compat"
+	ProxyMode      string `json:"proxyMode"`      // "none" | "system" (default) | "custom"
+	ProxyURL       string `json:"proxyURL"`       // http(s) proxy URL when ProxyMode == "custom"
 	// NoPromptRevision is kept for backward compatibility; Responses API
 	// requests now always ask the text model to keep the prompt verbatim.
 	NoPromptRevision bool `json:"noPromptRevision"`
@@ -52,6 +54,8 @@ type PromptOptimizeOptions struct {
 	Mode        string   `json:"mode"`
 	BaseURL     string   `json:"baseURL"`
 	TextModelID string   `json:"textModelID"`
+	ProxyMode   string   `json:"proxyMode"`
+	ProxyURL    string   `json:"proxyURL"`
 	ImagePaths  []string `json:"imagePaths"`
 	ImagePath   string   `json:"imagePath"`
 }
@@ -60,8 +64,10 @@ type PromptOptimizeOptions struct {
 // and the actual /v1/models request are intentionally host-side so browser and
 // WebView quirks do not decide whether a channel is alive.
 type ProbeUpstreamOptions struct {
-	APIKey  string `json:"apiKey"`
-	BaseURL string `json:"baseURL"`
+	APIKey    string `json:"apiKey"`
+	BaseURL   string `json:"baseURL"`
+	ProxyMode string `json:"proxyMode"`
+	ProxyURL  string `json:"proxyURL"`
 }
 
 type ProbeUpstreamResult struct {

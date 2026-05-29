@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import {
   Download, Folder, FolderEdit, Github, Info, KeyRound,
-  MessageSquare, Monitor, Moon, RotateCw, Sun, Trash2, Upload,
+  MessageSquare, Monitor, Moon, Network, RotateCw, Sun, Trash2, Upload,
 } from "lucide-react";
 import { useStudioStore } from "../../state/studioStore";
 import {
   GetOutputDir, OpenOutputDir, OpenExternalURL, ChooseOutputDir, SetOutputDir,
 } from "../../platform/runtime/host";
-import type { KernelRuntimeMode } from "../../types/domain";
+import type { KernelRuntimeMode, ProxyMode } from "../../types/domain";
 import { Modal } from "../common/Modal";
 import { rememberTrustedOutputRoot } from "../../lib/storage";
 import { platformOutputRootLabel } from "../../platform";
@@ -25,8 +25,9 @@ const MIT_URL = "https://opensource.org/licenses/MIT";
 export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
   const {
     kernelRuntimeMode,
+    proxyMode, proxyURL,
     theme, fontScale,
-    setField, setAPIKey,
+    setField, setAPIKey, setProxyConfig,
     history,
     exportHistory, importHistory,
     pruneHistoryOlderThanDays,
@@ -108,10 +109,13 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
       }}
       onSetFontScale={setFontScale}
       onSetKernelRuntimeMode={(value) => setField("kernelRuntimeMode", value)}
+      onSetProxyConfig={setProxyConfig}
       onSetTheme={setTheme}
       openOutputLocation={openOutputLocation}
       outputLabel={outputLabel}
       profiles={profiles}
+      proxyMode={proxyMode}
+      proxyURL={proxyURL}
       pruneHistory={(days) => void pruneHistory(days)}
       surface={isAndroidPad ? "pad" : "phone"}
       testAPIKey={() => void testAPIKey()}
@@ -146,6 +150,31 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
             </select>
             <p className="mt-1 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-300">
               桌面可切到 remote 验证与 Android / Worker 是否走同一套共享请求内核
+            </p>
+          </SettingsRow>
+
+          <SettingsRow label="代理服务器">
+            <div className={`platform-seg flex flex-wrap gap-1 bg-black/[0.04] p-0.5 ring-1 ring-black/[0.05] dark:bg-white/[0.06] dark:ring-white/[0.06] ${usesFluentUI ? "rounded-[10px]" : "rounded-[18px]"}`}>
+              {([
+                ["none", "不使用"],
+                ["system", "系统配置"],
+                ["custom", "自定义"],
+              ] as Array<[ProxyMode, string]>).map(([value, label]) => (
+                <SettingsSegButton key={value} active={proxyMode === value} onClick={() => setProxyConfig(value)}>
+                  {value === "custom" ? <Network className="w-3 h-3" /> : null}{label}
+                </SettingsSegButton>
+              ))}
+            </div>
+            {proxyMode === "custom" ? (
+              <input
+                value={proxyURL}
+                onChange={(e) => setProxyConfig("custom", e.target.value)}
+                placeholder="http://127.0.0.1:7890"
+                className={`focus-ring mt-2 w-full border border-black/[0.08] bg-[var(--surface)] px-3 ${isMac ? "min-h-[42px] py-2.5 text-[13px]" : "py-2.5 text-[12px]"} font-mono-token text-zinc-900 placeholder:text-zinc-400 dark:border-white/[0.08] dark:text-zinc-100 ${usesFluentUI ? "rounded-[8px]" : "rounded-[14px]"}`}
+              />
+            ) : null}
+            <p className="mt-1 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-300">
+              默认使用系统配置；自定义地址支持 http:// 和 https://。
             </p>
           </SettingsRow>
 

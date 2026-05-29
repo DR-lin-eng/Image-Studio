@@ -45,6 +45,7 @@ import {
 import {
   cleanBaseURL,
 } from "../lib/security";
+import { loadProxyConfig, normalizeProxyMode, persistProxyConfig } from "../lib/proxy";
 import {
   duplicateProfile as cloneProfile,
   genProfileId,
@@ -178,6 +179,8 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   baseURL: "",
   textModelID: "",
   imageModelID: "",
+  proxyMode: "system",
+  proxyURL: "",
   apiMode: "responses",
   requestPolicy: "openai",
   noPromptRevision: true,
@@ -486,6 +489,8 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       baseURL: cleanedBaseURL,
       textModelID: s.textModelID,
       imageModelID: s.imageModelID,
+      proxyMode: s.proxyMode,
+      proxyURL: s.proxyURL,
       requestPolicy: s.requestPolicy,
       apiMode: s.apiMode,
       noPromptRevision: true,
@@ -579,6 +584,8 @@ export const useStudioStore = create<StudioState>((set, get) => ({
         baseURL: preview.profile.baseURL,
         textModelID: preview.profile.textModelID,
         imageModelID: preview.profile.imageModelID,
+        proxyMode: "system",
+        proxyURL: "",
         apiMode: preview.profile.apiMode,
         requestPolicy: preview.profile.requestPolicy,
         noPromptRevision: true,
@@ -670,6 +677,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       if (v === "auto" || v === "local" || v === "remote") kernelRuntimeMode = v;
     } catch {}
     const noPromptRevision = true;
+    const proxyConfig = loadProxyConfig();
     let outputFormat: OutputFormatValue = "png";
     try {
       const v = localStorage.getItem("gptcodex.outputFormat");
@@ -836,6 +844,8 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     set({
       apiKey: activeKey, history: items, promptHistory, presets, theme, fontScale,
       apiMode, requestPolicy, baseURL, textModelID, imageModelID, kernelRuntimeMode, noPromptRevision,
+      proxyMode: proxyConfig.mode,
+      proxyURL: proxyConfig.url,
       outputFormat,
       profiles,
       activeProfileId,
@@ -990,6 +1000,13 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     document.documentElement.style.setProperty("--font-scale", String(v));
   },
 
+  setProxyConfig: (mode, url) => {
+    const normalizedMode = normalizeProxyMode(mode);
+    const nextURL = (url ?? get().proxyURL).trim();
+    set({ proxyMode: normalizedMode, proxyURL: nextURL });
+    persistProxyConfig(normalizedMode, nextURL);
+  },
+
   testAPIKey: async () => {
     const s = get();
     if (!s.apiKey.trim()) {
@@ -1005,7 +1022,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     set({ isTestingKey: true });
     s.pushToast("正在测试连接...", "info", 8000);
     try {
-      await probeCurrentUpstream(cleanedBaseURL, s.apiKey.trim());
+      await probeCurrentUpstream(cleanedBaseURL, s.apiKey.trim(), s.proxyMode, s.proxyURL);
       set({ isTestingKey: false });
       s.pushToast("连接 OK · 上游 models 列表可访问", "success");
     } catch (e: any) {
@@ -1060,6 +1077,8 @@ export const useStudioStore = create<StudioState>((set, get) => ({
         mode: s.mode,
         baseURL: optimizeBaseURL,
         textModelID: optimizeTextModelID,
+        proxyMode: s.proxyMode,
+        proxyURL: s.proxyURL,
         imagePaths: sourcePaths,
         imagePath: "",
       } satisfies PromptOptimizeRequest);

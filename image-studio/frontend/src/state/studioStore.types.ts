@@ -8,6 +8,7 @@ import type {
   OutputFormatValue,
   Preset,
   ProgressInfo,
+  ProxyMode,
   QualityValue,
   RequestPolicy,
   SizeValue,
@@ -35,6 +36,8 @@ export interface PromptOptimizeRequest {
   mode: Mode;
   baseURL: string;
   textModelID: string;
+  proxyMode: ProxyMode;
+  proxyURL: string;
   imagePaths: string[];
   imagePath: string;
 }
@@ -63,6 +66,8 @@ export interface StudioState {
   kernelRuntimeMode: KernelRuntimeMode;
   baseURL: string;
   textModelID: string;
+  proxyMode: ProxyMode;
+  proxyURL: string;
   imageModelID: string;
   apiMode: APIMode;
   requestPolicy: RequestPolicy;
@@ -179,6 +184,7 @@ export interface StudioState {
   importHistory: () => Promise<void>;
   setTheme: (t: ThemeMode) => void;
   setFontScale: (v: number) => void;
+  setProxyConfig: (mode: ProxyMode, url?: string) => void;
   settingsOpen: boolean;
   openSettings: () => void;
   closeSettings: () => void;

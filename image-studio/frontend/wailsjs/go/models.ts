@@ -16,6 +16,8 @@ export namespace backend {
 	    baseURL: string;
 	    textModelID: string;
 	    imageModelID: string;
+	    proxyMode: string;
+	    proxyURL: string;
 	    apiMode: string;
 	    requestPolicy: string;
 	    noPromptRevision: boolean;
@@ -43,6 +45,8 @@ export namespace backend {
 	        this.baseURL = source["baseURL"];
 	        this.textModelID = source["textModelID"];
 	        this.imageModelID = source["imageModelID"];
+	        this.proxyMode = source["proxyMode"];
+	        this.proxyURL = source["proxyURL"];
 	        this.apiMode = source["apiMode"];
 	        this.requestPolicy = source["requestPolicy"];
 	        this.noPromptRevision = source["noPromptRevision"];
@@ -156,6 +160,8 @@ export namespace backend {
 	    mode: string;
 	    baseURL: string;
 	    textModelID: string;
+	    proxyMode: string;
+	    proxyURL: string;
 	    imagePaths: string[];
 	    imagePath: string;
 
@@ -170,6 +176,8 @@ export namespace backend {
 	        this.mode = source["mode"];
 	        this.baseURL = source["baseURL"];
 	        this.textModelID = source["textModelID"];
+	        this.proxyMode = source["proxyMode"];
+	        this.proxyURL = source["proxyURL"];
 	        this.imagePaths = source["imagePaths"];
 	        this.imagePath = source["imagePath"];
 	    }
@@ -177,6 +185,8 @@ export namespace backend {
 	export class ProbeUpstreamOptions {
 	    apiKey: string;
 	    baseURL: string;
+	    proxyMode: string;
+	    proxyURL: string;
 
 	    static createFrom(source: any = {}) {
 	        return new ProbeUpstreamOptions(source);
@@ -186,6 +196,8 @@ export namespace backend {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.apiKey = source["apiKey"];
 	        this.baseURL = source["baseURL"];
+	        this.proxyMode = source["proxyMode"];
+	        this.proxyURL = source["proxyURL"];
 	    }
 	}
 	export class ProbeUpstreamResult {

@@ -17,3 +17,10 @@ type Transport interface {
 func PickTransport() (Transport, error) {
 	return &NativeTransport{}, nil
 }
+
+func PickTransportWithProxy(proxy ProxyConfig) (Transport, error) {
+	if _, err := NormalizeProxyConfig(proxy.Mode, proxy.URL); err != nil {
+		return nil, err
+	}
+	return &NativeTransport{Proxy: proxy}, nil
+}

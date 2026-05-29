@@ -5,6 +5,11 @@ type NativeProgressWindow = Window & {
   __imageStudioNativeProgress?: (requestId: string, payload: unknown) => void;
 };
 
+export type NativeHTTPProxyConfig = {
+  proxyMode?: string;
+  proxyURL?: string;
+};
+
 const nativeHttpProgressHandlers = new Map<string, (payload: unknown) => void>();
 let progressHookInstalled = false;
 let progressHookWindow: NativeProgressWindow | null = null;
@@ -76,6 +81,7 @@ export async function nativeHttpRequestText(
   body: BodyInit | null | undefined,
   signal?: AbortSignal,
   onStreamLine?: (line: string) => void,
+  proxyConfig?: NativeHTTPProxyConfig,
 ): Promise<NativeTextResponse> {
   const requestKey = `native-http-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
   const encoded = await encodeRequestBody(body, headers);
@@ -102,6 +108,8 @@ export async function nativeHttpRequestText(
       bodyBase64: encoded.bodyBase64,
       contentType: encoded.contentType,
       streamLines: Boolean(onStreamLine),
+      proxyMode: proxyConfig?.proxyMode || "system",
+      proxyURL: proxyConfig?.proxyURL || "",
     });
     if (aborted) throw new DOMException("Aborted", "AbortError");
     return response;

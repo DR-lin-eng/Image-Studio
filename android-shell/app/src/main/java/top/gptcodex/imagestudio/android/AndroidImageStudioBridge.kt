@@ -27,7 +27,9 @@ import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.InputStream
 import java.net.HttpURLConnection
+import java.net.InetSocketAddress
 import java.net.URI
+import java.net.Proxy
 import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -348,9 +350,11 @@ class AndroidImageStudioBridge(
         val bodyBase64 = payload.optString("bodyBase64")
         val contentType = payload.optString("contentType")
         val streamLines = payload.optBoolean("streamLines", false)
+        val proxyMode = payload.optString("proxyMode", "system")
+        val proxyUrl = payload.optString("proxyURL", "")
         thread(name = "image-studio-http-$requestKey") {
             try {
-                val connection = (URL(url).openConnection() as HttpURLConnection).apply {
+                val connection = openHttpConnection(url, proxyMode, proxyUrl).apply {
                     requestMethod = method
                     instanceFollowRedirects = true
                     connectTimeout = 30_000
@@ -405,10 +409,12 @@ class AndroidImageStudioBridge(
     private fun runProbeUpstream(requestId: String, payload: JSONObject): Nothing {
         val baseUrl = validateProbeBaseUrl(payload.optString("baseURL"))
         val apiKey = payload.optString("apiKey").trim()
+        val proxyMode = payload.optString("proxyMode", "system")
+        val proxyUrl = payload.optString("proxyURL", "")
         if (apiKey.isBlank()) throw IllegalArgumentException("API Key 不能为空")
         thread(name = "image-studio-probe-${requestId.take(12)}") {
             try {
-                val connection = (URL("$baseUrl/v1/models").openConnection() as HttpURLConnection).apply {
+                val connection = openHttpConnection("$baseUrl/v1/models", proxyMode, proxyUrl).apply {
                     requestMethod = "GET"
                     instanceFollowRedirects = true
                     connectTimeout = 20_000
@@ -438,6 +444,48 @@ class AndroidImageStudioBridge(
             }
         }
         throw EarlyResolve()
+    }
+
+    private fun openHttpConnection(url: String, proxyMode: String, proxyUrl: String): HttpURLConnection {
+        val target = URL(url)
+        val connection = when (normalizeProxyMode(proxyMode)) {
+            "none" -> target.openConnection(Proxy.NO_PROXY)
+            "custom" -> target.openConnection(parseCustomProxy(proxyUrl))
+            else -> target.openConnection()
+        }
+        return connection as HttpURLConnection
+    }
+
+    private fun normalizeProxyMode(raw: String): String {
+        return when (raw.trim().lowercase(Locale.US)) {
+            "none" -> "none"
+            "custom" -> "custom"
+            else -> "system"
+        }
+    }
+
+    private fun parseCustomProxy(raw: String): Proxy {
+        val cleaned = raw.trim()
+        if (cleaned.isBlank()) throw IllegalArgumentException("自定义代理地址不能为空")
+        val uri = try {
+            URI(cleaned)
+        } catch (error: Exception) {
+            throw IllegalArgumentException("代理地址无效: ${error.message ?: error.javaClass.simpleName}")
+        }
+        val scheme = uri.scheme?.lowercase(Locale.US) ?: ""
+        if (scheme != "http" && scheme != "https") {
+            throw IllegalArgumentException("代理地址仅支持 http:// 或 https://")
+        }
+        val host = uri.host ?: throw IllegalArgumentException("代理地址必须包含主机")
+        if (!uri.rawQuery.isNullOrBlank() || !uri.rawFragment.isNullOrBlank()) {
+            throw IllegalArgumentException("代理地址不能包含 query 或 fragment")
+        }
+        val path = uri.rawPath ?: ""
+        if (path.isNotBlank() && path != "/") {
+            throw IllegalArgumentException("代理地址不能包含路径")
+        }
+        val port = if (uri.port > 0) uri.port else if (scheme == "https") 443 else 80
+        return Proxy(Proxy.Type.HTTP, InetSocketAddress.createUnresolved(host, port))
     }
 
     private fun cancelHttpRequest(requestKey: String) {

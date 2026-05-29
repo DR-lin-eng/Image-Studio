@@ -23,6 +23,8 @@ export type RemoteGeneratePayload = {
   baseURL: string;
   textModelID: string;
   imageModelID: string;
+  proxyMode?: string;
+  proxyURL?: string;
   apiMode: string;
   requestPolicy: RequestPolicy;
   noPromptRevision: boolean;
@@ -65,6 +67,8 @@ export type RemotePromptOptimizeInput = {
   mode: string;
   baseURL: string;
   textModelID: string;
+  proxyMode?: string;
+  proxyURL?: string;
   imagePaths?: string[];
   imagePath?: string;
   sourceImages?: KernelImageSource[];

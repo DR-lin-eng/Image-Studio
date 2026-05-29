@@ -49,6 +49,7 @@ export type SizeValue =
   | "2160x3840";
 export type QualityValue = "auto" | "high" | "medium" | "low";
 export type KernelRuntimeMode = "auto" | "local" | "remote";
+export type ProxyMode = "none" | "system" | "custom";
 // 让上游做编码;落盘扩展名 jpeg → .jpg,其他原样。
 export type OutputFormatValue = "png" | "jpeg" | "webp";
 export type ThemeMode = "system" | "light" | "dark";

@@ -126,6 +126,7 @@ func optimizePromptWithLLM(
 	ctx context.Context,
 	baseURL, apiKey, textModelID, mode, prompt string,
 	sourcePaths []string,
+	proxyConfig client.ProxyConfig,
 ) (string, error) {
 	if strings.TrimSpace(prompt) == "" {
 		return "", errors.New("提示词不能为空")
@@ -192,7 +193,11 @@ func optimizePromptWithLLM(
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 	req.Header.Set("User-Agent", client.UserAgent())
 
-	httpClient := &http.Client{Timeout: 3 * time.Minute}
+	transport, err := client.NewHTTPTransport(proxyConfig)
+	if err != nil {
+		return "", err
+	}
+	httpClient := &http.Client{Timeout: 3 * time.Minute, Transport: transport}
 	resp, err := httpClient.Do(req)
 	if err != nil {
 		return "", err

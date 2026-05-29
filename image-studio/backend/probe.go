@@ -47,7 +47,11 @@ func probeUpstream(parent context.Context, opts ProbeUpstreamOptions) (ProbeUpst
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", client.UserAgent())
 
-	httpClient := &http.Client{Timeout: probeUpstreamTimeout}
+	transport, err := client.NewHTTPTransport(client.ProxyConfig{Mode: opts.ProxyMode, URL: opts.ProxyURL})
+	if err != nil {
+		return ProbeUpstreamResult{}, err
+	}
+	httpClient := &http.Client{Timeout: probeUpstreamTimeout, Transport: transport}
 	resp, err := httpClient.Do(req)
 	if err != nil {
 		return ProbeUpstreamResult{}, fmt.Errorf("连接上游失败: %w", err)

@@ -317,6 +317,8 @@ export function OptimizePrompt(options: PromptOptimizeOptionsLike): Promise<stri
     mode: options.mode,
     baseURL: options.baseURL,
     textModelID: options.textModelID,
+    proxyMode: options.proxyMode,
+    proxyURL: options.proxyURL,
     imagePaths: options.imagePaths,
     imagePath: options.imagePath,
   }, controller.signal);
@@ -567,9 +569,15 @@ export function ReadTextFile(path: string): Promise<string> {
   return invokeService<string>(unsupportedMessage, "ReadTextFile", path);
 }
 
-export async function probeCurrentUpstream(baseURL: string, apiKey: string, signal?: AbortSignal): Promise<void> {
+export async function probeCurrentUpstream(
+  baseURL: string,
+  apiKey: string,
+  proxyMode = "system",
+  proxyURL = "",
+  signal?: AbortSignal,
+): Promise<void> {
   if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
-  const options: ProbeUpstreamOptionsLike = { baseURL, apiKey };
+  const options: ProbeUpstreamOptionsLike = { baseURL, apiKey, proxyMode, proxyURL };
   if (hasServiceMethod("ProbeUpstream")) {
     await invokeService<ProbeUpstreamResultLike>(unsupportedMessage, "ProbeUpstream", options);
     return;

@@ -88,8 +88,12 @@ export async function optimizePromptRemote(
     Accept: "application/json",
   };
   const body = JSON.stringify(buildPromptOptimizePayload(input, sourceDataURLs));
+  const proxyMode = input.proxyMode === "none" || input.proxyMode === "custom" ? input.proxyMode : "system";
   const response = shouldUseAndroidNativeHTTP()
-    ? await nativeHttpRequestText(url, "POST", headers, body, signal)
+    ? await nativeHttpRequestText(url, "POST", headers, body, signal, undefined, {
+        proxyMode,
+        proxyURL: input.proxyURL || "",
+      })
     : {
         status: 0,
         body: "",
@@ -97,6 +101,9 @@ export async function optimizePromptRemote(
   const raw = shouldUseAndroidNativeHTTP()
     ? response.body
     : await (async () => {
+        if (proxyMode !== "system") {
+          throw new RemoteKernelError("当前远程内核不能控制代理,请切回本地内核或使用 Android 原生运行");
+        }
         const webResponse = await fetch(url, {
           method: "POST",
           headers,

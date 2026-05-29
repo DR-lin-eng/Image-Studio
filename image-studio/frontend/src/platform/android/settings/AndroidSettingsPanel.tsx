@@ -9,6 +9,7 @@ import {
   MessageSquare,
   Monitor,
   Moon,
+  Network,
   PlugZap,
   Shield,
   SlidersHorizontal,
@@ -17,7 +18,7 @@ import {
   Upload,
 } from "lucide-react";
 import { SettingsPresetsRow } from "../../../components/panel/SettingsPresetsRow";
-import type { KernelRuntimeMode, ThemeMode, UpstreamProfile } from "../../../types/domain";
+import type { KernelRuntimeMode, ProxyMode, ThemeMode, UpstreamProfile } from "../../../types/domain";
 import { androidSaveHint } from "../bridge";
 
 export type AndroidSettingsSurface = "phone" | "pad";
@@ -41,10 +42,13 @@ export type AndroidSettingsPanelProps = {
   onSetActiveProfile: (id: string) => void;
   onSetFontScale: (value: number) => void;
   onSetKernelRuntimeMode: (value: KernelRuntimeMode) => void;
+  onSetProxyConfig: (mode: ProxyMode, url?: string) => void;
   onSetTheme: (value: ThemeMode) => void;
   openOutputLocation: () => void;
   outputLabel: string;
   profiles: UpstreamProfile[];
+  proxyMode: ProxyMode;
+  proxyURL: string;
   pruneHistory: (days: number) => void;
   surface: AndroidSettingsSurface;
   testAPIKey: () => void;
@@ -70,6 +74,12 @@ function runtimeLabel(mode: KernelRuntimeMode) {
   return "自动";
 }
 
+function proxyLabel(mode: ProxyMode) {
+  if (mode === "none") return "不使用";
+  if (mode === "custom") return "自定义";
+  return "系统配置";
+}
+
 export function AndroidSettingsPanel({
   activeProfile,
   activeProfileId,
@@ -89,10 +99,13 @@ export function AndroidSettingsPanel({
   onSetActiveProfile,
   onSetFontScale,
   onSetKernelRuntimeMode,
+  onSetProxyConfig,
   onSetTheme,
   openOutputLocation,
   outputLabel,
   profiles,
+  proxyMode,
+  proxyURL,
   pruneHistory,
   surface,
   testAPIKey,
@@ -103,6 +116,7 @@ export function AndroidSettingsPanel({
   const historyCountLabel = `${historyCount} 条`;
   const currentSummary = [
     upstreamReady ? "上游已配置" : "上游未配置",
+    `代理 ${proxyLabel(proxyMode)}`,
     `主题 ${themeLabel(theme)}`,
     `字号 ${Math.round(fontScale * 100)}%`,
     `${historyCount} 条历史`,
@@ -180,6 +194,39 @@ export function AndroidSettingsPanel({
             </button>
           ))}
         </div>
+      </div>
+
+      <div className="android-settings-field android-settings-field-stacked">
+        <div>
+          <span className="android-settings-field-title">代理服务器</span>
+          <span className="android-settings-field-subtitle">当前 {proxyLabel(proxyMode)}，默认使用系统配置。</span>
+        </div>
+        <div className="android-settings-segmented" role="group" aria-label="代理服务器">
+          {([
+            ["none", "不用"],
+            ["system", "系统"],
+            ["custom", "自定义"],
+          ] as Array<[ProxyMode, string]>).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              className={proxyMode === value ? "active" : ""}
+              onClick={() => onSetProxyConfig(value)}
+            >
+              {value === "custom" ? <Network className="h-3.5 w-3.5" /> : null}
+              {label}
+            </button>
+          ))}
+        </div>
+        {proxyMode === "custom" ? (
+          <input
+            value={proxyURL}
+            onChange={(e) => onSetProxyConfig("custom", e.currentTarget.value)}
+            className="focus-ring android-settings-profile-select"
+            placeholder="http://127.0.0.1:7890"
+            type="url"
+          />
+        ) : null}
       </div>
 
       <button type="button" className="android-settings-row-action" onClick={openOutputLocation}>

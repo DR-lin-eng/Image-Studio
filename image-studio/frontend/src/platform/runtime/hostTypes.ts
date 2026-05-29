@@ -13,6 +13,8 @@ export type GenerateOptionsLike = {
   baseURL: string;
   textModelID: string;
   imageModelID: string;
+  proxyMode?: string;
+  proxyURL?: string;
   apiMode: string;
   requestPolicy: string;
   noPromptRevision: boolean;
@@ -34,6 +36,8 @@ export type PromptOptimizeOptionsLike = {
   mode: string;
   baseURL: string;
   textModelID: string;
+  proxyMode?: string;
+  proxyURL?: string;
   imagePaths: string[];
   imagePath: string;
 };
@@ -41,6 +45,8 @@ export type PromptOptimizeOptionsLike = {
 export type ProbeUpstreamOptionsLike = {
   apiKey: string;
   baseURL: string;
+  proxyMode?: string;
+  proxyURL?: string;
 };
 
 export type ProbeUpstreamResultLike = {

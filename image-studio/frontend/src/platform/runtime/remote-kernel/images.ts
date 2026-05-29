@@ -127,6 +127,7 @@ export async function requestImagesOnce(
     callbacks.onProgress?.("等待 Images API 返回(无 SSE 保活)", nowSeconds(startedAt), 0);
   }, STATUS_INTERVAL_MS);
   try {
+    const proxyMode = request.payload.proxyMode === "none" || request.payload.proxyMode === "custom" ? request.payload.proxyMode : "system";
     if (shouldUseAndroidNativeHTTP()) {
       let rawFromLines = "";
       let nativeStreamResult: ExtractedImageResult | null = null;
@@ -150,6 +151,7 @@ export async function requestImagesOnce(
         built.body,
         callbacks.signal,
         consumeNativeLine,
+        { proxyMode, proxyURL: request.payload.proxyURL || "" },
       );
       const rawBody = response.body || rawFromLines;
       const rawPath = registerRawText("images", attempt, rawBody);
@@ -159,6 +161,9 @@ export async function requestImagesOnce(
         : parseImagesResponse(rawBody, response.status);
       if (!result) throw new RemoteKernelError("上游没有返回可用图片", rawPath);
       return { ...result, rawPath, prompt: request.payload.prompt, mode: request.payload.mode };
+    }
+    if (proxyMode !== "system") {
+      throw new RemoteKernelError("当前远程内核不能控制代理,请切回本地内核或使用 Android 原生运行");
     }
     const response = await fetch(built.url, {
       method: "POST",

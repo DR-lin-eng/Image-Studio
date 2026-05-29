@@ -166,32 +166,6 @@ export function historyFullSrc(
   return item.fullUrl || objectURL || item.previewUrl || (item.imageB64 ? dataURLFromBase64(item.imageB64) : "");
 }
 
-export async function createPreviewBlob(blob: Blob, maxEdge = 192): Promise<Blob> {
-  try {
-    const bitmap = await createImageBitmap(blob);
-    try {
-      const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
-      if (scale >= 0.999) return blob;
-      const w = Math.max(1, Math.round(bitmap.width * scale));
-      const h = Math.max(1, Math.round(bitmap.height * scale));
-      const canvas = document.createElement("canvas");
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return blob;
-      ctx.drawImage(bitmap, 0, 0, w, h);
-      const preview = await new Promise<Blob>((resolve) => {
-        canvas.toBlob((out) => resolve(out ?? blob), "image/jpeg", 0.72);
-      });
-      return preview;
-    } finally {
-      bitmap.close();
-    }
-  } finally {
-    // no-op: createImageBitmap consumes the Blob directly
-  }
-}
-
 export function useImageElement(source?: Blob | string | null): HTMLImageElement | null {
   const url = useBlobURL(source instanceof Blob ? source : null, typeof source === "string" ? source : null);
   const [img, setImg] = useState<HTMLImageElement | null>(null);

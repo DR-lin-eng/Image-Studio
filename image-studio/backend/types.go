@@ -113,7 +113,11 @@ type ResultPayload struct {
 // PreviewPayload is emitted as `preview:<jobId>` while Responses API streams
 // intermediate image-generation previews.
 type PreviewPayload struct {
-	ImageB64          string `json:"imageB64"`
+	ImageB64          string `json:"imageB64,omitempty"` // legacy/browser fallback only; Wails preview events use PreviewURL.
+	ImageID           string `json:"imageId,omitempty"`
+	PreviewURL        string `json:"previewUrl,omitempty"`
+	PreviewWidth      int    `json:"previewWidth,omitempty"`
+	PreviewHeight     int    `json:"previewHeight,omitempty"`
 	RevisedPrompt     string `json:"revisedPrompt,omitempty"`
 	PartialImageIndex int    `json:"partialImageIndex"`
 	Mode              string `json:"mode"`
@@ -129,21 +133,27 @@ type ErrorPayload struct {
 	RawPath string `json:"rawPath,omitempty"`
 }
 
-// SelectFileResponse is returned by OpenImageDialog. ImageB64 carries the raw
-// file bytes base64-encoded so the frontend can hydrate the source thumbnail
-// without going through the managed-roots ReadImageAsBase64 guard(用户通过 OS
-// 对话框主动选的路径默认就是信任的,没必要再绕一圈管控目录)。文件超过
-// 50MB 时 ImageB64 留空,前端落到扩展名占位。
+// SelectFileResponse is returned by OpenImageDialog. New Wails builds return a
+// managed previewUrl; ImageB64 remains only as a legacy/browser fallback when
+// preview generation is unavailable. Files over 50MB omit both preview forms.
 type SelectFileResponse struct {
-	Path     string `json:"path"`
-	Size     int64  `json:"size"`
-	ImageB64 string `json:"imageB64,omitempty"`
+	Path          string `json:"path"`
+	Size          int64  `json:"size"`
+	ImageB64      string `json:"imageB64,omitempty"`
+	ImageID       string `json:"imageId,omitempty"`
+	PreviewURL    string `json:"previewUrl,omitempty"`
+	PreviewWidth  int    `json:"previewWidth,omitempty"`
+	PreviewHeight int    `json:"previewHeight,omitempty"`
 }
 
 // ImportedImage describes a freshly imported (drag-dropped or pasted) image.
 type ImportedImage struct {
-	Path     string `json:"path"`
-	ImageB64 string `json:"imageB64"`
+	Path          string `json:"path"`
+	ImageB64      string `json:"imageB64,omitempty"`
+	ImageID       string `json:"imageId,omitempty"`
+	PreviewURL    string `json:"previewUrl,omitempty"`
+	PreviewWidth  int    `json:"previewWidth,omitempty"`
+	PreviewHeight int    `json:"previewHeight,omitempty"`
 }
 
 type MediaAssetRef struct {

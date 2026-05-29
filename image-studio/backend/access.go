@@ -89,7 +89,7 @@ func (s *Service) allowedRoots(kind managedPathKind) []string {
 	roots := make([]string, 0, 8)
 	if kind == managedImageFile {
 		if dir, err := importsDir(); err == nil {
-			roots = append(roots, dir)
+			roots = append(roots, dir, previewsSubdir(dir))
 		}
 		roots = append(roots, platformLegacyImportDirs()...)
 	}
@@ -111,7 +111,7 @@ func (s *Service) allowedRoots(kind managedPathKind) []string {
 func appendManagedOutputRoot(roots []string, root string, kind managedPathKind) []string {
 	switch kind {
 	case managedImageFile:
-		return append(roots, imagesSubdir(root), thumbsSubdir(root))
+		return append(roots, imagesSubdir(root), thumbsSubdir(root), previewsSubdir(root))
 	case managedRawLogFile:
 		return append(roots, logSubdir(root))
 	default:

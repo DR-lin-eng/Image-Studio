@@ -13,8 +13,9 @@ import (
 )
 
 // ImportImageFromB64 persists a base64-encoded image (PNG/JPEG/WebP) into the
-// imports directory and returns its absolute path together with the original
-// base64 (so the frontend can paint it on the canvas immediately).
+// imports directory and returns its absolute path. The legacy imageB64 field is
+// intentionally left empty on Wails so imported files do not stay duplicated in
+// frontend state.
 //
 // Used by:
 //   - drag-and-drop / paste flows (App.tsx) — the file becomes a real edit source
@@ -47,7 +48,7 @@ func (s *Service) ImportImageFromB64(imageB64, suggestedName string) (ImportedIm
 	if err := os.WriteFile(full, data, secureFileMode); err != nil {
 		return ImportedImage{}, fmt.Errorf("write import file: %w", err)
 	}
-	return ImportedImage{Path: full, ImageB64: imageB64}, nil
+	return ImportedImage{Path: full}, nil
 }
 
 // sanitiseName produces a filename-safe stem from a user-supplied filename.

@@ -3,6 +3,8 @@ import {
   ExportHistoryToFile,
   FlipImage,
   ImportHistoryFromFile,
+  RegisterImportedImageAsset,
+  RegisterMediaAsset,
   ReadImageAsBase64,
   RotateImage,
 } from "../platform/runtime/host";
@@ -27,7 +29,6 @@ import {
   toPreviewOnlyHistoryItem,
   withMediaAssetRef,
 } from "./studioStore.runtime";
-import { RegisterMediaAsset } from "../platform/runtime/host";
 import { patchWorkspaceRuntime } from "./workspaceRuntime";
 
 type StateAdapter = {
@@ -67,6 +68,7 @@ export function createMediaActions(store: StateAdapter) {
       const state = store.getState();
       store.setState({
         resultGridOpen: false,
+        currentImage: state.currentImage ? toPreviewOnlyHistoryItem(state.currentImage) : null,
         workspaces: patchWorkspaceRuntime(state.workspaces, state.activeWorkspaceId, { resultGridOpen: false }),
       });
     },
@@ -330,14 +332,33 @@ export function createMediaActions(store: StateAdapter) {
 async function loadTransformedAsCurrent(store: StateAdapter, path: string) {
   const snapshot = store.getState();
   try {
-    const b64 = await ReadImageAsBase64(path);
     const baseName = path.split(/[\\/]/).pop() ?? "transformed.png";
+    const ref = await RegisterImportedImageAsset(path).catch(() => null);
+    const fallbackB64 = ref ? "" : await ReadImageAsBase64(path).catch(() => "");
     const current = snapshot.currentImage;
     const updated: HistoryItem = current
-      ? { ...current, imageB64: b64, savedPath: path, previewOnly: false }
+      ? withMediaAssetRef({
+          ...current,
+          imageB64: fallbackB64 || undefined,
+          imageBlob: null,
+          previewBlob: null,
+          savedPath: path,
+          previewOnly: !fallbackB64,
+        }, ref ?? {})
       : {
           id: genId(),
-          imageB64: b64,
+          ...(ref ? {
+            imageId: ref.imageId,
+            previewUrl: ref.previewUrl,
+            previewWidth: ref.previewWidth,
+            previewHeight: ref.previewHeight,
+            previewOnly: true,
+          } : {
+            imageB64: fallbackB64,
+            previewOnly: false,
+          }),
+          imageBlob: null,
+          previewBlob: null,
           prompt: `(变换)${baseName}`,
           mode: "edit",
           size: snapshot.size,
@@ -346,8 +367,22 @@ async function loadTransformedAsCurrent(store: StateAdapter, path: string) {
           savedPath: path,
         };
     const nextSources = snapshot.sources.length > 0
-      ? [{ path, name: baseName, size: 0, imageB64: b64 }, ...snapshot.sources.slice(1)]
-      : [{ path, name: baseName, size: 0, imageB64: b64 }];
+      ? [{
+          path,
+          name: baseName,
+          size: 0,
+          previewUrl: updated.previewUrl,
+          imageB64: updated.previewUrl ? undefined : updated.imageB64,
+          imageBlob: null,
+        }, ...snapshot.sources.slice(1)]
+      : [{
+          path,
+          name: baseName,
+          size: 0,
+          previewUrl: updated.previewUrl,
+          imageB64: updated.previewUrl ? undefined : updated.imageB64,
+          imageBlob: null,
+        }];
     store.setState({
       currentImage: updated,
       sources: nextSources,

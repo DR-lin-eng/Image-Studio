@@ -66,7 +66,7 @@ function SourceTile({
   reorderSources,
   removeSource,
 }: {
-  source: { path: string; name: string; imageBlob?: Blob | null; imageB64?: string };
+  source: { path: string; name: string; previewUrl?: string | null; imageBlob?: Blob | null; imageB64?: string };
   index: number;
   dragFrom: number | null;
   overIdx: number | null;
@@ -75,7 +75,8 @@ function SourceTile({
   reorderSources: (from: number, to: number) => void;
   removeSource: (index: number) => void;
 }) {
-  const previewURL = useBlobURL(source.imageBlob ?? null, source.imageB64 ?? null);
+  const objectURL = useBlobURL(source.imageBlob ?? null, source.imageB64 ?? null);
+  const previewURL = source.previewUrl || objectURL;
   const { usesFluentUI } = usePlatform();
   return (
     <div

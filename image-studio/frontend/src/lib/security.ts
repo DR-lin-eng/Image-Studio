@@ -9,6 +9,11 @@ export function sanitizeHistoryForExport(item: HistoryItem): HistoryItem {
     ...item,
     savedPath: undefined,
     rawPath: undefined,
+    fullUrl: undefined,
+    imageB64: undefined,
+    imageBlob: null,
+    previewBlob: null,
+    previewOnly: true,
   };
 }
 

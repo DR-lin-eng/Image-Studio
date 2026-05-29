@@ -332,12 +332,17 @@ func (s *Service) runJob(ctx context.Context, jobID string, opts GenerateOptions
 	// 拆 PNG 和 raw response 到两个子目录,避免单目录文件混杂。
 	imagesDir := imagesSubdir(rootDir)
 	thumbsDir := thumbsSubdir(rootDir)
+	previewsDir := previewsSubdir(rootDir)
 	logDir := logSubdir(rootDir)
 	if err := os.MkdirAll(imagesDir, secureDirMode); err != nil {
 		s.emitError(jobID, err)
 		return
 	}
 	if err := os.MkdirAll(thumbsDir, secureDirMode); err != nil {
+		s.emitError(jobID, err)
+		return
+	}
+	if err := os.MkdirAll(previewsDir, secureDirMode); err != nil {
 		s.emitError(jobID, err)
 		return
 	}
@@ -363,12 +368,40 @@ func (s *Service) runJob(ctx context.Context, jobID string, opts GenerateOptions
 		})
 	}
 	previewFn := func(partial client.PartialImage) {
-		runtime.EventsEmit(s.ctx, "preview:"+jobID, PreviewPayload{
-			ImageB64:          partial.ImageB64,
+		payload := PreviewPayload{
 			RevisedPrompt:     partial.RevisedPrompt,
 			PartialImageIndex: partial.PartialImageIndex,
 			Mode:              string(mode),
 			Prompt:            opts.Prompt,
+		}
+		if strings.TrimSpace(partial.ImageB64) == "" {
+			return
+		}
+		previewName := fmt.Sprintf("preview-%s-%03d-%d.avif", timestamp, partial.PartialImageIndex, time.Now().UnixNano())
+		previewPath := filepath.Join(previewsDir, previewName)
+		previewW, previewH, previewErr := createAVIFThumbnailFromBase64(partial.ImageB64, previewPath, mediaPreviewMaxEdge)
+		if previewErr != nil {
+			logFn(fmt.Sprintf("生成中间预览 AVIF 失败:%v", previewErr))
+			return
+		}
+		asset, mediaErr := s.registerPreviewMedia(previewPath, previewW, previewH)
+		if mediaErr != nil {
+			logFn(fmt.Sprintf("登记中间预览失败:%v", mediaErr))
+			return
+		}
+		payload.ImageID = asset.ID
+		payload.PreviewURL = asset.PreviewURL
+		payload.PreviewWidth = asset.PreviewWidth
+		payload.PreviewHeight = asset.PreviewHeight
+		runtime.EventsEmit(s.ctx, "preview:"+jobID, PreviewPayload{
+			ImageID:           payload.ImageID,
+			PreviewURL:        payload.PreviewURL,
+			PreviewWidth:      payload.PreviewWidth,
+			PreviewHeight:     payload.PreviewHeight,
+			RevisedPrompt:     payload.RevisedPrompt,
+			PartialImageIndex: payload.PartialImageIndex,
+			Mode:              payload.Mode,
+			Prompt:            payload.Prompt,
 		})
 	}
 

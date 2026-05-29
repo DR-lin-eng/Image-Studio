@@ -10,8 +10,6 @@ import {
   DeleteStoredAPIKey,
   GetStoredAPIKey,
   SetStoredAPIKey,
-  ExportHistoryToFile,
-  ImportHistoryFromFile,
   RegisterMediaAsset,
   SetOutputDir,
   probeCurrentUpstream,
@@ -1250,6 +1248,7 @@ async function launchOneJob(
             previewOnly: true,
           };
           const { completed: completedNow, total: totalNow } = removeFromRunning();
+          const currentItem = totalNow > 1 ? historyItem : activeItem;
           const trimmed = trimHistory([historyItem, ...store.getState().history]);
           store.setState((state) => {
             const workspace = state.workspaces.find((w) => w.id === snapshot.workspaceId);
@@ -1276,7 +1275,7 @@ async function launchOneJob(
               }),
               ...(state.activeWorkspaceId === snapshot.workspaceId
                 ? {
-                    currentImage: activeItem,
+                    currentImage: currentItem,
                     batchResults,
                     resultGridOpen: nextGridOpen,
                     maskDataURL: null,

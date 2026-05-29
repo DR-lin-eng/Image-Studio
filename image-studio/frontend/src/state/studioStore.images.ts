@@ -1,6 +1,7 @@
 import {
   OpenImageDialog,
   ImportImageFromB64,
+  RegisterImportedImageAsset,
   SaveImageAs,
   SaveImagePathAs,
 } from "../platform/runtime/host";
@@ -10,10 +11,11 @@ import { removeHistoryItem } from "../lib/storage";
 import type { HistoryItem } from "../types/domain";
 import type { StudioState } from "./studioStore.types";
 import {
-  createPreviewB64,
   ensureFullHistoryItem,
   fileToBase64,
   materializeHistoryItem,
+  toPreviewOnlyHistoryItem,
+  withMediaAssetRef,
 } from "./studioStore.runtime";
 import { patchWorkspaceRuntime } from "./workspaceRuntime";
 import { genId } from "./studioStore.shared";
@@ -35,11 +37,15 @@ export function createImageActions(store: StateAdapter) {
           store.setState({ mode: "edit", errorMessage: null, errorRawPath: null });
           return;
         }
-        const imageB64 = res.imageB64 ?? "";
-        const previewB64 = res.previewB64 || imageB64;
-        const imageBlob = previewB64 ? base64ToBlob(previewB64) : null;
         store.setState({
-          sources: [...existing, { path: res.path, name: baseName, size: res.size, imageB64: previewB64, imageBlob }],
+          sources: [...existing, {
+            path: res.path,
+            name: baseName,
+            size: res.size,
+            imageB64: res.imageB64 || undefined,
+            imageBlob: res.imageB64 ? base64ToBlob(res.imageB64) : null,
+            previewUrl: res.previewUrl,
+          }],
           mode: "edit",
           errorMessage: null,
           errorRawPath: null,
@@ -67,28 +73,34 @@ export function createImageActions(store: StateAdapter) {
     },
 
     async reuseAsSource(item: HistoryItem) {
-      const localItem = await materializeHistoryItem(item, {
+      let localItem = await materializeHistoryItem(item, {
         setState: (fn) => store.setState((state) => fn(state)),
       }).catch((e: any) => {
         store.setState({ errorMessage: `源图准备失败:${e?.message ?? e}`, errorRawPath: null });
         return null;
       });
       if (!localItem?.savedPath) return;
-      const baseName = localItem.savedPath.split(/[\\/]/).pop() ?? "source.png";
+      const savedPath = localItem.savedPath;
+      if (!localItem.previewUrl && !localItem.previewBlob && !localItem.imageB64) {
+        const ref = await RegisterImportedImageAsset(savedPath).catch(() => null);
+        if (ref) localItem = withMediaAssetRef(localItem, ref);
+      }
+      const baseName = savedPath.split(/[\\/]/).pop() ?? "source.png";
       const existing = store.getState().sources;
-      const alreadyIn = existing.some((source) => source.path === localItem.savedPath);
+      const alreadyIn = existing.some((source) => source.path === savedPath);
       store.setState({
         mode: "edit",
-        currentImage: localItem,
+        currentImage: toPreviewOnlyHistoryItem(localItem),
         resultGridOpen: false,
         sources: alreadyIn
           ? existing
           : [...existing, {
-              path: localItem.savedPath,
+              path: savedPath,
               name: baseName,
               size: 0,
-              imageBlob: localItem.previewBlob ?? localItem.imageBlob ?? null,
-              imageB64: localItem.imageB64,
+              imageBlob: localItem.previewUrl ? null : (localItem.previewBlob ?? localItem.imageBlob ?? null),
+              imageB64: localItem.previewUrl ? undefined : localItem.imageB64,
+              previewUrl: localItem.previewUrl,
             }],
       });
     },
@@ -159,14 +171,14 @@ export function createImageActions(store: StateAdapter) {
         }
         const b64 = await fileToBase64(file);
         const result = await ImportImageFromB64(b64, file.name);
-        const previewB64 = await createPreviewB64(b64);
-        const previewBlob = base64ToBlob(previewB64);
-        const fullBlob = base64ToBlob(b64);
+        const ref = await RegisterImportedImageAsset(result.path).catch(() => null);
+        const legacyB64 = result.previewUrl || ref?.previewUrl ? "" : (result.imageB64 || b64);
+        const legacyBlob = legacyB64 ? base64ToBlob(legacyB64) : null;
         const transientItem: HistoryItem = {
           id: genId(),
-          imageB64: b64,
-          imageBlob: fullBlob,
-          previewBlob,
+          imageB64: legacyB64 || undefined,
+          imageBlob: null,
+          previewBlob: legacyBlob,
           prompt: `(导入)${file.name}`,
           mode: "edit",
           size: "1024x1024",
@@ -174,10 +186,11 @@ export function createImageActions(store: StateAdapter) {
           createdAt: Date.now(),
           savedPath: result.path,
         };
+        const importedItem = ref ? withMediaAssetRef(transientItem, ref) : transientItem;
         const existingSources = store.getState().sources;
         const alreadyIn = existingSources.some((source) => source.path === result.path);
         store.setState({
-          currentImage: transientItem,
+          currentImage: ref ? { ...importedItem, previewOnly: true } : importedItem,
           batchResults: [],
           resultGridOpen: false,
           mode: "edit",
@@ -187,8 +200,9 @@ export function createImageActions(store: StateAdapter) {
                 path: result.path,
                 name: file.name,
                 size: file.size,
-                imageBlob: previewBlob,
-                imageB64: previewB64,
+                imageBlob: legacyBlob,
+                imageB64: legacyB64 || undefined,
+                previewUrl: importedItem.previewUrl,
               }],
           errorMessage: null,
           errorRawPath: null,

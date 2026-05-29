@@ -86,6 +86,10 @@ export function RegisterMediaAsset(arg1, arg2) {
   return window['go']['backend']['Service']['RegisterMediaAsset'](arg1, arg2);
 }
 
+export function RegisterImportedImageAsset(arg1) {
+  return window['go']['backend']['Service']['RegisterImportedImageAsset'](arg1);
+}
+
 export function RegisterTrustedOutputDir(arg1) {
   return window['go']['backend']['Service']['RegisterTrustedOutputDir'](arg1);
 }

@@ -75,18 +75,16 @@ export function HistoryRail() {
     if (useStudioStore.getState().resultGridOpen) {
       useStudioStore.getState().closeResultGrid();
     }
-    // 3) previewOnly 需要后台从磁盘 / IndexedDB 读全图;读完只在 epoch 没变
-    //    时才提交全图替换。epoch 变了说明用户已经点了别的图,这次结果作废。
     const previewItem = toPreviewOnlyHistoryItem(h);
     setField("currentImage", previewItem);
-    if (h.previewOnly || h.fullUrl) {
+    if (!h.previewUrl) {
       try {
         const full = await useStudioStore.getState().materializeCurrentImage?.(h);
         if (selectEpochRef.current === myEpoch && full) {
-          setField("currentImage", { ...full, previewOnly: false });
+          setField("currentImage", toPreviewOnlyHistoryItem(full));
         }
       } catch {
-        // 读不出来就维持预览,用户可以再点一次
+        // 读不出来就维持当前状态,用户可以再点一次
       }
     }
   }

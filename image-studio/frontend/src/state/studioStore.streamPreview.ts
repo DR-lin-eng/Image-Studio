@@ -1,4 +1,3 @@
-import { base64ToBlob } from "../lib/images.ts";
 import type {
   HistoryItem,
   Mode,
@@ -18,6 +17,10 @@ import {
 
 export type StreamPreviewPayload = {
   imageB64?: string;
+  imageId?: string;
+  previewUrl?: string;
+  previewWidth?: number;
+  previewHeight?: number;
   revisedPrompt?: string;
   partialImageIndex?: number;
   mode?: string;
@@ -48,15 +51,21 @@ export function streamPreviewItemFromPayload(
   payload: StreamPreviewPayload,
   snapshot: StreamPreviewSnapshot,
 ): HistoryItem | null {
+  const previewUrl = typeof payload.previewUrl === "string" ? payload.previewUrl.trim() : "";
   const imageB64 = typeof payload.imageB64 === "string" ? payload.imageB64.trim() : "";
-  if (!imageB64) return null;
+  if (!previewUrl && !imageB64) return null;
   const mode: Mode = payload.mode === "edit" || payload.mode === "generate"
     ? payload.mode
     : snapshot.mode;
   return {
     id: `preview-${jobId}`,
-    imageB64,
-    imageBlob: base64ToBlob(imageB64),
+    imageId: typeof payload.imageId === "string" && payload.imageId.trim() ? payload.imageId.trim() : undefined,
+    previewUrl: previewUrl || undefined,
+    previewWidth: typeof payload.previewWidth === "number" && payload.previewWidth > 0 ? payload.previewWidth : undefined,
+    previewHeight: typeof payload.previewHeight === "number" && payload.previewHeight > 0 ? payload.previewHeight : undefined,
+    imageB64: previewUrl ? undefined : imageB64,
+    imageBlob: null,
+    previewBlob: null,
     prompt: payload.prompt || snapshot.prompt,
     revisedPrompt: payload.revisedPrompt || undefined,
     mode,
@@ -84,6 +93,10 @@ export function streamPreviewStatePatch(
     : workspace?.streamPreviews ?? {};
   const nextPreview: StreamPreview = {
     jobId,
+    imageId: item.imageId,
+    previewUrl: item.previewUrl,
+    previewWidth: item.previewWidth,
+    previewHeight: item.previewHeight,
     imageB64: item.imageB64,
     revisedPrompt: item.revisedPrompt,
     partialImageIndex: payload.partialImageIndex,
@@ -154,6 +167,10 @@ export function streamPreviewItemFromWorkspace(
   const preview = workspace.streamPreview ?? latestStreamPreview(workspace.streamPreviews);
   if (!preview) return null;
   return streamPreviewItemFromPayload(preview.jobId, {
+    imageId: preview.imageId,
+    previewUrl: preview.previewUrl,
+    previewWidth: preview.previewWidth,
+    previewHeight: preview.previewHeight,
     imageB64: preview.imageB64,
     revisedPrompt: preview.revisedPrompt,
     partialImageIndex: preview.partialImageIndex,
@@ -178,6 +195,10 @@ export function streamPreviewItemsFromPreviews(
   return Object.values(previews ?? {})
     .sort((a, b) => a.updatedAt - b.updatedAt)
     .map((preview) => streamPreviewItemFromPayload(preview.jobId, {
+      imageId: preview.imageId,
+      previewUrl: preview.previewUrl,
+      previewWidth: preview.previewWidth,
+      previewHeight: preview.previewHeight,
       imageB64: preview.imageB64,
       revisedPrompt: preview.revisedPrompt,
       partialImageIndex: preview.partialImageIndex,

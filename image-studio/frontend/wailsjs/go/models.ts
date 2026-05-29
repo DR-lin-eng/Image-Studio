@@ -66,7 +66,11 @@ export namespace backend {
 	}
 	export class ImportedImage {
 	    path: string;
-	    imageB64: string;
+	    imageB64?: string;
+	    imageId?: string;
+	    previewUrl?: string;
+	    previewWidth?: number;
+	    previewHeight?: number;
 
 	    static createFrom(source: any = {}) {
 	        return new ImportedImage(source);
@@ -76,6 +80,10 @@ export namespace backend {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.path = source["path"];
 	        this.imageB64 = source["imageB64"];
+	        this.imageId = source["imageId"];
+	        this.previewUrl = source["previewUrl"];
+	        this.previewWidth = source["previewWidth"];
+	        this.previewHeight = source["previewHeight"];
 	    }
 	}
 	export class JobStarted {
@@ -112,6 +120,34 @@ export namespace backend {
 	        this.fullUrl = source["fullUrl"];
 	        this.previewWidth = source["previewWidth"];
 	        this.previewHeight = source["previewHeight"];
+	    }
+	}
+	export class PreviewPayload {
+	    imageB64?: string;
+	    imageId?: string;
+	    previewUrl?: string;
+	    previewWidth?: number;
+	    previewHeight?: number;
+	    revisedPrompt?: string;
+	    partialImageIndex: number;
+	    mode: string;
+	    prompt: string;
+
+	    static createFrom(source: any = {}) {
+	        return new PreviewPayload(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.imageB64 = source["imageB64"];
+	        this.imageId = source["imageId"];
+	        this.previewUrl = source["previewUrl"];
+	        this.previewWidth = source["previewWidth"];
+	        this.previewHeight = source["previewHeight"];
+	        this.revisedPrompt = source["revisedPrompt"];
+	        this.partialImageIndex = source["partialImageIndex"];
+	        this.mode = source["mode"];
+	        this.prompt = source["prompt"];
 	    }
 	}
 	export class PromptOptimizeOptions {
@@ -168,6 +204,10 @@ export namespace backend {
 	    path: string;
 	    size: number;
 	    imageB64?: string;
+	    imageId?: string;
+	    previewUrl?: string;
+	    previewWidth?: number;
+	    previewHeight?: number;
 
 	    static createFrom(source: any = {}) {
 	        return new SelectFileResponse(source);
@@ -178,6 +218,10 @@ export namespace backend {
 	        this.path = source["path"];
 	        this.size = source["size"];
 	        this.imageB64 = source["imageB64"];
+	        this.imageId = source["imageId"];
+	        this.previewUrl = source["previewUrl"];
+	        this.previewWidth = source["previewWidth"];
+	        this.previewHeight = source["previewHeight"];
 	    }
 	}
 

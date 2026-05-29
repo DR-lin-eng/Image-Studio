@@ -416,6 +416,13 @@ export function RegisterMediaAsset(savedPath: string, thumbPath: string): Promis
   return Promise.resolve({ savedPath, thumbPath });
 }
 
+export function RegisterImportedImageAsset(path: string): Promise<MediaAssetRefLike> {
+  if (hasServiceMethod("RegisterImportedImageAsset")) {
+    return invokeService<MediaAssetRefLike>(unsupportedMessage, "RegisterImportedImageAsset", path);
+  }
+  return Promise.resolve({ savedPath: path });
+}
+
 export function ImportImageFromB64(imageB64: string, suggestedName: string): Promise<ImportedImageLike> {
   if (hasServiceMethod("ImportImageFromB64")) {
     return invokeService<ImportedImageLike>(unsupportedMessage, "ImportImageFromB64", imageB64, suggestedName)

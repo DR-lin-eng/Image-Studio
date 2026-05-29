@@ -1,7 +1,9 @@
 package backend
 
 import (
+	"bytes"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -11,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/gen2brain/avif"
 	xdraw "golang.org/x/image/draw"
@@ -18,23 +21,26 @@ import (
 )
 
 const (
-	mediaThumbMaxEdge = 384
-	mediaAVIFQuality  = 46
-	mediaAVIFAlphaQ   = 50
-	mediaAVIFSpeed    = 8
+	mediaThumbMaxEdge   = 384
+	mediaPreviewMaxEdge = 384
+	mediaAVIFQuality    = 46
+	mediaAVIFAlphaQ     = 50
+	mediaAVIFSpeed      = 8
 )
 
 type mediaAsset struct {
 	ID            string
 	FullPath      string
 	ThumbPath     string
+	PreviewPath   string
 	FullURL       string
 	PreviewURL    string
 	PreviewWidth  int
 	PreviewHeight int
 }
 
-func thumbsSubdir(root string) string { return filepath.Join(root, "thumbs") }
+func thumbsSubdir(root string) string   { return filepath.Join(root, "thumbs") }
+func previewsSubdir(root string) string { return filepath.Join(root, "previews") }
 
 func (s *Service) registerGeneratedMedia(fullPath, thumbPath string, width, height int) (mediaAsset, error) {
 	fullAbs, err := filepath.Abs(fullPath)
@@ -65,6 +71,69 @@ func (s *Service) registerGeneratedMedia(fullPath, thumbPath string, width, heig
 	s.mediaAssets[id] = asset
 	s.mu.Unlock()
 	return asset, nil
+}
+
+func (s *Service) registerPreviewMedia(previewPath string, width, height int) (mediaAsset, error) {
+	previewAbs, err := filepath.Abs(previewPath)
+	if err != nil {
+		return mediaAsset{}, err
+	}
+	id := mediaIDForPath(previewAbs)
+	asset := mediaAsset{
+		ID:            id,
+		PreviewPath:   previewAbs,
+		PreviewURL:    "/media/preview/" + id,
+		PreviewWidth:  width,
+		PreviewHeight: height,
+	}
+	s.mu.Lock()
+	if s.mediaAssets == nil {
+		s.mediaAssets = map[string]mediaAsset{}
+	}
+	s.mediaAssets[id] = asset
+	s.mu.Unlock()
+	return asset, nil
+}
+
+func (s *Service) registerImportedPreview(sourcePath string) (mediaAsset, error) {
+	absSource, err := filepath.Abs(sourcePath)
+	if err != nil {
+		return mediaAsset{}, err
+	}
+	if _, err := os.Stat(absSource); err != nil {
+		return mediaAsset{}, err
+	}
+	importsRoot, err := importsDir()
+	if err != nil {
+		return mediaAsset{}, err
+	}
+	previewsDir := filepath.Join(importsRoot, "previews")
+	stem := strings.TrimSuffix(filepath.Base(absSource), filepath.Ext(absSource))
+	previewName := fmt.Sprintf("import-%d-%s.avif", time.Now().UnixNano(), sanitiseName(stem))
+	previewPath := filepath.Join(previewsDir, previewName)
+	width, height, err := createAVIFThumbnail(absSource, previewPath, mediaPreviewMaxEdge)
+	if err != nil {
+		return mediaAsset{}, err
+	}
+	return s.registerPreviewMedia(previewPath, width, height)
+}
+
+func (s *Service) RegisterImportedImageAsset(path string) (MediaAssetRef, error) {
+	allowed, err := s.ensureManagedReadablePath(path, managedImageFile)
+	if err != nil {
+		return MediaAssetRef{}, err
+	}
+	asset, err := s.registerImportedPreview(allowed)
+	if err != nil {
+		return MediaAssetRef{}, err
+	}
+	return MediaAssetRef{
+		ImageID:       asset.ID,
+		SavedPath:     allowed,
+		PreviewURL:    asset.PreviewURL,
+		PreviewWidth:  asset.PreviewWidth,
+		PreviewHeight: asset.PreviewHeight,
+	}, nil
 }
 
 func (s *Service) RegisterMediaAsset(savedPath, thumbPath string) (MediaAssetRef, error) {
@@ -142,6 +211,8 @@ func (s *Service) serveMedia(w http.ResponseWriter, r *http.Request) {
 		path = asset.ThumbPath
 	case "full":
 		path = asset.FullPath
+	case "preview":
+		path = asset.PreviewPath
 	default:
 		http.NotFound(w, r)
 		return
@@ -164,7 +235,7 @@ func parseMediaPath(path string) (kind string, id string, ok bool) {
 	if len(parts) != 2 {
 		return "", "", false
 	}
-	if parts[0] != "thumb" && parts[0] != "full" {
+	if parts[0] != "thumb" && parts[0] != "full" && parts[0] != "preview" {
 		return "", "", false
 	}
 	if len(parts[1]) != 32 {
@@ -181,7 +252,7 @@ func parseMediaPath(path string) (kind string, id string, ok bool) {
 func setMediaHeaders(w http.ResponseWriter, path, kind string) {
 	w.Header().Set("Cache-Control", "private, max-age=86400")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
-	if kind == "thumb" || strings.EqualFold(filepath.Ext(path), ".avif") {
+	if kind == "thumb" || kind == "preview" || strings.EqualFold(filepath.Ext(path), ".avif") {
 		w.Header().Set("Content-Type", "image/avif")
 	}
 }
@@ -193,6 +264,35 @@ func createAVIFThumbnail(sourcePath, thumbPath string, maxEdge int) (width int, 
 	src, err := loadImage(sourcePath)
 	if err != nil {
 		return 0, 0, err
+	}
+	return createAVIFThumbnailFromImage(src, thumbPath, maxEdge)
+}
+
+func createAVIFThumbnailFromBase64(imageB64, thumbPath string, maxEdge int) (width int, height int, err error) {
+	if maxEdge <= 0 {
+		maxEdge = mediaThumbMaxEdge
+	}
+	imageB64 = strings.TrimSpace(imageB64)
+	if imageB64 == "" {
+		return 0, 0, errors.New("empty image base64")
+	}
+	if comma := strings.Index(imageB64, ","); comma >= 0 {
+		imageB64 = imageB64[comma+1:]
+	}
+	data, err := base64.StdEncoding.DecodeString(imageB64)
+	if err != nil {
+		return 0, 0, fmt.Errorf("decode preview base64: %w", err)
+	}
+	src, _, err := image.Decode(bytes.NewReader(data))
+	if err != nil {
+		return 0, 0, fmt.Errorf("decode preview image: %w", err)
+	}
+	return createAVIFThumbnailFromImage(src, thumbPath, maxEdge)
+}
+
+func createAVIFThumbnailFromImage(src image.Image, thumbPath string, maxEdge int) (width int, height int, err error) {
+	if maxEdge <= 0 {
+		maxEdge = mediaThumbMaxEdge
 	}
 	bounds := src.Bounds()
 	sw, sh := bounds.Dx(), bounds.Dy()

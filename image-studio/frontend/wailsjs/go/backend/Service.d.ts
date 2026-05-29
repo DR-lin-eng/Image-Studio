@@ -44,6 +44,8 @@ export function ReadTextFile(arg1:string):Promise<string>;
 
 export function RegisterMediaAsset(arg1:string,arg2:string):Promise<backend.MediaAssetRef>;
 
+export function RegisterImportedImageAsset(arg1:string):Promise<backend.MediaAssetRef>;
+
 export function RegisterTrustedOutputDir(arg1:string):Promise<void>;
 
 export function RotateImage(arg1:string,arg2:number):Promise<backend.ImageTransformResult>;

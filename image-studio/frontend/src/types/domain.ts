@@ -92,10 +92,10 @@ export interface SourceImage {
   path: string;
   name: string;
   size: number;       // bytes; 0 when unknown (e.g. reused-from-history)
+  previewUrl?: string;
   imageBlob?: Blob | null;
-  // Optional base64 for canvas preview. OpenImageDialog now returns it for
-  // reasonably sized files, while very large files still fall back to the
-  // extension placeholder UI to avoid blowing up the JSON bridge.
+  // Legacy/browser fallback for canvas preview. Wails source previews should
+  // prefer previewUrl so selected files do not cross the bridge as base64.
   imageB64?: string;
 }
 
@@ -142,6 +142,10 @@ export interface ProgressInfo {
 
 export interface StreamPreview {
   jobId: string;
+  imageId?: string;
+  previewUrl?: string;
+  previewWidth?: number;
+  previewHeight?: number;
   imageB64?: string;
   revisedPrompt?: string;
   partialImageIndex?: number;

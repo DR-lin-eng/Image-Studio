@@ -2,12 +2,11 @@ import type { backend } from "../../wailsjs/go/models";
 import {
   ImportImageFromB64,
   RegisterMediaAsset,
+  RegisterImportedImageAsset,
   ReadImageAsBase64,
 } from "../platform/runtime/host";
 import {
   base64ToBlob,
-  blobToBase64,
-  createPreviewBlob,
 } from "../lib/images";
 import {
   loadHistoryFullImage,
@@ -45,7 +44,7 @@ export function withMediaAssetRef(
     savedPath: ref.savedPath || item.savedPath,
     thumbPath: ref.thumbPath || item.thumbPath,
     previewUrl: ref.previewUrl || item.previewUrl,
-    fullUrl: item.fullUrl,
+    fullUrl: ref.fullUrl || item.fullUrl,
     previewWidth: ref.previewWidth || item.previewWidth,
     previewHeight: ref.previewHeight || item.previewHeight,
   };
@@ -66,13 +65,6 @@ function fullUrlFromImageID(imageId?: string | null): string {
   return imageId ? `/media/full/${imageId}` : "";
 }
 
-export async function createPreviewB64(b64: string, maxEdge = 192): Promise<string> {
-  const blob = base64ToBlob(b64);
-  const preview = await createPreviewBlob(blob, maxEdge);
-  if (preview === blob) return b64;
-  return await blobToBase64(preview);
-}
-
 export async function materializeHistoryItem(
   item: HistoryItem,
   deps: {
@@ -86,7 +78,15 @@ export async function materializeHistoryItem(
   }
   if (!item.imageB64) return item;
   const imported = await ImportImageFromB64(item.imageB64, suggestedImportNameForHistory(item));
-  const next: HistoryItem = { ...item, savedPath: imported.path };
+  const next: HistoryItem = {
+    ...item,
+    savedPath: imported.path,
+    imageB64: imported.previewUrl ? undefined : item.imageB64,
+    imageId: imported.imageId || item.imageId,
+    previewUrl: imported.previewUrl || item.previewUrl,
+    previewWidth: imported.previewWidth || item.previewWidth,
+    previewHeight: imported.previewHeight || item.previewHeight,
+  };
   deps.setState((state) => ({
     currentImage: state.currentImage?.id === item.id ? next : state.currentImage,
     history: state.history.map((h) => (h.id === item.id ? next : h)),
@@ -104,6 +104,23 @@ export async function ensureFullHistoryItem(
   if (!item) return null;
   if ((item.fullUrl || item.imageId) && !item.imageB64 && !item.imageBlob) {
     return { ...item, fullUrl: item.fullUrl || fullUrlFromImageID(item.imageId), previewOnly: false };
+  }
+  if (item.savedPath && !item.savedPath.startsWith("memory://") && !item.imageB64 && !item.imageBlob && item.previewOnly) {
+    try {
+      const ref = item.thumbPath
+        ? await RegisterMediaAsset(item.savedPath, item.thumbPath)
+        : await RegisterImportedImageAsset(item.savedPath);
+      const fullUrl = ref.fullUrl || (ref.imageId ? fullUrlFromImageID(ref.imageId) : item.fullUrl);
+      if (fullUrl) {
+        return { ...withMediaAssetRef(item, ref), fullUrl, previewOnly: false };
+      }
+      const fullB64 = await ReadImageAsBase64(item.savedPath).catch(() => "");
+      if (fullB64) {
+        return { ...withMediaAssetRef(item, ref), imageB64: fullB64, imageBlob: base64ToBlob(fullB64), previewOnly: false };
+      }
+    } catch {
+      // Fall through to legacy full-image materialization.
+    }
   }
   if (item.savedPath && item.thumbPath && !item.imageB64 && !item.imageBlob) {
     try {

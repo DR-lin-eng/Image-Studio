@@ -48,9 +48,24 @@ export type ProbeUpstreamResultLike = {
 };
 
 export type JobStartedLike = { jobId: string };
-export type ImportedImageLike = { path: string; imageB64: string };
+export type ImportedImageLike = {
+  path: string;
+  imageB64?: string;
+  imageId?: string;
+  previewUrl?: string;
+  previewWidth?: number;
+  previewHeight?: number;
+};
 export type ImageTransformResultLike = { path: string; acceleration?: string };
-export type SelectFileResponseLike = { path: string; size: number; imageB64?: string; previewB64?: string };
+export type SelectFileResponseLike = {
+  path: string;
+  size: number;
+  imageB64?: string;
+  imageId?: string;
+  previewUrl?: string;
+  previewWidth?: number;
+  previewHeight?: number;
+};
 export type MediaAssetRefLike = {
   imageId?: string;
   savedPath?: string;

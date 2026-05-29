@@ -114,6 +114,32 @@ export namespace backend {
 	        this.imagePath = source["imagePath"];
 	    }
 	}
+	export class ProbeUpstreamOptions {
+	    apiKey: string;
+	    baseURL: string;
+
+	    static createFrom(source: any = {}) {
+	        return new ProbeUpstreamOptions(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.apiKey = source["apiKey"];
+	        this.baseURL = source["baseURL"];
+	    }
+	}
+	export class ProbeUpstreamResult {
+	    modelCount: number;
+
+	    static createFrom(source: any = {}) {
+	        return new ProbeUpstreamResult(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.modelCount = source["modelCount"];
+	    }
+	}
 	export class SelectFileResponse {
 	    path: string;
 	    size: number;

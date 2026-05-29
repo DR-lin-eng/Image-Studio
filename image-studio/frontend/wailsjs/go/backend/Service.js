@@ -70,6 +70,10 @@ export function OptimizePrompt(arg1) {
   return window['go']['backend']['Service']['OptimizePrompt'](arg1);
 }
 
+export function ProbeUpstream(arg1) {
+  return window['go']['backend']['Service']['ProbeUpstream'](arg1);
+}
+
 export function ReadImageAsBase64(arg1) {
   return window['go']['backend']['Service']['ReadImageAsBase64'](arg1);
 }

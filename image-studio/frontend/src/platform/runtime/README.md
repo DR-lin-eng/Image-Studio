@@ -30,7 +30,6 @@
   - `index.ts`
     - `runRemoteImageJob`
     - `optimizePromptRemote`
-    - `probeUpstreamConnection`
 
 ## 维护规则
 

@@ -117,39 +117,6 @@ export async function optimizePromptRemote(
   return text;
 }
 
-export async function probeUpstreamConnection(
-  baseURL: string,
-  apiKey: string,
-  signal?: AbortSignal,
-): Promise<void> {
-  if (shouldUseAndroidNativeHTTP()) {
-    const response = await nativeHttpRequestText(
-      `${normalizeBaseURL(baseURL)}/v1/models`,
-      "GET",
-      {
-        Authorization: `Bearer ${apiKey.trim()}`,
-      },
-      null,
-      signal,
-    );
-    if (response.status < 200 || response.status >= 300) {
-      throw new RemoteKernelError(`${response.status}${response.body ? ` ${response.body.slice(0, 160)}` : ""}`);
-    }
-    return;
-  }
-  const response = await fetch(`${normalizeBaseURL(baseURL)}/v1/models`, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${apiKey.trim()}`,
-    },
-    signal,
-  });
-  if (!response.ok) {
-    const text = await response.text().catch(() => "");
-    throw new RemoteKernelError(`${response.status}${text ? ` ${text.slice(0, 160)}` : ""}`);
-  }
-}
-
 export {
   MAX_ATTEMPTS,
   RETRY_BACKOFF_MS,

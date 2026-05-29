@@ -56,6 +56,18 @@ type PromptOptimizeOptions struct {
 	ImagePath   string   `json:"imagePath"`
 }
 
+// ProbeUpstreamOptions is used by the UI's connection-test button. Validation
+// and the actual /v1/models request are intentionally host-side so browser and
+// WebView quirks do not decide whether a channel is alive.
+type ProbeUpstreamOptions struct {
+	APIKey  string `json:"apiKey"`
+	BaseURL string `json:"baseURL"`
+}
+
+type ProbeUpstreamResult struct {
+	ModelCount int `json:"modelCount"`
+}
+
 func (o PromptOptimizeOptions) collectPaths() []string {
 	paths := make([]string, 0, len(o.ImagePaths)+1)
 	for _, p := range o.ImagePaths {

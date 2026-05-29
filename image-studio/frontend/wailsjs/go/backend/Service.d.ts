@@ -36,6 +36,8 @@ export function OpenOutputDir():Promise<void>;
 
 export function OptimizePrompt(arg1:backend.PromptOptimizeOptions):Promise<string>;
 
+export function ProbeUpstream(arg1:backend.ProbeUpstreamOptions):Promise<backend.ProbeUpstreamResult>;
+
 export function ReadImageAsBase64(arg1:string):Promise<string>;
 
 export function ReadTextFile(arg1:string):Promise<string>;

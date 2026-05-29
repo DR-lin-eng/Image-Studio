@@ -533,18 +533,6 @@ test("optimizePromptRemote extracts output_text", async () => {
   });
 });
 
-test("probeUpstreamConnection rejects non-2xx with summarized message", async () => {
-  await withPatchedGlobals(async () => {
-    globalThis.fetch = async () => new Response("forbidden", { status: 403 });
-  }, async () => {
-    const kernel = await loadRemoteKernel();
-    await assert.rejects(
-      () => kernel.probeUpstreamConnection("https://upstream.example", "key"),
-      /403 forbidden/,
-    );
-  });
-});
-
 test("Android shell remote kernel can use native HTTP bridge to bypass browser fetch", async () => {
   const partials = [];
   const progressEvents = [];
@@ -555,14 +543,6 @@ test("Android shell remote kernel can use native HTTP bridge to bypass browser f
         queueMicrotask(() => {
           if (method === "HttpRequestText") {
             const payload = args[0];
-            if (payload.url.endsWith("/v1/models")) {
-              window.__imageStudioNativeResolve?.(requestId, {
-                status: 200,
-                body: '{"data":[{"id":"gpt-5.5"}]}',
-                contentType: "application/json",
-              });
-              return;
-            }
             if (payload.url.endsWith("/v1/responses")) {
               assert.equal(payload.streamLines, true);
               window.__imageStudioNativeProgress?.(payload.requestKey, {
@@ -598,7 +578,6 @@ test("Android shell remote kernel can use native HTTP bridge to bypass browser f
     };
   }, async () => {
     const kernel = await loadRemoteKernel();
-    await kernel.probeUpstreamConnection("https://upstream.example", "key");
     const result = await kernel.runRemoteImageJob(
       {
         payload: {

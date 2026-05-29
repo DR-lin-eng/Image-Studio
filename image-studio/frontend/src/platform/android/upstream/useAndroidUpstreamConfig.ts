@@ -154,22 +154,24 @@ export function useAndroidUpstreamConfig(open: boolean) {
     pushToast("已切换当前上游", "success");
   }
 
-  async function handleSaveAndSetActive() {
+  async function handleSaveAndSetActive(onSaved?: () => void) {
     if (!draft) return;
     const draftId = draft.id;
     const saved = await handleSave();
     if (saved && draftId !== activeProfileId) {
       await setActiveProfile(draftId);
     }
+    if (saved) onSaved?.();
   }
 
-  async function handleSaveAndTest() {
+  async function handleSaveAndTest(onSaved?: () => void) {
     const saved = await handleSave();
     if (!saved || !draft) return;
     if (draft.id !== useStudioStore.getState().activeProfileId) {
       await setActiveProfile(draft.id);
     }
-    await testAPIKey();
+    onSaved?.();
+    setTimeout(() => { void testAPIKey(); }, 0);
   }
 
   return {

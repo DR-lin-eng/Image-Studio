@@ -33,6 +33,7 @@ export function applyMacWorkspacePreviewToStore(workspaceId = "preview-workspace
     jobsCompleted: 0,
     progress: null,
     streamPreview: null,
+    streamPreviews: {},
     lastLogLine: "",
     errorMessage: null,
     errorRawPath: null,

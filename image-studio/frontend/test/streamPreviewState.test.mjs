@@ -24,6 +24,7 @@ function makeWorkspace(overrides = {}) {
     jobsCompleted: 0,
     progress: null,
     streamPreview: null,
+    streamPreviews: {},
     lastLogLine: "",
     errorMessage: null,
     lastPayload: null,
@@ -37,6 +38,7 @@ test("streamPreviewStatePatch creates transient current image without history pe
     workspaces: [makeWorkspace()],
     currentImage: null,
     streamPreview: null,
+    streamPreviews: {},
     compareB: { id: "b" },
     resultGridOpen: true,
     annotations: [{ id: "a" }],
@@ -61,11 +63,64 @@ test("streamPreviewStatePatch creates transient current image without history pe
   assert.equal(patch.currentImage.id, "preview-job-a");
   assert.equal(patch.currentImage.previewOnly, true);
   assert.equal(patch.streamPreview.imageB64, "YWJj");
+  assert.equal(patch.streamPreviews["job-a"].imageB64, "YWJj");
   assert.equal(patch.workspaces[0].streamPreview.partialImageIndex, 0);
   assert.equal(patch.resultGridOpen, false);
   assert.deepEqual(patch.annotations, []);
   assert.deepEqual(patch.strokes, []);
   assert.equal(patch.tool, "pan");
+});
+
+test("multi-job stream previews are accumulated by job id", () => {
+  const baseState = {
+    activeWorkspaceId: "ws-a",
+    workspaces: [makeWorkspace({ jobsTotal: 9 })],
+    currentImage: null,
+    streamPreview: null,
+    streamPreviews: {},
+    compareB: null,
+    resultGridOpen: true,
+    annotations: [],
+    strokes: [],
+    maskDataURL: null,
+    tool: "pan",
+    jobsTotal: 9,
+  };
+  const firstPatch = preview.streamPreviewStatePatch(baseState, "job-a", {
+    imageB64: "YQ==",
+  }, {
+    workspaceId: "ws-a",
+    mode: "generate",
+    prompt: "cat",
+    size: "1024x1024",
+    quality: "medium",
+    outputFormat: "png",
+    currentImage: null,
+    batchIndex: 0,
+  });
+  const nextState = {
+    ...baseState,
+    ...firstPatch,
+    workspaces: firstPatch.workspaces,
+  };
+  const secondPatch = preview.streamPreviewStatePatch(nextState, "job-b", {
+    imageB64: "Yg==",
+  }, {
+    workspaceId: "ws-a",
+    mode: "generate",
+    prompt: "cat",
+    size: "1024x1024",
+    quality: "medium",
+    outputFormat: "png",
+    currentImage: null,
+    batchIndex: 1,
+  });
+
+  assert.equal(Object.keys(secondPatch.streamPreviews).length, 2);
+  assert.equal(secondPatch.streamPreviews["job-a"].imageB64, "YQ==");
+  assert.equal(secondPatch.streamPreviews["job-b"].imageB64, "Yg==");
+  assert.equal(secondPatch.resultGridOpen, true);
+  assert.equal(secondPatch.currentImage, undefined);
 });
 
 test("workspace stream preview can be rehydrated when switching tabs", () => {

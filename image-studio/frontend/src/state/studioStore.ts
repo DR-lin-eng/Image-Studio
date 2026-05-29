@@ -102,6 +102,7 @@ import { createWorkspaceActions } from "./studioStore.workspaces";
 import { createImageActions } from "./studioStore.images";
 import {
   currentImageIdForWorkspaceSnapshot,
+  removeStreamPreview,
   restoreCurrentImageAfterPreviewError,
   streamPreviewStatePatch,
   type StreamPreviewPayload,
@@ -191,6 +192,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   jobsCompleted: 0,
   progress: null,
   streamPreview: null,
+  streamPreviews: {},
   lastLogLine: "",
   errorMessage: null,
   errorRawPath: null,
@@ -287,7 +289,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
         compareB: null,
         resultGridOpen: false,
         workspaces: patchWorkspaceRuntime(get().workspaces, get().activeWorkspaceId, {
-          currentImageId: currentImageIdForWorkspaceSnapshot(item, get().streamPreview, workspace?.currentImageId ?? null),
+          currentImageId: currentImageIdForWorkspaceSnapshot(item, get().streamPreview, get().streamPreviews, workspace?.currentImageId ?? null),
           resultGridOpen: false,
         }),
       });
@@ -428,6 +430,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       errorRawPath: null,
       progress: null,
       streamPreview: null,
+      streamPreviews: {},
       lastLogLine: "",
       isRunning: true,
       jobsTotal: batchCount,
@@ -513,6 +516,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       void launchOneJob(s.mode, p, {
         workspaceId,
         apiMode: s.apiMode,
+        batchIndex: i,
         size: s.size,
         quality: s.quality,
         outputFormat: s.outputFormat,
@@ -539,6 +543,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       runningJobs: [],
       progress: null,
       streamPreview: null,
+      streamPreviews: {},
       jobsTotal: 0,
       jobsCompleted: 0,
     };
@@ -587,6 +592,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
         jobsCompleted: 0,
         progress: null,
         streamPreview: null,
+        streamPreviews: {},
         lastLogLine: "",
         errorMessage: null,
         errorRawPath: null,
@@ -819,6 +825,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       jobsCompleted: 0,
       progress: null,
       streamPreview: null,
+      streamPreviews: {},
       lastLogLine: "",
       errorMessage: null,
       errorRawPath: null,
@@ -1103,6 +1110,7 @@ async function launchOneJob(
   snapshot: {
     workspaceId: string;
     apiMode: APIModeValue;
+    batchIndex: number;
     size: SizeValue;
     quality: QualityValue;
     outputFormat: OutputFormatValue;
@@ -1142,6 +1150,7 @@ async function launchOneJob(
       store.setState((state) => {
         const runtime = workspaceRuntimeFromState(state, snapshot.workspaceId);
         const remaining = runtime.runningJobs.filter((id) => id !== jobId);
+        const prunedPreview = removeStreamPreview(runtime.streamPreviews, jobId);
         completed = runtime.jobsCompleted + 1;
         total = runtime.jobsTotal;
         const patch: WorkspacePatch = {
@@ -1149,7 +1158,8 @@ async function launchOneJob(
           jobsCompleted: completed,
           jobsTotal: remaining.length === 0 ? 0 : runtime.jobsTotal,
           progress: remaining.length === 0 ? null : runtime.progress,
-          streamPreview: remaining.length === 0 ? null : runtime.streamPreview,
+          streamPreview: remaining.length === 0 ? null : prunedPreview.streamPreview,
+          streamPreviews: remaining.length === 0 ? {} : prunedPreview.streamPreviews,
           lastLogLine: remaining.length === 0 ? "" : runtime.lastLogLine,
         };
         const nextMeta = { ...state.runningJobMeta };
@@ -1187,6 +1197,7 @@ async function launchOneJob(
           quality: snapshot.quality,
           outputFormat: snapshot.outputFormat,
           currentImage: snapshot.currentImage,
+          batchIndex: snapshot.batchIndex,
         }) ?? {}
       ));
     });
@@ -1224,6 +1235,7 @@ async function launchOneJob(
             seed: payload.seed || undefined,
             negativePrompt: payload.negativePrompt || undefined,
             styleTag: snapshot.styleTag || undefined,
+            batchIndex: snapshot.batchIndex,
             elapsedSec: Number(elapsedSec.toFixed(1)),
             savedPath: r.savedPath,
             rawPath: r.rawPath,
@@ -1261,14 +1273,12 @@ async function launchOneJob(
                 currentImageId: historyItem.id,
                 batchResultIds: nextBatchIDs,
                 resultGridOpen: nextGridOpen,
-                streamPreview: null,
               }),
               ...(state.activeWorkspaceId === snapshot.workspaceId
                 ? {
                     currentImage: activeItem,
                     batchResults,
                     resultGridOpen: nextGridOpen,
-                    streamPreview: null,
                     maskDataURL: null,
                     annotations: [],
                     tool: "pan",
@@ -1326,28 +1336,33 @@ async function launchOneJob(
     });
     offError = EventsOn(`error:${jobId}`, (e: { message: string; rawPath?: string }) => {
       cleanup();
-      const patch: WorkspacePatch = {
-        errorMessage: e?.message ?? "未知错误",
-        errorRawPath: (typeof e?.rawPath === "string" && e.rawPath) ? e.rawPath : null,
-        streamPreview: null,
-      };
-      store.setState((state) => ({
-        workspaces: patchWorkspaceRuntime(state.workspaces, snapshot.workspaceId, patch),
-        ...(state.activeWorkspaceId === snapshot.workspaceId
-          ? {
-              ...activeRuntimePatch(patch),
-              currentImage: restoreCurrentImageAfterPreviewError(state, jobId, {
-                workspaceId: snapshot.workspaceId,
-                mode: mode === "edit" ? "edit" : "generate",
-                prompt: payload.prompt,
-                size: snapshot.size,
-                quality: snapshot.quality,
-                outputFormat: snapshot.outputFormat,
-                currentImage: snapshot.currentImage,
-              }),
-            }
-          : {}),
-      } as Partial<StudioState>));
+      store.setState((state) => {
+        const runtime = workspaceRuntimeFromState(state, snapshot.workspaceId);
+        const prunedPreview = removeStreamPreview(runtime.streamPreviews, jobId);
+        const patch: WorkspacePatch = {
+          errorMessage: e?.message ?? "未知错误",
+          errorRawPath: (typeof e?.rawPath === "string" && e.rawPath) ? e.rawPath : null,
+          streamPreview: prunedPreview.streamPreview,
+          streamPreviews: prunedPreview.streamPreviews,
+        };
+        return {
+          workspaces: patchWorkspaceRuntime(state.workspaces, snapshot.workspaceId, patch),
+          ...(state.activeWorkspaceId === snapshot.workspaceId
+            ? {
+                ...activeRuntimePatch(patch),
+                currentImage: restoreCurrentImageAfterPreviewError(state, jobId, {
+                  workspaceId: snapshot.workspaceId,
+                  mode: mode === "edit" ? "edit" : "generate",
+                  prompt: payload.prompt,
+                  size: snapshot.size,
+                  quality: snapshot.quality,
+                  outputFormat: snapshot.outputFormat,
+                  currentImage: snapshot.currentImage,
+                }),
+              }
+            : {}),
+        } as Partial<StudioState>;
+      });
       removeFromRunning();
     });
     const started = mode === "edit"
@@ -1368,13 +1383,15 @@ async function launchOneJob(
       const nextMeta = { ...state.runningJobMeta };
       delete nextMeta[jobId];
       const remaining = runtime.runningJobs.filter((id) => id !== jobId);
+      const prunedPreview = removeStreamPreview(runtime.streamPreviews, jobId);
       const nextPatch: WorkspacePatch = {
         ...patch,
         runningJobs: remaining,
         jobsTotal: remaining.length === 0 ? 0 : runtime.jobsTotal,
         jobsCompleted: remaining.length === 0 ? 0 : runtime.jobsCompleted,
         progress: remaining.length === 0 ? null : runtime.progress,
-        streamPreview: remaining.length === 0 ? null : runtime.streamPreview,
+        streamPreview: remaining.length === 0 ? null : prunedPreview.streamPreview,
+        streamPreviews: remaining.length === 0 ? {} : prunedPreview.streamPreviews,
         lastLogLine: remaining.length === 0 ? "" : runtime.lastLogLine,
       };
       return {

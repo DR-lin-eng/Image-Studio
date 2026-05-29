@@ -127,6 +127,7 @@ export interface HistoryItem {
   seed?: number;
   negativePrompt?: string;
   styleTag?: string;
+  batchIndex?: number;
   elapsedSec?: number;     // generation duration in seconds
 
   savedPath?: string;
@@ -144,8 +145,11 @@ export interface StreamPreview {
   imageB64?: string;
   revisedPrompt?: string;
   partialImageIndex?: number;
+  batchIndex?: number;
   updatedAt: number;
 }
+
+export type StreamPreviewMap = Record<string, StreamPreview>;
 
 export interface Workspace {
   id: string;
@@ -172,6 +176,7 @@ export interface Workspace {
   jobsCompleted: number;
   progress: ProgressInfo | null;
   streamPreview: StreamPreview | null;
+  streamPreviews?: StreamPreviewMap;
   lastLogLine: string;
   errorMessage: string | null;
   // 最近一次失败时上游原始响应文件的绝对路径(SSE / Images API JSON)。前端

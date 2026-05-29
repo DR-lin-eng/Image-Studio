@@ -5,11 +5,12 @@ import { useStudioStore } from "../../../state/studioStore";
 import type { HistoryItem } from "../../../types/domain";
 import type { Stroke } from "../../../state/studioStore.types";
 import { AnnotationShape } from "../../../components/canvas/AnnotationShape";
-import { BatchResultGrid } from "../../../components/canvas/BatchResultGrid";
+import { BatchResultGrid, type BatchGridSlot } from "../../../components/canvas/BatchResultGrid";
 import { CompareOverlay } from "../../../components/canvas/CompareOverlay";
 import { copyImageB64ToClipboard, copyImageURLToClipboard, useImageFromSource } from "../../../components/canvas/canvasImage";
 import { StreamPreviewBadge } from "../../../components/canvas/StreamPreviewBadge";
 import { useCanvasShortcuts } from "../../../components/canvas/useCanvasShortcuts";
+import { streamPreviewItemsFromPreviews } from "../../../state/studioStore.streamPreview";
 import { vibrateForPlatform } from "../bridge";
 
 type ViewState = { scale: number; x: number; y: number };
@@ -35,11 +36,38 @@ export function AndroidCanvasStage() {
     compareB, compareSplit, setCompareSplit, setCompareB,
     isRunning, cancel, errorMessage, setField,
     streamPreview,
+    streamPreviews,
+    runningJobs,
+    jobsTotal,
+    jobsCompleted,
+    activeWorkspaceId,
     toggleFullscreen,
     batchResults, resultGridOpen, selectBatchResult, closeResultGrid,
     canvasViewResetTick,
   } = useStudioStore();
-  const showingResultGrid = resultGridOpen && batchResults.length > 1;
+  const streamPreviewItems = streamPreviewItemsFromPreviews(streamPreviews, {
+    workspaceId: activeWorkspaceId,
+    mode: useStudioStore.getState().mode,
+    prompt: useStudioStore.getState().prompt,
+    size: useStudioStore.getState().size,
+    quality: useStudioStore.getState().quality,
+    outputFormat: useStudioStore.getState().outputFormat,
+    currentImage,
+  });
+  const liveBatchSlotCount = Math.max(jobsTotal, batchResults.length + runningJobs.length, batchResults.length + streamPreviewItems.length);
+  const liveBatchSlots: BatchGridSlot[] = Array.from({ length: liveBatchSlotCount }, (_, index) => ({ type: "pending", id: `pending-${index}` }));
+  for (const item of batchResults) {
+    const index = typeof item.batchIndex === "number" ? item.batchIndex : liveBatchSlots.findIndex((slot) => slot.type === "pending");
+    if (index >= 0 && index < liveBatchSlots.length) liveBatchSlots[index] = { type: "result", item };
+  }
+  for (const item of streamPreviewItems) {
+    const index = typeof item.batchIndex === "number" ? item.batchIndex : liveBatchSlots.findIndex((slot) => slot.type === "pending");
+    if (index >= 0 && index < liveBatchSlots.length && liveBatchSlots[index].type === "pending") {
+      liveBatchSlots[index] = { type: "preview", item };
+    }
+  }
+  const showingLiveBatchGrid = isRunning && liveBatchSlotCount > 1;
+  const showingResultGrid = showingLiveBatchGrid || (resultGridOpen && batchResults.length > 1);
 
   const stageRef = useRef<Konva.Stage | null>(null);
   const roRef = useRef<ResizeObserver | null>(null);
@@ -404,9 +432,12 @@ export function AndroidCanvasStage() {
       {showingResultGrid ? (
         <BatchResultGrid
           items={batchResults}
+          slots={showingLiveBatchGrid ? liveBatchSlots : undefined}
           currentId={currentImage?.id ?? null}
           onSelect={selectBatchResult}
           onClose={closeResultGrid}
+          showClose={!showingLiveBatchGrid}
+          title={showingLiveBatchGrid ? `本批预览 · ${jobsCompleted}/${jobsTotal}` : undefined}
         />
       ) : null}
       {!showingResultGrid && currentImage && compareB ? (
@@ -526,7 +557,7 @@ export function AndroidCanvasStage() {
           </Stage>
         </div>
       ) : null}
-      {streamPreview && currentImage ? (
+      {streamPreview && currentImage && !showingLiveBatchGrid ? (
         <div className="stream-preview-overlay">
           <StreamPreviewBadge compact />
         </div>

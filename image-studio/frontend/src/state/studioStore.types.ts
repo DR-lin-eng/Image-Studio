@@ -13,6 +13,7 @@ import type {
   SizeValue,
   SourceImage,
   StreamPreview,
+  StreamPreviewMap,
   ThemeMode,
   Toast,
   UpstreamProfile,
@@ -74,6 +75,7 @@ export interface StudioState {
   jobsCompleted: number;
   progress: ProgressInfo | null;
   streamPreview: StreamPreview | null;
+  streamPreviews: StreamPreviewMap;
   lastLogLine: string;
   errorMessage: string | null;
   errorRawPath: string | null;

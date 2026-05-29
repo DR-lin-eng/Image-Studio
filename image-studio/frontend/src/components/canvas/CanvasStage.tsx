@@ -5,7 +5,7 @@ import { useStudioStore } from "../../state/studioStore";
 import { HistoryItem } from "../../types/domain";
 import { usePlatform } from "../../platform/context";
 import { ContextMenu, MenuItem } from "../common/ContextMenu";
-import { BatchResultGrid } from "./BatchResultGrid";
+import { BatchResultGrid, type BatchGridSlot } from "./BatchResultGrid";
 import { CompareOverlay } from "./CompareOverlay";
 import type { Stroke } from "../../state/studioStore.types";
 import { EmptyState } from "./EmptyState";
@@ -13,6 +13,7 @@ import { copyImageB64ToClipboard, copyImageURLToClipboard, useImageFromSource } 
 import { AnnotationShape } from "./AnnotationShape";
 import { useCanvasShortcuts } from "./useCanvasShortcuts";
 import { StreamPreviewBadge } from "./StreamPreviewBadge";
+import { streamPreviewItemsFromPreviews } from "../../state/studioStore.streamPreview";
 
 export function CanvasStage() {
   const {
@@ -26,12 +27,38 @@ export function CanvasStage() {
     compareB, compareSplit, setCompareSplit, setCompareB,
     isRunning, cancel, errorMessage, setField,
     streamPreview,
+    streamPreviews,
+    runningJobs,
+    jobsTotal,
+    jobsCompleted,
     toggleFullscreen,
     batchResults, resultGridOpen, selectBatchResult, closeResultGrid,
     canvasViewResetTick,
   } = useStudioStore();
   const { isMac } = usePlatform();
-  const showingResultGrid = resultGridOpen && batchResults.length > 1;
+  const streamPreviewItems = streamPreviewItemsFromPreviews(streamPreviews, {
+    workspaceId: useStudioStore.getState().activeWorkspaceId,
+    mode: useStudioStore.getState().mode,
+    prompt: useStudioStore.getState().prompt,
+    size: useStudioStore.getState().size,
+    quality: useStudioStore.getState().quality,
+    outputFormat: useStudioStore.getState().outputFormat,
+    currentImage,
+  });
+  const liveBatchSlotCount = Math.max(jobsTotal, batchResults.length + runningJobs.length, batchResults.length + streamPreviewItems.length);
+  const liveBatchSlots: BatchGridSlot[] = Array.from({ length: liveBatchSlotCount }, (_, index) => ({ type: "pending", id: `pending-${index}` }));
+  for (const item of batchResults) {
+    const index = typeof item.batchIndex === "number" ? item.batchIndex : liveBatchSlots.findIndex((slot) => slot.type === "pending");
+    if (index >= 0 && index < liveBatchSlots.length) liveBatchSlots[index] = { type: "result", item };
+  }
+  for (const item of streamPreviewItems) {
+    const index = typeof item.batchIndex === "number" ? item.batchIndex : liveBatchSlots.findIndex((slot) => slot.type === "pending");
+    if (index >= 0 && index < liveBatchSlots.length && liveBatchSlots[index].type === "pending") {
+      liveBatchSlots[index] = { type: "preview", item };
+    }
+  }
+  const showingLiveBatchGrid = isRunning && liveBatchSlotCount > 1;
+  const showingResultGrid = showingLiveBatchGrid || (resultGridOpen && batchResults.length > 1);
 
   // Hold-space-for-pan: while space is held, override tool to "pan".
   const [spacePan, setSpacePan] = useState(false);
@@ -390,8 +417,8 @@ export function CanvasStage() {
         className="stage-host"
         style={{ cursor: !currentImage ? "default" : (effectiveTool === "pan" ? (spacePan ? "grabbing" : "grab") : "crosshair") }}
       >
-        {!currentImage && <EmptyState />}
-        {streamPreview && currentImage ? (
+        {!currentImage && !showingResultGrid && <EmptyState />}
+        {streamPreview && currentImage && !showingLiveBatchGrid ? (
           <div className="stream-preview-overlay">
             <StreamPreviewBadge />
           </div>
@@ -399,9 +426,12 @@ export function CanvasStage() {
         {showingResultGrid && (
           <BatchResultGrid
             items={batchResults}
+            slots={showingLiveBatchGrid ? liveBatchSlots : undefined}
             currentId={currentImage?.id ?? null}
             onSelect={selectBatchResult}
             onClose={closeResultGrid}
+            showClose={!showingLiveBatchGrid}
+            title={showingLiveBatchGrid ? `本批预览 · ${jobsCompleted}/${jobsTotal}` : undefined}
           />
         )}
         {!showingResultGrid && currentImage && compareB && (

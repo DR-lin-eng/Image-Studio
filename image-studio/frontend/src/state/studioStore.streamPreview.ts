@@ -6,6 +6,7 @@ import type {
   QualityValue,
   SizeValue,
   StreamPreview,
+  StreamPreviewMap,
   Workspace,
 } from "../types/domain.ts";
 import type { StudioState } from "./studioStore.types.ts";
@@ -31,7 +32,16 @@ export type StreamPreviewSnapshot = {
   quality: QualityValue;
   outputFormat: OutputFormatValue;
   currentImage: HistoryItem | null;
+  batchIndex?: number;
 };
+
+export function latestStreamPreview(previews: StreamPreviewMap | null | undefined): StreamPreview | null {
+  const list = Object.values(previews ?? {});
+  if (list.length === 0) return null;
+  return list.reduce((latest, item) => (
+    item.updatedAt >= latest.updatedAt ? item : latest
+  ));
+}
 
 export function streamPreviewItemFromPayload(
   jobId: string,
@@ -55,6 +65,7 @@ export function streamPreviewItemFromPayload(
     outputFormat: snapshot.outputFormat,
     parentId: mode === "edit" ? snapshot.currentImage?.savedPath : undefined,
     createdAt: Date.now(),
+    batchIndex: snapshot.batchIndex,
     previewOnly: true,
   };
 }
@@ -67,28 +78,51 @@ export function streamPreviewStatePatch(
 ): Partial<StudioState> | null {
   const item = streamPreviewItemFromPayload(jobId, payload, snapshot);
   if (!item) return null;
+  const workspace = state.workspaces.find((w) => w.id === snapshot.workspaceId);
+  const previousPreviews = state.activeWorkspaceId === snapshot.workspaceId
+    ? state.streamPreviews
+    : workspace?.streamPreviews ?? {};
+  const nextPreview: StreamPreview = {
+    jobId,
+    imageB64: item.imageB64,
+    revisedPrompt: item.revisedPrompt,
+    partialImageIndex: payload.partialImageIndex,
+    batchIndex: snapshot.batchIndex,
+    updatedAt: Date.now(),
+  };
+  const streamPreviews = { ...previousPreviews, [jobId]: nextPreview };
+  const streamPreview = latestStreamPreview(streamPreviews);
+  const jobsTotal = state.activeWorkspaceId === snapshot.workspaceId
+    ? state.jobsTotal
+    : workspace?.jobsTotal ?? 0;
+  const useGridPreview = jobsTotal > 1;
   const patch: WorkspacePatch = {
-    streamPreview: {
-      jobId,
-      imageB64: item.imageB64,
-      revisedPrompt: item.revisedPrompt,
-      partialImageIndex: payload.partialImageIndex,
-      updatedAt: Date.now(),
-    },
+    streamPreview,
+    streamPreviews,
   };
   return {
     workspaces: patchWorkspaceRuntime(state.workspaces, snapshot.workspaceId, patch),
     ...(state.activeWorkspaceId === snapshot.workspaceId
-      ? {
-          ...activeRuntimePatch(patch),
-          currentImage: item,
-          compareB: null,
-          resultGridOpen: false,
-          annotations: [],
-          strokes: [],
-          maskDataURL: null,
-          tool: "pan",
-        }
+      ? useGridPreview
+        ? {
+            ...activeRuntimePatch(patch),
+            compareB: null,
+            resultGridOpen: true,
+            annotations: [],
+            strokes: [],
+            maskDataURL: null,
+            tool: "pan",
+          }
+        : {
+            ...activeRuntimePatch(patch),
+            currentImage: item,
+            compareB: null,
+            resultGridOpen: false,
+            annotations: [],
+            strokes: [],
+            maskDataURL: null,
+            tool: "pan",
+          }
       : {}),
   } as Partial<StudioState>;
 }
@@ -98,14 +132,26 @@ export function restoreCurrentImageAfterPreviewError(
   jobId: string,
   snapshot: StreamPreviewSnapshot,
 ): HistoryItem | null {
-  return state.streamPreview?.jobId === jobId ? snapshot.currentImage : state.currentImage;
+  return state.currentImage?.id === `preview-${jobId}` ? snapshot.currentImage : state.currentImage;
+}
+
+export function removeStreamPreview(
+  previews: StreamPreviewMap | null | undefined,
+  jobId: string,
+): { streamPreviews: StreamPreviewMap; streamPreview: StreamPreview | null } {
+  const streamPreviews = { ...(previews ?? {}) };
+  delete streamPreviews[jobId];
+  return {
+    streamPreviews,
+    streamPreview: latestStreamPreview(streamPreviews),
+  };
 }
 
 export function streamPreviewItemFromWorkspace(
   workspace: Workspace,
   currentImage: HistoryItem | null,
 ): HistoryItem | null {
-  const preview = workspace.streamPreview;
+  const preview = workspace.streamPreview ?? latestStreamPreview(workspace.streamPreviews);
   if (!preview) return null;
   return streamPreviewItemFromPayload(preview.jobId, {
     imageB64: preview.imageB64,
@@ -121,16 +167,43 @@ export function streamPreviewItemFromWorkspace(
     quality: workspace.quality,
     outputFormat: workspace.outputFormat,
     currentImage,
+    batchIndex: preview.batchIndex,
   });
+}
+
+export function streamPreviewItemsFromPreviews(
+  previews: StreamPreviewMap | null | undefined,
+  snapshot: StreamPreviewSnapshot,
+): HistoryItem[] {
+  return Object.values(previews ?? {})
+    .sort((a, b) => a.updatedAt - b.updatedAt)
+    .map((preview) => streamPreviewItemFromPayload(preview.jobId, {
+      imageB64: preview.imageB64,
+      revisedPrompt: preview.revisedPrompt,
+      partialImageIndex: preview.partialImageIndex,
+      mode: snapshot.mode,
+      prompt: snapshot.prompt,
+    }, { ...snapshot, batchIndex: preview.batchIndex ?? snapshot.batchIndex }))
+    .filter((item): item is HistoryItem => !!item);
 }
 
 export function currentImageIdForWorkspaceSnapshot(
   currentImage: HistoryItem | null,
   streamPreview: StreamPreview | null,
-  fallbackCurrentImageId: string | null,
+  streamPreviewsOrFallback: StreamPreviewMap | string | null = {},
+  fallbackCurrentImageId?: string | null,
 ): string | null {
+  const streamPreviews = typeof streamPreviewsOrFallback === "string" || streamPreviewsOrFallback === null
+    ? {}
+    : streamPreviewsOrFallback;
+  const fallback = typeof streamPreviewsOrFallback === "string" || streamPreviewsOrFallback === null
+    ? streamPreviewsOrFallback
+    : fallbackCurrentImageId ?? null;
   if (streamPreview?.jobId && currentImage?.id === `preview-${streamPreview.jobId}`) {
-    return fallbackCurrentImageId;
+    return fallback;
+  }
+  if (currentImage?.id && Object.values(streamPreviews).some((preview) => currentImage.id === `preview-${preview.jobId}`)) {
+    return fallback;
   }
   return currentImage?.id ?? null;
 }

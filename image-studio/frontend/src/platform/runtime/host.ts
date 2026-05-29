@@ -1,6 +1,5 @@
 import { targetPlatform } from "../index.ts";
 import {
-  probeUpstreamConnection,
   RemoteKernelError,
   runRemoteImageJob,
   optimizePromptRemote,
@@ -48,6 +47,8 @@ import type {
   ImportedImageLike,
   JobStartedLike,
   KernelRuntimeMode,
+  ProbeUpstreamOptionsLike,
+  ProbeUpstreamResultLike,
   PromptOptimizeOptionsLike,
   SelectFileResponseLike,
 } from "./hostTypes.ts";
@@ -544,8 +545,18 @@ export function ReadTextFile(path: string): Promise<string> {
   return invokeService<string>(unsupportedMessage, "ReadTextFile", path);
 }
 
-export function probeCurrentUpstream(baseURL: string, apiKey: string, signal?: AbortSignal): Promise<void> {
-  return probeUpstreamConnection(baseURL, apiKey, signal);
+export async function probeCurrentUpstream(baseURL: string, apiKey: string, signal?: AbortSignal): Promise<void> {
+  if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+  const options: ProbeUpstreamOptionsLike = { baseURL, apiKey };
+  if (hasServiceMethod("ProbeUpstream")) {
+    await invokeService<ProbeUpstreamResultLike>(unsupportedMessage, "ProbeUpstream", options);
+    return;
+  }
+  if (canInvokeAndroidMethod("ProbeUpstream")) {
+    await invokeAndroid<ProbeUpstreamResultLike>(unsupportedMessage, "ProbeUpstream", options);
+    return;
+  }
+  throw new Error(unsupportedMessage("ProbeUpstream"));
 }
 
 export function registerEphemeralLog(text: string, suggestedName = "raw-response.txt"): string {

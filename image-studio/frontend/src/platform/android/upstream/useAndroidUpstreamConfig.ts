@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { GetStoredAPIKey } from "../../runtime/host";
 import { keyringUserFor } from "../../../lib/profiles";
-import { validateBaseURL } from "../../../lib/security";
 import { useStudioStore } from "../../../state/studioStore";
 import type { APIMode, RequestPolicy, UpstreamProfile } from "../../../types/domain";
 
@@ -87,16 +86,12 @@ export function useAndroidUpstreamConfig(open: boolean) {
     [activeProfileId, profiles],
   );
 
-  const baseURLError = useMemo(() => {
-    if (!draft || !draft.baseURL.trim()) return null;
-    return validateBaseURL(draft.baseURL);
-  }, [draft]);
+  const baseURLError = useMemo(() => null, [draft]);
 
   const canSave = !!draft
     && !!draft.name.trim()
     && !!draft.baseURL.trim()
     && !!draftKey.trim()
-    && !baseURLError
     && savedKeyLoaded
     && !saving;
 

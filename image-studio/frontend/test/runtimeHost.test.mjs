@@ -180,6 +180,7 @@ async function withPatchedGlobals(setup, run) {
     globalThis.URL = realURL;
     globalThis.atob = realAtob;
     globalThis.btoa = realBtoa;
+    delete globalThis.__probeCalls;
   }
 }
 
@@ -513,6 +514,77 @@ test("runtimeHost remote cancel aborts pending remote jobs", async () => {
     await runtimeHost.Cancel(started.jobId);
     await new Promise((resolve) => setImmediate(resolve));
     assert.equal(typeof started.jobId, "string");
+  });
+});
+
+test("runtimeHost probes upstream through Wails backend", async () => {
+  await withPatchedGlobals(async () => {
+    Object.defineProperty(globalThis, "navigator", {
+      configurable: true,
+      value: {
+        userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_0)",
+        platform: "MacIntel",
+        userAgentData: { platform: "macOS" },
+      },
+    });
+    const calls = [];
+    globalThis.window.go = {
+      backend: {
+        Service: {
+          Generate: async () => ({ jobId: "job" }),
+          Edit: async () => ({ jobId: "job" }),
+          ProbeUpstream: async (payload) => {
+            calls.push(payload);
+            return { modelCount: 1 };
+          },
+        },
+      },
+    };
+    globalThis.window.runtime = {
+      EventsOnMultiple: () => () => {},
+      EventsOff: () => {},
+    };
+    globalThis.__probeCalls = calls;
+    globalThis.fetch = async () => {
+      throw new Error("probe should not use browser fetch");
+    };
+  }, async () => {
+    const runtimeHost = await loadRuntimeHost();
+    await runtimeHost.probeCurrentUpstream("https://relay.example.com", "sk-test");
+    assert.deepEqual(globalThis.__probeCalls, [
+      { baseURL: "https://relay.example.com", apiKey: "sk-test" },
+    ]);
+  });
+});
+
+test("runtimeHost probes upstream through Android backend", async () => {
+  await withPatchedGlobals(async () => {
+    const calls = [];
+    globalThis.window.AndroidImageStudio = {
+      invoke(requestId, method, payloadJson) {
+        calls.push({ method, args: JSON.parse(payloadJson) });
+        queueMicrotask(() => {
+          if (method === "ProbeUpstream") {
+            window.__imageStudioNativeResolve?.(requestId, { modelCount: 2 });
+            return;
+          }
+          window.__imageStudioNativeReject?.(requestId, `unsupported ${method}`);
+        });
+      },
+    };
+    globalThis.__probeCalls = calls;
+    globalThis.fetch = async () => {
+      throw new Error("probe should not use browser fetch");
+    };
+  }, async () => {
+    const runtimeHost = await loadRuntimeHost();
+    await runtimeHost.probeCurrentUpstream("https://relay.example.com", "sk-android");
+    assert.deepEqual(globalThis.__probeCalls, [
+      {
+        method: "ProbeUpstream",
+        args: [{ baseURL: "https://relay.example.com", apiKey: "sk-android" }],
+      },
+    ]);
   });
 });
 

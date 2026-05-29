@@ -38,6 +38,15 @@ export type PromptOptimizeOptionsLike = {
   imagePath: string;
 };
 
+export type ProbeUpstreamOptionsLike = {
+  apiKey: string;
+  baseURL: string;
+};
+
+export type ProbeUpstreamResultLike = {
+  modelCount: number;
+};
+
 export type JobStartedLike = { jobId: string };
 export type ImportedImageLike = { path: string; imageB64: string };
 export type ImageTransformResultLike = { path: string; acceleration?: string };

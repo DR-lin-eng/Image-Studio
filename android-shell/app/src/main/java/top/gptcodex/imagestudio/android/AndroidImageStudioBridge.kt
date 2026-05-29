@@ -27,6 +27,7 @@ import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.InputStream
 import java.net.HttpURLConnection
+import java.net.URI
 import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -114,6 +115,10 @@ class AndroidImageStudioBridge(
                 "HttpRequestText" -> {
                     val payload = args.optJSONObject(0) ?: throw IllegalArgumentException("缺少 HTTP 请求参数")
                     runHttpRequestText(requestId, payload)
+                }
+                "ProbeUpstream" -> {
+                    val payload = args.optJSONObject(0) ?: throw IllegalArgumentException("缺少测活参数")
+                    runProbeUpstream(requestId, payload)
                 }
                 "CancelHttpRequest" -> {
                     cancelHttpRequest(args.optString(0))
@@ -397,8 +402,85 @@ class AndroidImageStudioBridge(
         throw EarlyResolve()
     }
 
+    private fun runProbeUpstream(requestId: String, payload: JSONObject): Nothing {
+        val baseUrl = validateProbeBaseUrl(payload.optString("baseURL"))
+        val apiKey = payload.optString("apiKey").trim()
+        if (apiKey.isBlank()) throw IllegalArgumentException("API Key 不能为空")
+        thread(name = "image-studio-probe-${requestId.take(12)}") {
+            try {
+                val connection = (URL("$baseUrl/v1/models").openConnection() as HttpURLConnection).apply {
+                    requestMethod = "GET"
+                    instanceFollowRedirects = true
+                    connectTimeout = 20_000
+                    readTimeout = 20_000
+                    doInput = true
+                    setRequestProperty("Authorization", "Bearer $apiKey")
+                    setRequestProperty("Accept", "application/json")
+                    setRequestProperty("User-Agent", "image-studio-android")
+                }
+                val status = connection.responseCode
+                val stream = if (status >= 400) connection.errorStream else connection.inputStream
+                val body = stream?.bufferedReader()?.use { reader ->
+                    reader.readText().take(1_048_576)
+                } ?: ""
+                connection.disconnect()
+                if (status !in 200..299) {
+                    throw IllegalStateException("上游 /v1/models 返回 $status${summarizeProbeBody(body).let { if (it.isBlank()) "" else ": $it" }}")
+                }
+                val parsed = JSONObject(body)
+                if (!parsed.has("data") || parsed.isNull("data")) {
+                    throw IllegalStateException("上游 /v1/models 响应缺少 data 数组")
+                }
+                val data = parsed.optJSONArray("data") ?: throw IllegalStateException("上游 /v1/models 响应缺少 data 数组")
+                resolve(requestId, mapOf("modelCount" to data.length()))
+            } catch (error: Exception) {
+                reject(requestId, error.message ?: error.javaClass.simpleName)
+            }
+        }
+        throw EarlyResolve()
+    }
+
     private fun cancelHttpRequest(requestKey: String) {
         httpRequests.remove(requestKey)?.disconnect()
+    }
+
+    private fun validateProbeBaseUrl(raw: String): String {
+        val cleaned = raw.trim().trimEnd('/')
+        if (cleaned.isBlank()) throw IllegalArgumentException("未配置上游 BASE_URL")
+        val uri = try {
+            URI(cleaned)
+        } catch (error: Exception) {
+            throw IllegalArgumentException("BASE_URL 无效: ${error.message ?: error.javaClass.simpleName}")
+        }
+        val scheme = uri.scheme?.lowercase(Locale.US) ?: ""
+        val host = uri.host ?: ""
+        if (scheme.isBlank() || host.isBlank()) {
+            throw IllegalArgumentException("BASE_URL 必须包含协议和主机,例如 https://example.com")
+        }
+        if (scheme == "https") return cleaned
+        if (scheme == "http" && isProbeLoopbackHost(host)) return cleaned
+        if (scheme == "http") {
+            throw IllegalArgumentException("拒绝使用非 TLS 上游: $cleaned。只有 localhost / 127.0.0.1 / ::1 允许 http://")
+        }
+        throw IllegalArgumentException("BASE_URL 仅支持 http:// 或 https://")
+    }
+
+    private fun isProbeLoopbackHost(host: String): Boolean {
+        val lower = host.lowercase(Locale.US).trim('[', ']')
+        return lower == "localhost" || lower.endsWith(".localhost") || lower == "127.0.0.1" || lower == "::1" || lower == "0:0:0:0:0:0:0:1"
+    }
+
+    private fun summarizeProbeBody(body: String): String {
+        val trimmed = body.trim()
+        if (trimmed.isBlank()) return ""
+        return try {
+            val parsed = JSONObject(trimmed)
+            val message = parsed.optJSONObject("error")?.optString("message")?.trim().orEmpty()
+            val fallback = parsed.optString("message").trim()
+            (message.ifBlank { fallback }).ifBlank { trimmed }.take(160)
+        } catch (_: Exception) {
+            trimmed.take(160)
+        }
     }
 
     fun onOpenImageDialogResult(uri: Uri?) {

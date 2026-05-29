@@ -54,7 +54,6 @@ import {
 } from "../lib/storage";
 import {
   cleanBaseURL,
-  validateBaseURL,
 } from "../lib/security";
 import {
   duplicateProfile as cloneProfile,
@@ -397,11 +396,6 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       return;
     }
     const cleanedBaseURL = cleanBaseURL(s.baseURL);
-    const baseURLError = validateBaseURL(cleanedBaseURL);
-    if (baseURLError) {
-      set({ errorMessage: baseURLError, errorRawPath: null });
-      return;
-    }
     const batchCount = normalizeBatchCount(s.batchCount);
     const activeProfile = s.profiles.find((p) => p.id === s.activeProfileId);
     const concurrencyLimit = normalizeConcurrencyLimit(activeProfile?.concurrencyLimit ?? 0);
@@ -1003,11 +997,6 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       return;
     }
     const cleanedBaseURL = cleanBaseURL(s.baseURL);
-    const baseURLError = validateBaseURL(cleanedBaseURL);
-    if (baseURLError) {
-      s.pushToast(baseURLError, "error", 6000);
-      return;
-    }
     if (s.isTestingKey) return;
     set({ isTestingKey: true });
     s.pushToast("正在测试连接...", "info", 8000);
@@ -1051,11 +1040,6 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     }
     if (!s.prompt.trim()) {
       s.pushToast("先输入 prompt", "warn");
-      return;
-    }
-    const baseURLError = validateBaseURL(optimizeBaseURL);
-    if (baseURLError) {
-      s.pushToast(baseURLError, "error", 6000);
       return;
     }
     const sourcePaths = s.mode === "edit"

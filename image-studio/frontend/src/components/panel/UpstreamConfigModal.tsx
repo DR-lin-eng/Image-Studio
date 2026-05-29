@@ -3,7 +3,6 @@ import { Eye, EyeOff, HelpCircle, Info, Plug, Plus, Sparkles } from "lucide-reac
 import { Modal } from "../common/Modal";
 import { useStudioStore } from "../../state/studioStore";
 import { GetStoredAPIKey } from "../../platform/runtime/host";
-import { validateBaseURL } from "../../lib/security";
 import { keyringUserFor, requestPolicyLabel } from "../../lib/profiles";
 import type { APIMode, RequestPolicy, UpstreamProfile } from "../../types/domain";
 import { FAQModal } from "./FAQModal";
@@ -64,12 +63,9 @@ export function UpstreamConfigModal({
     setSelectedId(id);
   }
 
-  const baseURLError = useMemo(() => {
-    if (!draft) return null;
-    return draft.baseURL.trim() ? validateBaseURL(draft.baseURL) : null;
-  }, [draft?.baseURL]);
+  const baseURLError = useMemo(() => null, [draft?.baseURL]);
 
-  const canSave = !!draft && !!draft.baseURL.trim() && !!draftKey.trim() && !baseURLError;
+  const canSave = !!draft && !!draft.baseURL.trim() && !!draftKey.trim();
 
   function patchDraft(patch: Partial<UpstreamProfile>) {
     if (!draft) return;

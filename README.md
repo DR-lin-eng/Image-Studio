@@ -58,8 +58,10 @@ Image Studio 面向 OpenAI 兼容图像上游，解决长时间图像推理在 C
 稳定版本到 [Releases](https://github.com/RoseKhlifa/Image-Studio/releases) 下载。当前发布链路会产出:
 
 - `image-studio-windows-amd64.exe`
+- `image-studio-windows-arm64.exe`
 - `image-studio-macos-universal.zip`
 - `image-studio-linux-amd64.tar.gz`
+- `image-studio-linux-arm64.tar.gz`
 - `image-studio-android-release.apk`
 
 源码构建、平台依赖、Android APK、验证脚本见 [构建文档](./docs/build.md)。

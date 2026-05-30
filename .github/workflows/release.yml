@@ -75,6 +75,13 @@ jobs:
             artifact_path: dist/image-studio-windows-amd64.exe
             wails_args: -platform windows/amd64 -clean
             package_cmd: cp image-studio/build/bin/image-studio.exe dist/image-studio-windows-amd64.exe
+          - id: windows-arm64
+            runner: windows-11-arm
+            goos: windows
+            artifact_name: image-studio-windows-arm64.exe
+            artifact_path: dist/image-studio-windows-arm64.exe
+            wails_args: -platform windows/arm64 -clean
+            package_cmd: cp image-studio/build/bin/image-studio.exe dist/image-studio-windows-arm64.exe
           - id: macos-universal
             runner: macos-latest
             goos: darwin
@@ -89,6 +96,13 @@ jobs:
             artifact_path: dist/image-studio-linux-amd64.tar.gz
             wails_args: -platform linux/amd64 -clean -tags webkit2_41
             package_cmd: tar -C image-studio/build/bin -czf dist/image-studio-linux-amd64.tar.gz image-studio
+          - id: linux-arm64
+            runner: ubuntu-24.04-arm
+            goos: linux
+            artifact_name: image-studio-linux-arm64.tar.gz
+            artifact_path: dist/image-studio-linux-arm64.tar.gz
+            wails_args: -platform linux/arm64 -clean -tags webkit2_41
+            package_cmd: tar -C image-studio/build/bin -czf dist/image-studio-linux-arm64.tar.gz image-studio
 
     steps:
       - name: Checkout

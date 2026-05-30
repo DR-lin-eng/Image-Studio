@@ -7,8 +7,10 @@
 | 平台 | 产物 | 说明 |
 |---|---|---|
 | Windows x64 | `image-studio-windows-amd64.exe` | 需要 WebView2 Runtime；Windows 10+ 通常已预装。 |
+| Windows ARM64 | `image-studio-windows-arm64.exe` | 面向 Windows on Arm 设备，release workflow 使用 GitHub ARM64 runner 原生编译。 |
 | macOS universal | `image-studio-macos-universal.zip` | 解压后如被 Gatekeeper 拦截，可执行 `xattr -dr com.apple.quarantine "Image Studio.app"`，或右键打开。 |
 | Linux x64 | `image-studio-linux-amd64.tar.gz` | Ubuntu 24.04 / Debian 新版本使用 WebKitGTK 4.1 依赖。 |
+| Linux ARM64 | `image-studio-linux-arm64.tar.gz` | 面向 ARM64 Linux 桌面环境，依赖同 Linux x64。 |
 | Android | `image-studio-android-release.apk` | 单 APK，运行时自适应 phone/pad 布局。 |
 
 main 分支抢先测试包可从 [DR-lin-eng/Image-Studio Actions](https://github.com/DR-lin-eng/Image-Studio/actions) 下载最近成功 workflow 的 artifact。

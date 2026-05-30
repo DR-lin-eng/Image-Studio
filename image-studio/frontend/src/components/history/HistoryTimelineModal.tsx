@@ -94,11 +94,11 @@ export function HistoryTimelineModal() {
 
   async function selectHistory(item: HistoryItem) {
     setField("currentImage", toPreviewOnlyHistoryItem(item));
-    if (!item.previewUrl) {
-      const full = await materializeCurrentImage(item).catch(() => null);
-      if (full) setField("currentImage", toPreviewOnlyHistoryItem(full));
-    }
     closeHistoryTimeline();
+    const full = await materializeCurrentImage(item).catch(() => null);
+    if (full && useStudioStore.getState().currentImage?.id === item.id) {
+      setField("currentImage", full.previewOnly ? toPreviewOnlyHistoryItem(full) : full);
+    }
   }
 
   if (!historyTimelineOpen) return null;

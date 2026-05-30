@@ -10,6 +10,7 @@ import { CompareOverlay } from "../../../components/canvas/CompareOverlay";
 import { copyImageB64ToClipboard, copyImageURLToClipboard, useImageFromSource } from "../../../components/canvas/canvasImage";
 import { StreamPreviewBadge } from "../../../components/canvas/StreamPreviewBadge";
 import { useCanvasShortcuts } from "../../../components/canvas/useCanvasShortcuts";
+import { historyFullSrc } from "../../../lib/images";
 import { streamPreviewItemsFromPreviews } from "../../../state/studioStore.streamPreview";
 import { vibrateForPlatform } from "../bridge";
 
@@ -75,10 +76,34 @@ export function AndroidCanvasStage() {
   const [pinching, setPinching] = useState(false);
   const effectiveTool = pinching ? "pan" : tool;
 
-  const currentImageURL = currentImage?.previewOnly
-    ? currentImage.previewUrl
-    : (currentImage?.fullUrl || currentImage?.previewUrl);
+  const currentImageURL = historyFullSrc(currentImage, null);
   const image = useImageFromSource(currentImage?.imageBlob ?? null, currentImage?.imageB64, currentImageURL);
+
+  useEffect(() => {
+    if (!currentImage?.previewOnly) return;
+    if (currentImage.fullUrl || currentImage.imageId || currentImage.imageB64 || currentImage.imageBlob) return;
+    if (currentImage.id.startsWith("preview-")) return;
+
+    let cancelled = false;
+    const selectedId = currentImage.id;
+    void useStudioStore.getState().materializeCurrentImage(currentImage).then((full) => {
+      if (cancelled || !full || full.previewOnly) return;
+      if (useStudioStore.getState().currentImage?.id !== selectedId) return;
+      setField("currentImage", full);
+    }).catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    currentImage?.id,
+    currentImage?.previewOnly,
+    currentImage?.fullUrl,
+    currentImage?.imageId,
+    currentImage?.imageB64,
+    currentImage?.imageBlob,
+    setField,
+  ]);
   const [hostSize, setHostSize] = useState({ w: 0, h: 0 });
   const hostRef = useCallback((node: HTMLDivElement | null) => {
     if (roRef.current) {

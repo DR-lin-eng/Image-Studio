@@ -82,15 +82,13 @@ export function HistoryRail() {
     }
     const previewItem = toPreviewOnlyHistoryItem(h);
     setField("currentImage", previewItem);
-    if (!h.previewUrl) {
-      try {
-        const full = await useStudioStore.getState().materializeCurrentImage?.(h);
-        if (selectEpochRef.current === myEpoch && full) {
-          setField("currentImage", toPreviewOnlyHistoryItem(full));
-        }
-      } catch {
-        // 读不出来就维持当前状态,用户可以再点一次
+    try {
+      const full = await useStudioStore.getState().materializeCurrentImage?.(h);
+      if (selectEpochRef.current === myEpoch && full && useStudioStore.getState().currentImage?.id === h.id) {
+        setField("currentImage", full.previewOnly ? toPreviewOnlyHistoryItem(full) : full);
       }
+    } catch {
+      // 读不出来就维持当前状态,用户可以再点一次
     }
   }
 

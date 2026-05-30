@@ -14,6 +14,7 @@ import { AnnotationShape } from "./AnnotationShape";
 import { useCanvasShortcuts } from "./useCanvasShortcuts";
 import { StreamPreviewBadge } from "./StreamPreviewBadge";
 import { streamPreviewItemsFromPreviews } from "../../state/studioStore.streamPreview";
+import { historyFullSrc } from "../../lib/images";
 
 export function CanvasStage() {
   const {
@@ -69,10 +70,34 @@ export function CanvasStage() {
   const maskLayerRef = useRef<Konva.Layer | null>(null);
   const roRef = useRef<ResizeObserver | null>(null);
 
-  const currentImageURL = currentImage?.previewOnly
-    ? currentImage.previewUrl
-    : (currentImage?.fullUrl || currentImage?.previewUrl);
+  const currentImageURL = historyFullSrc(currentImage, null);
   const image = useImageFromSource(currentImage?.imageBlob ?? null, currentImage?.imageB64, currentImageURL);
+
+  useEffect(() => {
+    if (!currentImage?.previewOnly) return;
+    if (currentImage.fullUrl || currentImage.imageId || currentImage.imageB64 || currentImage.imageBlob) return;
+    if (currentImage.id.startsWith("preview-")) return;
+
+    let cancelled = false;
+    const selectedId = currentImage.id;
+    void useStudioStore.getState().materializeCurrentImage(currentImage).then((full) => {
+      if (cancelled || !full || full.previewOnly) return;
+      if (useStudioStore.getState().currentImage?.id !== selectedId) return;
+      setField("currentImage", full);
+    }).catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    currentImage?.id,
+    currentImage?.previewOnly,
+    currentImage?.fullUrl,
+    currentImage?.imageId,
+    currentImage?.imageB64,
+    currentImage?.imageBlob,
+    setField,
+  ]);
 
   // ★ Measure the OUTER wrapper (.stage-host) — which is a normal grid item
   // bounded by its parent shell — instead of the inner absolute container.

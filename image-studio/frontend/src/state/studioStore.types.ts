@@ -125,7 +125,7 @@ export interface StudioState {
   setAPIKey: (v: string) => Promise<void>;
   clearError: () => void;
   createProfile: (input: {
-    name: string;
+    name?: string;
     apiMode: APIMode;
     baseURL?: string;
     requestPolicy?: RequestPolicy;

@@ -71,11 +71,24 @@ export function pickActiveProfile(
   return sorted[0] ?? profiles[0];
 }
 
+export function nextDefaultProfileName(profiles: UpstreamProfile[] = []): string {
+  const usedNumbers = new Set<number>();
+  for (const profile of profiles) {
+    const match = profile.name.trim().match(/^配置\s*(\d+)$/);
+    if (!match) continue;
+    const value = Number(match[1]);
+    if (Number.isInteger(value) && value > 0) usedNumbers.add(value);
+  }
+  let index = 1;
+  while (usedNumbers.has(index)) index += 1;
+  return `配置${index}`;
+}
+
 // 新建 profile 的默认值 —— UpstreamConfigModal 里点「+ 新建」用。
-export function makeBlankProfile(apiMode: APIMode = "responses"): UpstreamProfile {
+export function makeBlankProfile(apiMode: APIMode = "responses", profiles: UpstreamProfile[] = []): UpstreamProfile {
   return {
     id: genProfileId(),
-    name: apiMode === "responses" ? "新配置 · Responses" : "新配置 · Images",
+    name: nextDefaultProfileName(profiles),
     apiMode,
     requestPolicy: "openai",
     baseURL: "",

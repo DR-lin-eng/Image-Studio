@@ -74,7 +74,6 @@ export function UpstreamConfigModal({
 
   async function handleNew(apiMode: APIMode = "responses") {
     const id = await createProfile({
-      name: apiMode === "responses" ? "主配置" : "图片配置",
       apiMode,
       requestPolicy: "openai",
       setActive: profiles.length === 0, // 第一个自动 active,后续手动切

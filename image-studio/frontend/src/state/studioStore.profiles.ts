@@ -9,6 +9,7 @@ import {
   duplicateProfile as cloneProfile,
   genProfileId,
   keyringUserFor,
+  nextDefaultProfileName,
   pickActiveProfile,
 } from "../lib/profiles";
 import { cleanBaseURL } from "../lib/security";
@@ -23,7 +24,7 @@ type StateAdapter = {
 export function createProfileActions(store: StateAdapter) {
   return {
     async createProfile(input: {
-      name: string;
+      name?: string;
       apiMode: APIMode;
       baseURL?: string;
       requestPolicy?: RequestPolicy;
@@ -33,10 +34,11 @@ export function createProfileActions(store: StateAdapter) {
       apiKey?: string;
       setActive?: boolean;
     }) {
+      const list = store.getState().profiles;
       const id = genProfileId();
       const profile: UpstreamProfile = {
         id,
-        name: input.name.trim() || (input.apiMode === "images" ? "新配置 · Images" : "新配置 · Responses"),
+        name: input.name?.trim() || nextDefaultProfileName(list),
         apiMode: input.apiMode,
         requestPolicy: input.requestPolicy ?? "openai",
         baseURL: cleanBaseURL(input.baseURL ?? ""),
@@ -51,7 +53,7 @@ export function createProfileActions(store: StateAdapter) {
           if (typeof console !== "undefined") console.error("写 keyring 失败", e);
         }
       }
-      const next = [...store.getState().profiles, profile];
+      const next = [...list, profile];
       persistProfiles(next);
       store.setState({ profiles: next });
       if (input.setActive ?? true) {

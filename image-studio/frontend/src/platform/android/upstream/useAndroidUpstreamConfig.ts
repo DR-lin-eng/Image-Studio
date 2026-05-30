@@ -101,7 +101,6 @@ export function useAndroidUpstreamConfig(open: boolean) {
 
   async function handleNew(apiMode: APIMode = "responses") {
     const id = await createProfile({
-      name: apiMode === "responses" ? "主配置" : "图片配置",
       apiMode,
       requestPolicy: "openai",
       setActive: profiles.length === 0,

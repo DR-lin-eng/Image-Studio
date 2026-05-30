@@ -87,6 +87,8 @@ const SIZE_TO_RESOLUTION: Record<string, ResolutionPreset> = {
 };
 
 const LARGE_RESOLUTION_PRESETS = new Set<ResolutionPreset>(["2k", "4k"]);
+const DEFAULT_ASPECT_FROM_AUTO: Exclude<AspectPreset, "auto"> = "1:1";
+const DEFAULT_RESOLUTION_FROM_AUTO: Exclude<ResolutionPreset, "auto"> = "1k";
 
 export function supportsExplicitLargeSizes({
   apiMode,
@@ -144,6 +146,41 @@ export function buildSizeSelection(
     return "auto";
   }
   return SIZE_MATRIX[aspect][normalizedResolution];
+}
+
+export function buildAspectSizeSelection(
+  aspect: AspectPreset,
+  currentResolution: ResolutionPreset,
+  input: {
+    apiMode: APIMode;
+    requestPolicy: RequestPolicy;
+    imageModelID?: string;
+  },
+): SizeValue {
+  if (aspect === "auto") return "auto";
+  const normalizedResolution = normalizeResolutionSelection(currentResolution, input);
+  return buildSizeSelection(
+    aspect,
+    normalizedResolution === "auto" ? DEFAULT_RESOLUTION_FROM_AUTO : normalizedResolution,
+    input,
+  );
+}
+
+export function buildResolutionSizeSelection(
+  currentAspect: AspectPreset,
+  resolution: ResolutionPreset,
+  input: {
+    apiMode: APIMode;
+    requestPolicy: RequestPolicy;
+    imageModelID?: string;
+  },
+): SizeValue {
+  if (resolution === "auto") return "auto";
+  return buildSizeSelection(
+    currentAspect === "auto" ? DEFAULT_ASPECT_FROM_AUTO : currentAspect,
+    normalizeResolutionSelection(resolution, input),
+    input,
+  );
 }
 
 export function normalizeResolutionSelection(

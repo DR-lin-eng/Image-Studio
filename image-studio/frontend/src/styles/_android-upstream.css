@@ -78,7 +78,14 @@ html[data-platform="android"] .android-upstream-header-copy {
   min-width: 0;
 }
 
+html[data-platform="android"] .android-upstream-panel,
+html[data-platform="android"] .android-upstream-panel * {
+  min-width: 0;
+  box-sizing: border-box;
+}
+
 html[data-platform="android"] .android-upstream-kicker {
+  overflow-wrap: anywhere;
   color: var(--accent);
   font-size: 11px;
   font-weight: 800;
@@ -87,6 +94,7 @@ html[data-platform="android"] .android-upstream-kicker {
 html[data-platform="android"] .android-upstream-header h2,
 html[data-platform="android"] .android-upstream-empty h4 {
   margin: 2px 0 0;
+  overflow-wrap: anywhere;
   color: rgb(24 24 27);
   font-size: 21px;
   font-weight: 760;
@@ -111,8 +119,10 @@ html[data-platform="android"] .android-upstream-header-metrics {
 
 html[data-platform="android"] .android-upstream-header-metrics span {
   display: inline-flex;
+  max-width: 100%;
   min-height: 30px;
   align-items: center;
+  flex-wrap: nowrap;
   gap: 6px;
   border-radius: 999px;
   background: rgb(15 23 42 / 0.05);
@@ -120,6 +130,11 @@ html[data-platform="android"] .android-upstream-header-metrics span {
   color: rgb(82 82 91);
   font-size: 11px;
   font-weight: 800;
+  line-height: 1.2;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 
 html[data-platform="android"] .android-upstream-header-metrics span.ready {
@@ -197,30 +212,45 @@ html[data-platform="android"] .android-upstream-profile-main small,
 html[data-platform="android"] .android-upstream-option-grid strong,
 html[data-platform="android"] .android-upstream-option-grid small {
   display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 html[data-platform="android"] .android-upstream-create-grid strong,
 html[data-platform="android"] .android-upstream-profile-main strong,
 html[data-platform="android"] .android-upstream-option-grid strong {
-  overflow: hidden;
   color: inherit;
   font-size: 13px;
   font-weight: 800;
   line-height: 1.25;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 html[data-platform="android"] .android-upstream-create-grid small,
 html[data-platform="android"] .android-upstream-profile-main small,
 html[data-platform="android"] .android-upstream-option-grid small {
   margin-top: 3px;
-  overflow: hidden;
   color: rgb(113 113 122);
   font-size: 11px;
   line-height: 1.35;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+}
+
+html[data-platform="android"] .android-upstream-profile-main strong,
+html[data-platform="android"] .android-upstream-profile-main small {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+}
+
+html[data-platform="android"] .android-upstream-profile-main strong {
+  -webkit-line-clamp: 2;
+}
+
+html[data-platform="android"] .android-upstream-profile-main small {
+  -webkit-line-clamp: 2;
+  word-break: break-all;
 }
 
 html[data-platform="android"] .android-upstream-workspace {
@@ -235,6 +265,7 @@ html[data-platform="android"] .android-upstream-form {
 
 html[data-platform="android"] .android-upstream-section-head {
   display: flex;
+  min-width: 0;
   min-height: 36px;
   align-items: center;
   justify-content: space-between;
@@ -245,14 +276,23 @@ html[data-platform="android"] .android-upstream-section-head {
 }
 
 html[data-platform="android"] .android-upstream-section-head > strong {
+  min-width: 0;
+  max-width: 100%;
   border-radius: 999px;
   background: rgb(0 106 96 / 0.12);
   padding: 6px 10px;
   color: var(--accent);
   font-size: 11px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
 }
 
 html[data-platform="android"] .android-upstream-section-head > button {
+  min-width: 0;
   min-height: 32px;
   border-radius: 999px;
   background: rgb(0 106 96 / 0.1);
@@ -260,6 +300,11 @@ html[data-platform="android"] .android-upstream-section-head > button {
   color: var(--accent);
   font-size: 11px;
   font-weight: 800;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 html[data-platform="android"] .android-upstream-icon-actions {
@@ -401,13 +446,30 @@ html[data-platform="android"] .android-upstream-option-grid.two {
 }
 
 html[data-platform="android"] .android-upstream-option-grid button {
-  min-height: 58px;
+  min-width: 0;
+  min-height: 70px;
   border: 1px solid rgb(15 23 42 / 0.06);
   border-radius: 18px;
   background: rgb(248 250 249 / 0.86);
   padding: 10px 11px;
   color: rgb(63 63 70);
+  overflow: hidden;
   text-align: left;
+}
+
+html[data-platform="android"] .android-upstream-option-grid strong,
+html[data-platform="android"] .android-upstream-option-grid small {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+}
+
+html[data-platform="android"] .android-upstream-option-grid strong {
+  -webkit-line-clamp: 1;
+}
+
+html[data-platform="android"] .android-upstream-option-grid small {
+  -webkit-line-clamp: 2;
 }
 
 html[data-platform="android"] .android-upstream-option-grid button.active {
@@ -446,14 +508,23 @@ html[data-platform="android"] .android-upstream-actions button {
   min-width: 0;
   min-height: 46px;
   align-items: center;
+  align-content: center;
+  flex-wrap: nowrap;
   justify-content: center;
   gap: 6px;
   border: 1px solid rgb(0 106 96 / 0.14);
   border-radius: 18px;
   background: rgb(0 106 96 / 0.08);
+  padding: 7px 8px;
   color: var(--accent);
   font-size: 12px;
   font-weight: 800;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 html[data-platform="android"] .android-upstream-actions button.primary {

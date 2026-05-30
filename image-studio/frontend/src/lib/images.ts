@@ -143,6 +143,7 @@ export function useBlobURL(blob?: Blob | null, fallbackB64?: string | null): str
 
 export function historyPreviewSrc(
   item: {
+    id?: string | null;
     previewUrl?: string | null;
     imageBlob?: Blob | null;
     previewBlob?: Blob | null;
@@ -154,16 +155,33 @@ export function historyPreviewSrc(
   return item.previewUrl || objectURL || (item.imageB64 ? dataURLFromBase64(item.imageB64) : "");
 }
 
+export function mediaFullUrlFromImageId(imageId?: string | null): string {
+  return imageId ? `/media/full/${imageId}` : "";
+}
+
+export function isTransientPreviewItem(
+  item: {
+    id?: string | null;
+    previewOnly?: boolean | null;
+  } | null | undefined,
+): boolean {
+  return !!item?.previewOnly && typeof item.id === "string" && item.id.startsWith("preview-");
+}
+
 export function historyFullSrc(
   item: {
+    id?: string | null;
+    imageId?: string | null;
     fullUrl?: string | null;
     previewUrl?: string | null;
     imageB64?: string | null;
+    previewOnly?: boolean | null;
   } | null | undefined,
   objectURL: string | null,
 ): string {
   if (!item) return "";
-  return item.fullUrl || objectURL || item.previewUrl || (item.imageB64 ? dataURLFromBase64(item.imageB64) : "");
+  const mediaFullUrl = isTransientPreviewItem(item) ? "" : mediaFullUrlFromImageId(item.imageId);
+  return item.fullUrl || mediaFullUrl || objectURL || item.previewUrl || (item.imageB64 ? dataURLFromBase64(item.imageB64) : "");
 }
 
 export function useImageElement(source?: Blob | string | null): HTMLImageElement | null {

@@ -1,4 +1,5 @@
 import { ReactNode, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { usePlatform } from "../../platform/context";
 
@@ -27,7 +28,7 @@ export function Modal({
   }, [open, onClose]);
 
   if (!open) return null;
-  return (
+  const modal = (
     <div
       className={`app-modal-backdrop ${isAndroidPhone ? "app-modal-backdrop-phone" : "app-modal-backdrop-desktop"} ${backdropClassName}`}
       onClick={onClose}
@@ -53,4 +54,7 @@ export function Modal({
       </div>
     </div>
   );
+
+  if (typeof document === "undefined") return modal;
+  return createPortal(modal, document.body);
 }

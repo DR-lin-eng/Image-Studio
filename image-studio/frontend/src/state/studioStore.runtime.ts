@@ -54,7 +54,6 @@ export function toPreviewOnlyHistoryItem(item: HistoryItem): HistoryItem {
   const canUseCompactPreview = !!item.previewUrl || !!item.previewBlob;
   return {
     ...item,
-    fullUrl: undefined,
     imageBlob: null,
     imageB64: canUseCompactPreview ? undefined : item.imageB64,
     previewOnly: true,

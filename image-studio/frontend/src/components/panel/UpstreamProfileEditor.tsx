@@ -72,14 +72,14 @@ export function UpstreamProfileEditor({
                 key={option.id}
                 type="button"
                 onClick={() => onPatchDraft({ apiMode: option.id })}
-                className={`platform-card flex flex-col items-start gap-0.5 border p-2.5 text-left transition-colors ${
+                className={`upstream-option-card platform-card flex flex-col items-start gap-0.5 border p-2.5 text-left transition-colors ${
                   active
                     ? "active border-[color:var(--accent)]/25 bg-[var(--accent-soft)] text-[var(--accent)]"
                     : "border-black/[0.08] text-zinc-700 hover:border-[color:var(--accent)]/30 dark:border-white/[0.06] dark:text-zinc-300"
                 } ${usesFluentUI ? "rounded-[8px]" : "rounded-[14px]"}`}
               >
-                <span className="min-w-0 break-words text-[12px] font-semibold [overflow-wrap:anywhere]">{option.title}</span>
-                <span className={`min-w-0 break-words text-[10px] [overflow-wrap:anywhere] ${active ? "text-[var(--accent)]/80" : "text-zinc-500"}`}>{option.sub}</span>
+                <span className="upstream-option-title min-w-0 text-[12px] font-semibold">{option.title}</span>
+                <span className={`upstream-option-sub min-w-0 text-[10px] ${active ? "text-[var(--accent)]/80" : "text-zinc-500"}`}>{option.sub}</span>
               </button>
             );
           })}
@@ -103,14 +103,14 @@ export function UpstreamProfileEditor({
                 key={option.id}
                 type="button"
                 onClick={() => onPatchDraft({ requestPolicy: option.id })}
-                className={`platform-card flex flex-col items-start gap-0.5 border p-2.5 text-left transition-colors ${
+                className={`upstream-option-card platform-card flex flex-col items-start gap-0.5 border p-2.5 text-left transition-colors ${
                   active
                     ? "active border-[color:var(--accent)]/25 bg-[var(--accent-soft)] text-[var(--accent)]"
                     : "border-black/[0.08] text-zinc-700 hover:border-[color:var(--accent)]/30 dark:border-white/[0.06] dark:text-zinc-300"
                 } ${usesFluentUI ? "rounded-[8px]" : "rounded-[14px]"}`}
               >
-                <span className="min-w-0 break-words text-[12px] font-semibold [overflow-wrap:anywhere]">{option.title}</span>
-                <span className={`min-w-0 break-words text-[10px] [overflow-wrap:anywhere] ${active ? "text-[var(--accent)]/80" : "text-zinc-500"}`}>{option.sub}</span>
+                <span className="upstream-option-title min-w-0 text-[12px] font-semibold">{option.title}</span>
+                <span className={`upstream-option-sub min-w-0 text-[10px] ${active ? "text-[var(--accent)]/80" : "text-zinc-500"}`}>{option.sub}</span>
               </button>
             );
           })}

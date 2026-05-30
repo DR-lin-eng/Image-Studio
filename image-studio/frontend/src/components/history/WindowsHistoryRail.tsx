@@ -6,7 +6,9 @@ import type { APIMode, HistoryItem } from "../../types/domain";
 import { ContextMenu } from "../common/ContextMenu";
 import { RawResponseModal } from "./RawResponseModal";
 import type { DateFilter, ModeFilter } from "./HistoryRail";
+import type { HistoryPromptEntry, HistoryPromptGroup } from "./historyPromptGroups";
 import { HistoryTile } from "./HistoryTile";
+import { WindowsHistoryPromptGroup } from "./WindowsHistoryPromptGroup";
 import type { MenuItem } from "../common/ContextMenu";
 
 export function WindowsHistoryRail({
@@ -24,6 +26,7 @@ export function WindowsHistoryRail({
   filtered,
   generateCount,
   editCount,
+  entries,
   history,
   historyFiltersActive,
   historyRailCollapsed,
@@ -45,6 +48,7 @@ export function WindowsHistoryRail({
   setModeF,
   setQ,
   testAPIKey,
+  onOpenPromptGroup,
 }: {
   activeProfileId: string;
   apiKey: string;
@@ -60,6 +64,7 @@ export function WindowsHistoryRail({
   filtered: HistoryItem[];
   generateCount: number;
   editCount: number;
+  entries: HistoryPromptEntry[];
   history: HistoryItem[];
   historyFiltersActive: boolean;
   historyRailCollapsed: boolean;
@@ -81,9 +86,10 @@ export function WindowsHistoryRail({
   setModeF: (value: ModeFilter) => void;
   setQ: (value: string) => void;
   testAPIKey: () => void | Promise<void>;
+  onOpenPromptGroup: (group: HistoryPromptGroup) => void;
 }) {
   const latest = filtered[0] ?? null;
-  const list = filtered.slice(0, historyRailCollapsed ? 0 : 18);
+  const list = historyRailCollapsed ? [] : entries.slice(0, 18);
 
   return (
     <aside className="history-rail windows-history-rail box-border flex shrink-0 flex-col overflow-y-auto border-l border-[var(--border)] bg-[var(--inspector)]">
@@ -213,7 +219,7 @@ export function WindowsHistoryRail({
           <section className="platform-card windows-history-results">
             <div className="windows-history-section-head">
               <span><Filter className="h-3.5 w-3.5" /> 结果</span>
-              <span>{list.length}{filtered.length > list.length ? ` / ${filtered.length}` : ""}</span>
+              <span>{list.length}{entries.length > list.length ? ` / ${entries.length}` : ""}</span>
             </div>
 
             {list.length === 0 ? (
@@ -222,14 +228,15 @@ export function WindowsHistoryRail({
               </div>
             ) : (
               <div className="windows-history-list">
-                {list.map((item) => (
-                  <WindowsHistoryRow
-                    key={item.id}
-                    item={item}
-                    isCurrent={currentImage?.id === item.id}
-                    isCompare={compareB?.id === item.id}
+                {list.map((entry) => (
+                  <WindowsHistoryEntry
+                    key={entry.key}
+                    entry={entry}
+                    currentItemId={currentImage?.id ?? null}
+                    compareItemId={compareB?.id ?? null}
                     onDelete={deleteHistoryItem}
-                    onOpenMenu={(x, y) => openMenu(item, x, y)}
+                    onOpenMenu={openMenu}
+                    onOpenPromptGroup={onOpenPromptGroup}
                     onReuse={reuseAsSource}
                     onSelect={selectCurrent}
                     onToggleCompare={(next) => setCompareB(next)}
@@ -238,7 +245,7 @@ export function WindowsHistoryRail({
               </div>
             )}
 
-            {filtered.length > list.length ? (
+            {entries.length > list.length ? (
               <button type="button" onClick={openHistoryTimeline} className="windows-history-more">
                 查看更多历史
               </button>
@@ -250,6 +257,55 @@ export function WindowsHistoryRail({
       {menu ? <ContextMenu x={menu.x} y={menu.y} items={buildMenu(menu.item)} onClose={closeMenu} /> : null}
       {rawPath ? <RawResponseModal path={rawPath} onClose={closeRaw} /> : null}
     </aside>
+  );
+}
+
+function WindowsHistoryEntry({
+  compareItemId,
+  currentItemId,
+  entry,
+  onDelete,
+  onOpenMenu,
+  onOpenPromptGroup,
+  onReuse,
+  onSelect,
+  onToggleCompare,
+}: {
+  compareItemId: string | null;
+  currentItemId: string | null;
+  entry: HistoryPromptEntry;
+  onDelete: (id: string) => void | Promise<void>;
+  onOpenMenu: (item: HistoryItem, x: number, y: number) => void;
+  onOpenPromptGroup: (group: HistoryPromptGroup) => void;
+  onReuse: (item: HistoryItem) => void | Promise<void>;
+  onSelect: (item: HistoryItem) => void | Promise<void>;
+  onToggleCompare: (item: HistoryItem | null) => void;
+}) {
+  if (entry.kind === "group") {
+    return (
+      <WindowsHistoryPromptGroup
+        group={entry.group}
+        currentItemId={currentItemId}
+        compareItemId={compareItemId}
+        onOpenMenu={onOpenMenu}
+        onOpenGroup={() => onOpenPromptGroup(entry.group)}
+        onSelect={onSelect}
+        onToggleCompare={onToggleCompare}
+      />
+    );
+  }
+
+  return (
+    <WindowsHistoryRow
+      item={entry.item}
+      isCurrent={currentItemId === entry.item.id}
+      isCompare={compareItemId === entry.item.id}
+      onDelete={onDelete}
+      onOpenMenu={(x, y) => onOpenMenu(entry.item, x, y)}
+      onReuse={onReuse}
+      onSelect={onSelect}
+      onToggleCompare={onToggleCompare}
+    />
   );
 }
 

@@ -13,6 +13,8 @@ import {
   type TimelineHistoryDateFilter,
 } from "./historyFilters";
 import { TimelineHistoryItem } from "./TimelineHistoryItem";
+import { TimelinePromptStackGroup } from "./TimelinePromptStackGroup";
+import { buildHistoryPromptEntries, type HistoryPromptEntry } from "./historyPromptGroups";
 import { useHistoryContextMenu } from "./useHistoryContextMenu";
 import { toPreviewOnlyHistoryItem } from "../../state/studioStore.runtime";
 
@@ -41,6 +43,7 @@ export function HistoryTimelineModal() {
   const [modeFilter, setModeFilter] = useState<ModeFilter>("all");
   const [dateFilter, setDateFilter] = useState<DateFilter>("all");
   const [pickedDate, setPickedDate] = useState("");
+  const [expandedPromptGroups, setExpandedPromptGroups] = useState<Set<string>>(() => new Set());
   const {
     buildMenu,
     closeMenu,
@@ -69,15 +72,25 @@ export function HistoryTimelineModal() {
   }, [history, query, modeFilter, dateFilter, pickedDate]);
 
   const groups = useMemo(() => {
-    const map = new Map<string, HistoryItem[]>();
-    for (const item of filtered) {
-      const key = historyDayKey(item.createdAt);
+    const map = new Map<string, HistoryPromptEntry[]>();
+    for (const entry of buildHistoryPromptEntries(filtered)) {
+      const representative = entry.kind === "group" ? entry.group.representative : entry.item;
+      const key = historyDayKey(representative.createdAt);
       const bucket = map.get(key) ?? [];
-      bucket.push(item);
+      bucket.push(entry);
       map.set(key, bucket);
     }
     return Array.from(map.entries());
   }, [filtered]);
+
+  function togglePromptGroup(key: string) {
+    setExpandedPromptGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
 
   async function selectHistory(item: HistoryItem) {
     setField("currentImage", toPreviewOnlyHistoryItem(item));
@@ -140,25 +153,28 @@ export function HistoryTimelineModal() {
             </div>
           ) : (
             <div className="flex flex-col gap-5">
-              {groups.map(([day, items]) => (
+              {groups.map(([day, entries]) => (
                 <section key={day} className="flex flex-col gap-3">
                   <div className="sticky top-0 z-10 -mx-1 flex items-center gap-2 bg-[var(--bg)]/90 px-1 py-1 backdrop-blur-sm">
                     <CalendarDays className="h-4 w-4 text-[var(--accent)]" />
                     <div className="text-[13px] font-semibold text-zinc-800 dark:text-zinc-100">{day}</div>
-                    <div className="text-[11px] text-zinc-500 dark:text-zinc-400">{items.length} 条</div>
+                    <div className="text-[11px] text-zinc-500 dark:text-zinc-400">{entries.length} 组</div>
                   </div>
                   <div className="flex flex-col gap-3">
-                    {items.map((item) => (
-                      <TimelineHistoryItem
-                        key={item.id}
-                        item={item}
-                        isCurrent={currentImage?.id === item.id}
-                        isCompare={compareB?.id === item.id}
-                        onSelect={() => void selectHistory(item)}
-                        onDelete={() => void deleteHistoryItem(item.id)}
-                        onReuse={() => void reuseAsSource(item)}
-                        onToggleCompare={() => setCompareB(compareB?.id === item.id ? null : item)}
-                        onOpenMenu={(x, y) => openMenu(item, x, y)}
+                    {entries.map((entry) => (
+                      <TimelineHistoryEntry
+                        key={entry.key}
+                        entry={entry}
+                        currentItemId={currentImage?.id ?? null}
+                        compareItemId={compareB?.id ?? null}
+                        expanded={entry.kind === "group" && expandedPromptGroups.has(entry.key)}
+                        onSelect={(item) => void selectHistory(item)}
+                        onDelete={(item) => void deleteHistoryItem(item.id)}
+                        onReuse={(item) => void reuseAsSource(item)}
+                        onToggleCompare={(item) => setCompareB(item && compareB?.id !== item.id ? item : null)}
+                        onOpenMenu={openMenu}
+                        onToggleExpanded={() => togglePromptGroup(entry.key)}
+                        usesFluentUI={usesFluentUI}
                       />
                     ))}
                   </div>
@@ -178,5 +194,62 @@ export function HistoryTimelineModal() {
       ) : null}
       {rawPath ? <RawResponseModal path={rawPath} onClose={closeRaw} /> : null}
     </Modal>
+  );
+}
+
+function TimelineHistoryEntry({
+  compareItemId,
+  currentItemId,
+  entry,
+  expanded,
+  onDelete,
+  onOpenMenu,
+  onReuse,
+  onSelect,
+  onToggleCompare,
+  onToggleExpanded,
+  usesFluentUI,
+}: {
+  compareItemId: string | null;
+  currentItemId: string | null;
+  entry: HistoryPromptEntry;
+  expanded: boolean;
+  onDelete: (item: HistoryItem) => void;
+  onOpenMenu: (item: HistoryItem, x: number, y: number) => void;
+  onReuse: (item: HistoryItem) => void;
+  onSelect: (item: HistoryItem) => void;
+  onToggleCompare: (item: HistoryItem | null) => void;
+  onToggleExpanded: () => void;
+  usesFluentUI: boolean;
+}) {
+  if (entry.kind === "item") {
+    const item = entry.item;
+    return (
+      <TimelineHistoryItem
+        item={item}
+        isCurrent={currentItemId === item.id}
+        isCompare={compareItemId === item.id}
+        onSelect={() => onSelect(item)}
+        onDelete={() => onDelete(item)}
+        onReuse={() => onReuse(item)}
+        onToggleCompare={() => onToggleCompare(item)}
+        onOpenMenu={(x, y) => onOpenMenu(item, x, y)}
+      />
+    );
+  }
+
+  return (
+    <TimelinePromptStackGroup
+      group={entry.group}
+      currentItemId={currentItemId}
+      compareItemId={compareItemId}
+      expanded={expanded}
+      onSelect={onSelect}
+      onReuse={onReuse}
+      onToggleCompare={onToggleCompare}
+      onOpenMenu={onOpenMenu}
+      onToggleExpanded={onToggleExpanded}
+      usesFluentUI={usesFluentUI}
+    />
   );
 }

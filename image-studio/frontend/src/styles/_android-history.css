@@ -393,6 +393,152 @@ html[data-target-platform="android-pad"] .android-history-tile {
     transform 80ms ease;
 }
 
+html[data-target-platform="android"] .android-history-prompt-group,
+html[data-target-platform="android-pad"] .android-history-prompt-group {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) 46px;
+  grid-column: 1 / -1;
+  gap: 8px;
+  overflow: hidden;
+  border: 2px solid transparent;
+  border-radius: 26px;
+  background: rgb(255 255 255 / 0.88);
+  box-shadow: 0 10px 24px rgb(15 23 42 / 0.07);
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    transform 80ms ease;
+}
+
+html[data-target-platform="android"] .android-history-prompt-group.active,
+html[data-target-platform="android-pad"] .android-history-prompt-group.active {
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 1px var(--accent),
+    0 14px 28px rgb(0 121 107 / 0.16);
+}
+
+html[data-target-platform="android"] .android-history-prompt-group.compare,
+html[data-target-platform="android-pad"] .android-history-prompt-group.compare {
+  border-color: rgb(59 130 246);
+  box-shadow:
+    0 0 0 1px rgb(59 130 246),
+    0 14px 28px rgb(59 130 246 / 0.16);
+}
+
+html[data-target-platform="android"] .android-history-group-summary,
+html[data-target-platform="android-pad"] .android-history-group-summary {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 11px;
+  border: 0;
+  background: transparent;
+  padding: 9px 0 9px 9px;
+  text-align: left;
+  touch-action: manipulation;
+}
+
+html[data-target-platform="android"] .android-history-group-pile-button,
+html[data-target-platform="android-pad"] .android-history-group-pile-button {
+  display: block;
+  min-width: 0;
+}
+
+html[data-target-platform="android"] .timeline-prompt-card-pile.android-history-group-pile,
+html[data-target-platform="android-pad"] .timeline-prompt-card-pile.android-history-group-pile {
+  position: relative;
+  width: 92px;
+  height: 92px;
+  flex: 0 0 92px;
+}
+
+html[data-target-platform="android"] .android-history-group-pile .timeline-prompt-card-layer,
+html[data-target-platform="android-pad"] .android-history-group-pile .timeline-prompt-card-layer {
+  inset: 7px 13px 7px 7px;
+  border-radius: 22px;
+}
+
+html[data-target-platform="android"] .android-history-group-pile .timeline-prompt-card-layer.layer-1,
+html[data-target-platform="android-pad"] .android-history-group-pile .timeline-prompt-card-layer.layer-1 {
+  transform: translate(7px, 0) rotate(4deg) scale(0.96);
+}
+
+html[data-target-platform="android"] .android-history-group-pile .timeline-prompt-card-layer.layer-2,
+html[data-target-platform="android-pad"] .android-history-group-pile .timeline-prompt-card-layer.layer-2 {
+  transform: translate(12px, 1px) rotate(8deg) scale(0.92);
+}
+
+html[data-target-platform="android"] .android-history-group-pile .timeline-prompt-card-mode,
+html[data-target-platform="android-pad"] .android-history-group-pile .timeline-prompt-card-mode {
+  left: 8px;
+  top: 8px;
+}
+
+html[data-target-platform="android"] .android-history-group-pile .timeline-prompt-card-count,
+html[data-target-platform="android-pad"] .android-history-group-pile .timeline-prompt-card-count {
+  right: 1px;
+  bottom: 2px;
+}
+
+html[data-target-platform="android"] .android-history-group-copy,
+html[data-target-platform="android-pad"] .android-history-group-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+}
+
+html[data-target-platform="android"] .android-history-group-kicker,
+html[data-target-platform="android-pad"] .android-history-group-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 850;
+}
+
+html[data-target-platform="android"] .android-history-group-copy strong,
+html[data-target-platform="android-pad"] .android-history-group-copy strong {
+  display: -webkit-box;
+  overflow: hidden;
+  color: rgb(39 39 42);
+  font-size: 13px;
+  font-weight: 820;
+  line-height: 1.42;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+html[data-target-platform="android"] .android-history-group-expand,
+html[data-target-platform="android-pad"] .android-history-group-expand {
+  display: inline-flex;
+  width: 38px;
+  height: calc(100% - 18px);
+  min-height: 72px;
+  align-self: center;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border: 0;
+  border-radius: 18px;
+  background: rgb(0 121 107 / 0.08);
+  color: var(--accent);
+}
+
+html[data-target-platform="android"] .android-history-group-grid,
+html[data-target-platform="android-pad"] .android-history-group-grid {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding: 0 9px 9px;
+}
+
 html[data-target-platform="android"] .android-history-tile-image,
 html[data-target-platform="android-pad"] .android-history-tile-image {
   position: relative;
@@ -778,6 +924,8 @@ html[data-target-platform="android"] .android-history-feature:active,
 html[data-target-platform="android-pad"] .android-history-feature:active,
 html[data-target-platform="android"] .android-history-tile:active,
 html[data-target-platform="android-pad"] .android-history-tile:active,
+html[data-target-platform="android"] .android-history-prompt-group:active,
+html[data-target-platform="android-pad"] .android-history-prompt-group:active,
 html[data-target-platform="android"] .android-history-more:active,
 html[data-target-platform="android-pad"] .android-history-more:active,
 html[data-target-platform="android"] .android-history-quick-actions button:active,
@@ -816,6 +964,8 @@ html.dark[data-target-platform="android"] .android-history-stat,
 html.dark[data-target-platform="android-pad"] .android-history-stat,
 html.dark[data-target-platform="android"] .android-history-tile,
 html.dark[data-target-platform="android-pad"] .android-history-tile,
+html.dark[data-target-platform="android"] .android-history-prompt-group,
+html.dark[data-target-platform="android-pad"] .android-history-prompt-group,
 html.dark[data-target-platform="android"] .android-history-feature-copy,
 html.dark[data-target-platform="android-pad"] .android-history-feature-copy,
 html.dark[data-target-platform="android"] .android-history-action-sheet,
@@ -837,6 +987,8 @@ html.dark[data-target-platform="android"] .android-history-stat strong,
 html.dark[data-target-platform="android-pad"] .android-history-stat strong,
 html.dark[data-target-platform="android"] .android-history-feature-copy strong,
 html.dark[data-target-platform="android-pad"] .android-history-feature-copy strong,
+html.dark[data-target-platform="android"] .android-history-group-copy strong,
+html.dark[data-target-platform="android-pad"] .android-history-group-copy strong,
 html.dark[data-target-platform="android"] .android-history-tile-body p,
 html.dark[data-target-platform="android-pad"] .android-history-tile-body p,
 html.dark[data-target-platform="android"] .android-history-empty strong,
@@ -856,6 +1008,8 @@ html.dark[data-target-platform="android"] .android-history-section-head small,
 html.dark[data-target-platform="android-pad"] .android-history-section-head small,
 html.dark[data-target-platform="android"] .android-history-feature-copy span,
 html.dark[data-target-platform="android-pad"] .android-history-feature-copy span,
+html.dark[data-target-platform="android"] .android-history-group-copy,
+html.dark[data-target-platform="android-pad"] .android-history-group-copy,
 html.dark[data-target-platform="android"] .android-history-empty,
 html.dark[data-target-platform="android-pad"] .android-history-empty,
 html.dark[data-target-platform="android"] .android-history-sheet-copy small,
@@ -872,7 +1026,9 @@ html.dark[data-target-platform="android-pad"] .android-history-sheet-close,
 html.dark[data-target-platform="android"] .android-history-sheet-actions button,
 html.dark[data-target-platform="android-pad"] .android-history-sheet-actions button,
 html.dark[data-target-platform="android"] .android-history-sheet-action-icon,
-html.dark[data-target-platform="android-pad"] .android-history-sheet-action-icon {
+html.dark[data-target-platform="android-pad"] .android-history-sheet-action-icon,
+html.dark[data-target-platform="android"] .android-history-group-expand,
+html.dark[data-target-platform="android-pad"] .android-history-group-expand {
   border-color: rgb(255 255 255 / 0.08);
   background: rgb(255 255 255 / 0.05);
 }
@@ -1080,6 +1236,31 @@ html[data-target-platform="android-pad"] .android-history-page-pad[data-android-
 
 html[data-target-platform="android-pad"] .android-history-page-pad[data-android-history-layout="pad"] .android-history-tile {
   border-radius: 22px;
+}
+
+html[data-target-platform="android-pad"] .android-history-page-pad[data-android-history-layout="pad"] .android-history-prompt-group {
+  grid-column: auto;
+  border-radius: 22px;
+}
+
+html[data-target-platform="android-pad"] .android-history-page-pad[data-android-history-layout="pad"] .android-history-group-summary {
+  grid-template-columns: 78px minmax(0, 1fr);
+  gap: 9px;
+}
+
+html[data-target-platform="android-pad"] .android-history-page-pad[data-android-history-layout="pad"] .timeline-prompt-card-pile.android-history-group-pile {
+  width: 78px;
+  height: 78px;
+  flex-basis: 78px;
+}
+
+html[data-target-platform="android-pad"] .android-history-page-pad[data-android-history-layout="pad"] .android-history-group-pile .timeline-prompt-card-layer {
+  border-radius: 18px;
+}
+
+html[data-target-platform="android-pad"] .android-history-page-pad[data-android-history-layout="pad"] .android-history-group-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
 }
 
 html[data-target-platform="android-pad"] .android-history-page-pad[data-android-history-layout="pad"] .android-history-tile-image {

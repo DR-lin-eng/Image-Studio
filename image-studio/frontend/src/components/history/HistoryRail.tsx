@@ -9,12 +9,16 @@ import { ContextMenu } from "../common/ContextMenu";
 import { RawResponseModal } from "./RawResponseModal";
 import { usePlatform } from "../../platform/context";
 import { AndroidHistoryActionSheet } from "../../platform/android/history/AndroidHistoryActionSheet";
+import { AndroidHistoryPromptGroup } from "../../platform/android/history/AndroidHistoryPromptGroup";
 import { AndroidHistoryTile } from "../../platform/android/history/AndroidHistoryTile";
 import {
   isHistoryInDateFilter,
   matchesHistorySearch,
   type RelativeHistoryDateFilter,
 } from "./historyFilters";
+import { HistoryPromptGroupCard } from "./HistoryPromptGroupCard";
+import { buildHistoryPromptEntries, type HistoryPromptGroup } from "./historyPromptGroups";
+import { HistoryPromptGroupModal } from "./HistoryPromptGroupModal";
 import { HistoryTile } from "./HistoryTile";
 import { useHistoryContextMenu } from "./useHistoryContextMenu";
 import { WindowsHistoryRail } from "./WindowsHistoryRail";
@@ -40,6 +44,7 @@ export function HistoryRail() {
   const [modeF, setModeF] = useState<ModeFilter>("all");
   const [dateF, setDateF] = useState<DateFilter>("all");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [activePromptGroup, setActivePromptGroup] = useState<HistoryPromptGroup | null>(null);
   const { isAndroidPhone, isAndroidPad, isMac, isWindows, usesFluentUI, usesAndroidUI, usesAppleUI } = usePlatform();
   // 防快速连点产生竞态:每次点击递增 epoch,后台 materialize 全图 resolve
   // 时跟当前 epoch 比对,过时的就丢弃。之前的写法是先 await 再 setField,
@@ -53,10 +58,10 @@ export function HistoryRail() {
       return matchesHistorySearch(h, deferredQ);
     });
   }, [history, deferredQ, modeF, dateF]);
-  const recentHistory = filtered.slice(0, 6);
-  const visibleDesktopHistory = isWindows ? filtered : recentHistory;
+  const promptEntries = useMemo(() => buildHistoryPromptEntries(filtered), [filtered]);
+  const visibleDesktopEntries = isWindows ? promptEntries : promptEntries.slice(0, 6);
   const desktopHistoryCollapsed = !isWindows && historyRailCollapsed;
-  const androidHistory = filtered.slice(0, isAndroidPad ? 48 : 24);
+  const androidHistoryEntries = promptEntries.slice(0, isAndroidPad ? 48 : 24);
   const latestHistory = filtered[0] ?? null;
   const generateCount = history.filter((item) => item.mode === "generate").length;
   const editCount = history.length - generateCount;
@@ -116,43 +121,57 @@ export function HistoryRail() {
 
   if (isWindows) {
     return (
-      <WindowsHistoryRail
-        activeProfileId={activeProfileId}
-        apiKey={apiKey}
-        apiMode={apiMode}
-        baseURL={baseURL}
-        buildMenu={buildMenu}
-        closeMenu={closeMenu}
-        closeRaw={closeRaw}
-        compareB={compareB}
-        currentImage={currentImage}
-        dateF={dateF}
-        deleteHistoryItem={deleteHistoryItem}
-        editCount={editCount}
-        filtered={filtered}
-        generateCount={generateCount}
-        history={history}
-        historyFiltersActive={historyFiltersActive}
-        historyRailCollapsed={historyRailCollapsed}
-        isTestingKey={isTestingKey}
-        menu={menu}
-        modeF={modeF}
-        openHistoryTimeline={openHistoryTimeline}
-        openMenu={openMenu}
-        openUpstreamConfig={openUpstreamConfig}
-        profiles={profiles}
-        q={q}
-        rawPath={rawPath}
-        reuseAsSource={reuseAsSource}
-        selectCurrent={selectCurrent}
-        setActiveProfile={setActiveProfile}
-        setCompareB={setCompareB}
-        setDateF={setDateF}
-        setHistoryRailCollapsed={setHistoryRailCollapsed}
-        setModeF={setModeF}
-        setQ={setQ}
-        testAPIKey={testAPIKey}
-      />
+      <>
+        <WindowsHistoryRail
+          activeProfileId={activeProfileId}
+          apiKey={apiKey}
+          apiMode={apiMode}
+          baseURL={baseURL}
+          buildMenu={buildMenu}
+          closeMenu={closeMenu}
+          closeRaw={closeRaw}
+          compareB={compareB}
+          currentImage={currentImage}
+          dateF={dateF}
+          deleteHistoryItem={deleteHistoryItem}
+          editCount={editCount}
+          entries={promptEntries}
+          filtered={filtered}
+          generateCount={generateCount}
+          history={history}
+          historyFiltersActive={historyFiltersActive}
+          historyRailCollapsed={historyRailCollapsed}
+          isTestingKey={isTestingKey}
+          menu={menu}
+          modeF={modeF}
+          openHistoryTimeline={openHistoryTimeline}
+          openMenu={openMenu}
+          openUpstreamConfig={openUpstreamConfig}
+          profiles={profiles}
+          q={q}
+          rawPath={rawPath}
+          reuseAsSource={reuseAsSource}
+          selectCurrent={selectCurrent}
+          setActiveProfile={setActiveProfile}
+          setCompareB={setCompareB}
+          setDateF={setDateF}
+          setHistoryRailCollapsed={setHistoryRailCollapsed}
+          setModeF={setModeF}
+          setQ={setQ}
+          testAPIKey={testAPIKey}
+          onOpenPromptGroup={setActivePromptGroup}
+        />
+        <HistoryPromptGroupModal
+          group={activePromptGroup}
+          currentItemId={currentImage?.id ?? null}
+          compareItemId={compareB?.id ?? null}
+          onClose={() => setActivePromptGroup(null)}
+          onSelect={(item) => void selectCurrent(item)}
+          onReuse={reuseAsSource}
+          onToggleCompare={(next) => setCompareB(next)}
+          onOpenMenu={(item, x, y) => openMenu(item, x, y)}
+        />
+      </>
     );
   }
 
@@ -282,7 +301,7 @@ export function HistoryRail() {
             <small>{filtered.length}{filtered.length !== history.length ? ` / ${history.length}` : ""}</small>
           </div>
 
-          {androidHistory.length === 0 ? (
+          {androidHistoryEntries.length === 0 ? (
             <div className="android-history-empty">
               <div className="android-history-empty-icon"><ImageIcon className="h-5 w-5" /></div>
               <strong>{historyFiltersActive ? "没有匹配项" : "还没有历史结果"}</strong>
@@ -290,21 +309,38 @@ export function HistoryRail() {
             </div>
           ) : (
             <div className="android-history-grid">
-              {androidHistory.map((h) => (
-                <AndroidHistoryTile
-                  key={h.id}
-                  item={h}
-                  isCurrent={currentImage?.id === h.id}
-                  isCompare={compareB?.id === h.id}
-                  onSelect={selectCurrent}
-                  onToggleCompare={(next) => setCompareB(next)}
-                  onOpenMenu={(x, y) => openMenu(h, x, y)}
-                />
-              ))}
+              {androidHistoryEntries.map((entry) => {
+                if (entry.kind === "group") {
+                  return (
+                    <AndroidHistoryPromptGroup
+                      key={entry.key}
+                      group={entry.group}
+                      currentItemId={currentImage?.id ?? null}
+                      compareItemId={compareB?.id ?? null}
+                      onSelect={selectCurrent}
+                      onToggleCompare={(next) => setCompareB(next)}
+                      onOpenMenu={(item, x, y) => openMenu(item, x, y)}
+                      onOpenGroup={() => setActivePromptGroup(entry.group)}
+                    />
+                  );
+                }
+                const h = entry.item;
+                return (
+                  <AndroidHistoryTile
+                    key={h.id}
+                    item={h}
+                    isCurrent={currentImage?.id === h.id}
+                    isCompare={compareB?.id === h.id}
+                    onSelect={selectCurrent}
+                    onToggleCompare={(next) => setCompareB(next)}
+                    onOpenMenu={(x, y) => openMenu(h, x, y)}
+                  />
+                );
+              })}
             </div>
           )}
 
-          {filtered.length > androidHistory.length ? (
+          {promptEntries.length > androidHistoryEntries.length ? (
             <button type="button" className="android-history-more" onClick={openHistoryTimeline}>
               查看更多历史
             </button>
@@ -332,6 +368,16 @@ export function HistoryRail() {
 
         {menu && <AndroidHistoryActionSheet item={menu.item} items={buildMenu(menu.item)} onClose={closeMenu} />}
         {rawPath && <RawResponseModal path={rawPath} onClose={closeRaw} />}
+        <HistoryPromptGroupModal
+          group={activePromptGroup}
+          currentItemId={currentImage?.id ?? null}
+          compareItemId={compareB?.id ?? null}
+          onClose={() => setActivePromptGroup(null)}
+          onSelect={(item) => void selectCurrent(item)}
+          onReuse={reuseAsSource}
+          onToggleCompare={(next) => setCompareB(next)}
+          onOpenMenu={(item, x, y) => openMenu(item, x, y)}
+        />
       </aside>
     );
   }
@@ -506,36 +552,63 @@ export function HistoryRail() {
         </button>
       )}
 
-      {isMac && !desktopHistoryCollapsed && visibleDesktopHistory.length > 0 ? (
+      {isMac && !desktopHistoryCollapsed && visibleDesktopEntries.length > 0 ? (
         <p className="text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">
           单击查看 · 双击设源图 · Shift+点击对比 · 更多菜单查看完整操作
         </p>
       ) : null}
 
-      {desktopHistoryCollapsed ? null : visibleDesktopHistory.length === 0 ? (
+      {desktopHistoryCollapsed ? null : visibleDesktopEntries.length === 0 ? (
         <div className={`platform-card border border-black/[0.05] bg-white/70 text-center text-[12px] text-zinc-500 shadow-[var(--shadow-card)] dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-zinc-300 ${isAndroidPhone ? "py-4" : "py-8"} ${usesFluentUI ? "rounded-[12px]" : "rounded-[20px]"}`}>
           {q || modeF !== "all" || dateF !== "all" ? "没有匹配项" : "还没有结果"}
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-2.5">
-          {visibleDesktopHistory.map((h) => (
-            <HistoryTile
-              key={h.id}
-              item={h}
-              isCurrent={currentImage?.id === h.id}
-              isCompare={compareB?.id === h.id}
-              onSelect={selectCurrent}
-              onToggleCompare={(next) => setCompareB(next)}
-              onReuse={reuseAsSource}
-              onDelete={deleteHistoryItem}
-              onOpenMenu={(x, y) => openMenu(h, x, y)}
-            />
-          ))}
+          {visibleDesktopEntries.map((entry) => {
+            if (entry.kind === "group") {
+              return (
+                <HistoryPromptGroupCard
+                  key={entry.key}
+                  group={entry.group}
+                  currentItemId={currentImage?.id ?? null}
+                  compareItemId={compareB?.id ?? null}
+                  onSelect={selectCurrent}
+                  onToggleCompare={(next) => setCompareB(next)}
+                  onOpenMenu={(item, x, y) => openMenu(item, x, y)}
+                  onOpenGroup={() => setActivePromptGroup(entry.group)}
+                />
+              );
+            }
+            const h = entry.item;
+            return (
+              <HistoryTile
+                key={h.id}
+                item={h}
+                isCurrent={currentImage?.id === h.id}
+                isCompare={compareB?.id === h.id}
+                onSelect={selectCurrent}
+                onToggleCompare={(next) => setCompareB(next)}
+                onReuse={reuseAsSource}
+                onDelete={deleteHistoryItem}
+                onOpenMenu={(x, y) => openMenu(h, x, y)}
+              />
+            );
+          })}
         </div>
       )}
 
       {menu && <ContextMenu x={menu.x} y={menu.y} items={buildMenu(menu.item)} onClose={closeMenu} />}
       {rawPath && <RawResponseModal path={rawPath} onClose={closeRaw} />}
+      <HistoryPromptGroupModal
+        group={activePromptGroup}
+        currentItemId={currentImage?.id ?? null}
+        compareItemId={compareB?.id ?? null}
+        onClose={() => setActivePromptGroup(null)}
+        onSelect={(item) => void selectCurrent(item)}
+        onReuse={reuseAsSource}
+        onToggleCompare={(next) => setCompareB(next)}
+        onOpenMenu={(item, x, y) => openMenu(item, x, y)}
+      />
       </div>
     </aside>
   );

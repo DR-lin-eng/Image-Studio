@@ -18,10 +18,10 @@ import {
   ASPECT_PRESETS,
   RESOLUTION_PRESETS,
   availableResolutionPresets,
-  buildSizeSelection,
+  buildAspectSizeSelection,
+  buildResolutionSizeSelection,
   deriveAspectPreset,
   deriveResolutionPreset,
-  normalizeResolutionSelection,
 } from "./sizeCapabilities";
 
 export function ControlPanel() {
@@ -76,15 +76,15 @@ export function ControlPanel() {
   ].join(" · ");
 
   function handleAspectSelect(aspect: typeof activeAspect) {
-    setField("size", buildSizeSelection(
+    setField("size", buildAspectSizeSelection(
       aspect,
-      normalizeResolutionSelection(activeResolution, { apiMode, requestPolicy, imageModelID }),
+      activeResolution,
       { apiMode, requestPolicy, imageModelID },
     ));
   }
 
   function handleResolutionSelect(resolution: typeof activeResolution) {
-    setField("size", buildSizeSelection(
+    setField("size", buildResolutionSizeSelection(
       activeAspect,
       resolution,
       { apiMode, requestPolicy, imageModelID },

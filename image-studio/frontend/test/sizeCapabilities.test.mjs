@@ -64,3 +64,35 @@ test("ratio stays independent from resolution preset", () => {
     "2160x3840",
   );
 });
+
+test("explicit aspect selection can leave Auto size", () => {
+  assert.equal(
+    caps.buildAspectSizeSelection("9:16", "auto", {
+      apiMode: "responses",
+      requestPolicy: "openai",
+      imageModelID: "gpt-image-2",
+    }),
+    "864x1536",
+  );
+});
+
+test("explicit resolution selection can leave Auto size", () => {
+  assert.equal(
+    caps.buildResolutionSizeSelection("auto", "2k", {
+      apiMode: "responses",
+      requestPolicy: "openai",
+      imageModelID: "gpt-image-2",
+    }),
+    "2048x2048",
+  );
+});
+
+test("explicit Auto selections keep upstream-determined size", () => {
+  const input = {
+    apiMode: "responses",
+    requestPolicy: "openai",
+    imageModelID: "gpt-image-2",
+  };
+  assert.equal(caps.buildAspectSizeSelection("auto", "2k", input), "auto");
+  assert.equal(caps.buildResolutionSizeSelection("16:9", "auto", input), "auto");
+});

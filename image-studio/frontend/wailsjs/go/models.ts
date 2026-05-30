@@ -16,10 +16,13 @@ export namespace backend {
 	    baseURL: string;
 	    textModelID: string;
 	    imageModelID: string;
+	    proxyMode: string;
+	    proxyURL: string;
 	    apiMode: string;
 	    requestPolicy: string;
 	    noPromptRevision: boolean;
 	    concurrencyLimit: number;
+	    partialImages: number;
 
 	    static createFrom(source: any = {}) {
 	        return new GenerateOptions(source);
@@ -42,10 +45,13 @@ export namespace backend {
 	        this.baseURL = source["baseURL"];
 	        this.textModelID = source["textModelID"];
 	        this.imageModelID = source["imageModelID"];
+	        this.proxyMode = source["proxyMode"];
+	        this.proxyURL = source["proxyURL"];
 	        this.apiMode = source["apiMode"];
 	        this.requestPolicy = source["requestPolicy"];
 	        this.noPromptRevision = source["noPromptRevision"];
 	        this.concurrencyLimit = source["concurrencyLimit"];
+	        this.partialImages = source["partialImages"];
 	    }
 	}
 	export class ImageTransformResult {
@@ -64,7 +70,11 @@ export namespace backend {
 	}
 	export class ImportedImage {
 	    path: string;
-	    imageB64: string;
+	    imageB64?: string;
+	    imageId?: string;
+	    previewUrl?: string;
+	    previewWidth?: number;
+	    previewHeight?: number;
 
 	    static createFrom(source: any = {}) {
 	        return new ImportedImage(source);
@@ -74,6 +84,10 @@ export namespace backend {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.path = source["path"];
 	        this.imageB64 = source["imageB64"];
+	        this.imageId = source["imageId"];
+	        this.previewUrl = source["previewUrl"];
+	        this.previewWidth = source["previewWidth"];
+	        this.previewHeight = source["previewHeight"];
 	    }
 	}
 	export class JobStarted {
@@ -88,12 +102,66 @@ export namespace backend {
 	        this.jobId = source["jobId"];
 	    }
 	}
+	export class MediaAssetRef {
+	    imageId?: string;
+	    savedPath?: string;
+	    thumbPath?: string;
+	    previewUrl?: string;
+	    fullUrl?: string;
+	    previewWidth?: number;
+	    previewHeight?: number;
+
+	    static createFrom(source: any = {}) {
+	        return new MediaAssetRef(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.imageId = source["imageId"];
+	        this.savedPath = source["savedPath"];
+	        this.thumbPath = source["thumbPath"];
+	        this.previewUrl = source["previewUrl"];
+	        this.fullUrl = source["fullUrl"];
+	        this.previewWidth = source["previewWidth"];
+	        this.previewHeight = source["previewHeight"];
+	    }
+	}
+	export class PreviewPayload {
+	    imageB64?: string;
+	    imageId?: string;
+	    previewUrl?: string;
+	    previewWidth?: number;
+	    previewHeight?: number;
+	    revisedPrompt?: string;
+	    partialImageIndex: number;
+	    mode: string;
+	    prompt: string;
+
+	    static createFrom(source: any = {}) {
+	        return new PreviewPayload(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.imageB64 = source["imageB64"];
+	        this.imageId = source["imageId"];
+	        this.previewUrl = source["previewUrl"];
+	        this.previewWidth = source["previewWidth"];
+	        this.previewHeight = source["previewHeight"];
+	        this.revisedPrompt = source["revisedPrompt"];
+	        this.partialImageIndex = source["partialImageIndex"];
+	        this.mode = source["mode"];
+	        this.prompt = source["prompt"];
+	    }
+	}
 	export class PromptOptimizeOptions {
 	    apiKey: string;
 	    prompt: string;
 	    mode: string;
 	    baseURL: string;
 	    textModelID: string;
+	    proxyMode: string;
+	    proxyURL: string;
 	    imagePaths: string[];
 	    imagePath: string;
 
@@ -108,14 +176,50 @@ export namespace backend {
 	        this.mode = source["mode"];
 	        this.baseURL = source["baseURL"];
 	        this.textModelID = source["textModelID"];
+	        this.proxyMode = source["proxyMode"];
+	        this.proxyURL = source["proxyURL"];
 	        this.imagePaths = source["imagePaths"];
 	        this.imagePath = source["imagePath"];
+	    }
+	}
+	export class ProbeUpstreamOptions {
+	    apiKey: string;
+	    baseURL: string;
+	    proxyMode: string;
+	    proxyURL: string;
+
+	    static createFrom(source: any = {}) {
+	        return new ProbeUpstreamOptions(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.apiKey = source["apiKey"];
+	        this.baseURL = source["baseURL"];
+	        this.proxyMode = source["proxyMode"];
+	        this.proxyURL = source["proxyURL"];
+	    }
+	}
+	export class ProbeUpstreamResult {
+	    modelCount: number;
+
+	    static createFrom(source: any = {}) {
+	        return new ProbeUpstreamResult(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.modelCount = source["modelCount"];
 	    }
 	}
 	export class SelectFileResponse {
 	    path: string;
 	    size: number;
 	    imageB64?: string;
+	    imageId?: string;
+	    previewUrl?: string;
+	    previewWidth?: number;
+	    previewHeight?: number;
 
 	    static createFrom(source: any = {}) {
 	        return new SelectFileResponse(source);
@@ -126,6 +230,10 @@ export namespace backend {
 	        this.path = source["path"];
 	        this.size = source["size"];
 	        this.imageB64 = source["imageB64"];
+	        this.imageId = source["imageId"];
+	        this.previewUrl = source["previewUrl"];
+	        this.previewWidth = source["previewWidth"];
+	        this.previewHeight = source["previewHeight"];
 	    }
 	}
 

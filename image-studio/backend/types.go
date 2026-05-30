@@ -7,15 +7,15 @@ import "strings"
 // GenerateOptions is the request shape sent by the frontend.
 // Fields mirror client.Options but with friendlier names for TS.
 type GenerateOptions struct {
-	APIKey  string `json:"apiKey"`
-	Mode    string `json:"mode"` // "generate" | "edit"
+	APIKey string `json:"apiKey"`
+	Mode   string `json:"mode"` // "generate" | "edit"
 	// RequestedJobID allows the frontend to pre-bind event listeners before
 	// dispatching the request, avoiding a race where a very fast result event
 	// arrives before the UI has attached `result:<jobId>` handlers.
 	RequestedJobID string `json:"requestedJobId"`
-	Prompt  string `json:"prompt"`
-	Size    string `json:"size"`
-	Quality string `json:"quality"`
+	Prompt         string `json:"prompt"`
+	Size           string `json:"size"`
+	Quality        string `json:"quality"`
 	// OutputFormat:"png" | "jpeg" | "webp"。空时回退到 client.OutputFormat 默认("png")。
 	OutputFormat string `json:"outputFormat"`
 
@@ -36,11 +36,15 @@ type GenerateOptions struct {
 	ImageModelID   string `json:"imageModelID"`   // overrides the default image model
 	APIMode        string `json:"apiMode"`        // "responses" (default) | "images"
 	RequestPolicy  string `json:"requestPolicy"`  // "openai" (default) | "compat"
+	ProxyMode      string `json:"proxyMode"`      // "none" | "system" (default) | "custom"
+	ProxyURL       string `json:"proxyURL"`       // http(s) proxy URL when ProxyMode == "custom"
 	// NoPromptRevision is kept for backward compatibility; Responses API
 	// requests now always ask the text model to keep the prompt verbatim.
 	NoPromptRevision bool `json:"noPromptRevision"`
 	// ConcurrencyLimit is enforced per APIMode. 0 means unlimited.
 	ConcurrencyLimit int `json:"concurrencyLimit"`
+	// PartialImages controls Responses API stream preview count. 0 keeps the app default.
+	PartialImages int `json:"partialImages"`
 }
 
 // PromptOptimizeOptions is the request shape for one-click prompt revision.
@@ -50,8 +54,24 @@ type PromptOptimizeOptions struct {
 	Mode        string   `json:"mode"`
 	BaseURL     string   `json:"baseURL"`
 	TextModelID string   `json:"textModelID"`
+	ProxyMode   string   `json:"proxyMode"`
+	ProxyURL    string   `json:"proxyURL"`
 	ImagePaths  []string `json:"imagePaths"`
 	ImagePath   string   `json:"imagePath"`
+}
+
+// ProbeUpstreamOptions is used by the UI's connection-test button. Validation
+// and the actual /v1/models request are intentionally host-side so browser and
+// WebView quirks do not decide whether a channel is alive.
+type ProbeUpstreamOptions struct {
+	APIKey    string `json:"apiKey"`
+	BaseURL   string `json:"baseURL"`
+	ProxyMode string `json:"proxyMode"`
+	ProxyURL  string `json:"proxyURL"`
+}
+
+type ProbeUpstreamResult struct {
+	ModelCount int `json:"modelCount"`
 }
 
 func (o PromptOptimizeOptions) collectPaths() []string {
@@ -81,13 +101,33 @@ type ProgressPayload struct {
 
 // ResultPayload is emitted as `result:<jobId>`.
 type ResultPayload struct {
-	ImageB64      string `json:"imageB64"`
+	ImageB64      string `json:"imageB64,omitempty"`
 	RevisedPrompt string `json:"revisedPrompt"`
 	SourceEvent   string `json:"sourceEvent"`
+	ImageID       string `json:"imageId,omitempty"`
 	SavedPath     string `json:"savedPath"` // absolute path in user config dir
-	RawPath       string `json:"rawPath"`   // raw SSE dump location
+	ThumbPath     string `json:"thumbPath,omitempty"`
+	PreviewURL    string `json:"previewUrl,omitempty"`
+	FullURL       string `json:"fullUrl,omitempty"`
+	PreviewWidth  int    `json:"previewWidth,omitempty"`
+	PreviewHeight int    `json:"previewHeight,omitempty"`
+	RawPath       string `json:"rawPath"` // raw SSE dump location
 	Mode          string `json:"mode"`
 	Prompt        string `json:"prompt"`
+}
+
+// PreviewPayload is emitted as `preview:<jobId>` while Responses API streams
+// intermediate image-generation previews.
+type PreviewPayload struct {
+	ImageB64          string `json:"imageB64,omitempty"` // legacy/browser fallback only; Wails preview events use PreviewURL.
+	ImageID           string `json:"imageId,omitempty"`
+	PreviewURL        string `json:"previewUrl,omitempty"`
+	PreviewWidth      int    `json:"previewWidth,omitempty"`
+	PreviewHeight     int    `json:"previewHeight,omitempty"`
+	RevisedPrompt     string `json:"revisedPrompt,omitempty"`
+	PartialImageIndex int    `json:"partialImageIndex"`
+	Mode              string `json:"mode"`
+	Prompt            string `json:"prompt"`
 }
 
 // ErrorPayload is emitted as `error:<jobId>` when a run fails.
@@ -99,19 +139,35 @@ type ErrorPayload struct {
 	RawPath string `json:"rawPath,omitempty"`
 }
 
-// SelectFileResponse is returned by OpenImageDialog. ImageB64 carries the raw
-// file bytes base64-encoded so the frontend can hydrate the source thumbnail
-// without going through the managed-roots ReadImageAsBase64 guard(用户通过 OS
-// 对话框主动选的路径默认就是信任的,没必要再绕一圈管控目录)。文件超过
-// 50MB 时 ImageB64 留空,前端落到扩展名占位。
+// SelectFileResponse is returned by OpenImageDialog. New Wails builds return a
+// managed previewUrl; ImageB64 remains only as a legacy/browser fallback when
+// preview generation is unavailable. Files over 50MB omit both preview forms.
 type SelectFileResponse struct {
-	Path     string `json:"path"`
-	Size     int64  `json:"size"`
-	ImageB64 string `json:"imageB64,omitempty"`
+	Path          string `json:"path"`
+	Size          int64  `json:"size"`
+	ImageB64      string `json:"imageB64,omitempty"`
+	ImageID       string `json:"imageId,omitempty"`
+	PreviewURL    string `json:"previewUrl,omitempty"`
+	PreviewWidth  int    `json:"previewWidth,omitempty"`
+	PreviewHeight int    `json:"previewHeight,omitempty"`
 }
 
 // ImportedImage describes a freshly imported (drag-dropped or pasted) image.
 type ImportedImage struct {
-	Path     string `json:"path"`
-	ImageB64 string `json:"imageB64"`
+	Path          string `json:"path"`
+	ImageB64      string `json:"imageB64,omitempty"`
+	ImageID       string `json:"imageId,omitempty"`
+	PreviewURL    string `json:"previewUrl,omitempty"`
+	PreviewWidth  int    `json:"previewWidth,omitempty"`
+	PreviewHeight int    `json:"previewHeight,omitempty"`
+}
+
+type MediaAssetRef struct {
+	ImageID       string `json:"imageId,omitempty"`
+	SavedPath     string `json:"savedPath,omitempty"`
+	ThumbPath     string `json:"thumbPath,omitempty"`
+	PreviewURL    string `json:"previewUrl,omitempty"`
+	FullURL       string `json:"fullUrl,omitempty"`
+	PreviewWidth  int    `json:"previewWidth,omitempty"`
+	PreviewHeight int    `json:"previewHeight,omitempty"`
 }

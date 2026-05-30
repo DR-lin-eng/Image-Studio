@@ -43,4 +43,27 @@ func TestResponseCollectorExtractsFinalAndPartial(t *testing.T) {
 			t.Fatalf("unexpected partial result: %+v", got)
 		}
 	})
+
+	t.Run("partial callback", func(t *testing.T) {
+		var seen []PartialImage
+		c := newResponseCollectorWithPartial(nil, func(partial PartialImage) {
+			seen = append(seen, partial)
+		})
+		_, err := c.Write([]byte("data: {\"type\":\"response.image_generation_call.partial_image\",\"partial_image_index\":2,\"partial_image_b64\":\"" + pngB64 + "\",\"revised_prompt\":\"rev\"}\n"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(seen) != 1 {
+			t.Fatalf("partial callbacks = %d, want 1", len(seen))
+		}
+		if seen[0].ImageB64 != pngB64 {
+			t.Fatalf("partial ImageB64 = %q, want %q", seen[0].ImageB64, pngB64)
+		}
+		if seen[0].RevisedPrompt != "rev" {
+			t.Fatalf("partial RevisedPrompt = %q, want rev", seen[0].RevisedPrompt)
+		}
+		if seen[0].PartialImageIndex != 2 {
+			t.Fatalf("partial PartialImageIndex = %d, want 2", seen[0].PartialImageIndex)
+		}
+	})
 }

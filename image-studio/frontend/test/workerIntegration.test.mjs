@@ -48,6 +48,13 @@ async function startMockUpstream() {
     }
 
     if (req.method === "POST" && req.url === "/v1/images/generations") {
+      const parsed = JSON.parse(body.toString("utf8") || "{}");
+      if (parsed.stream) {
+        res.writeHead(200, { "content-type": "text/event-stream" });
+        res.end('data: {"type":"image_generation.partial_image","partial_image_index":0,"b64_json":"aW1hZ2VzLXBhcnRpYWw="}\n' +
+          'data: {"type":"image_generation.completed","b64_json":"aW1hZ2VzLWdlbg=="}\n');
+        return;
+      }
       res.writeHead(200, { "content-type": "application/json" });
       res.end(JSON.stringify({ data: [{ b64_json: "aW1hZ2VzLWdlbg==", revised_prompt: "images revised" }] }));
       return;
@@ -100,12 +107,11 @@ async function withWorkerProxy(upstreamBaseURL, fn) {
   }
 }
 
-test("desktop remote kernel can reach mock upstream through worker for responses and models", async () => {
+test("desktop remote kernel can reach mock upstream through worker for responses", async () => {
   const upstream = await startMockUpstream();
   try {
     await withWorkerProxy(upstream.baseURL, async () => {
       const kernel = await loadRemoteKernel();
-      await kernel.probeUpstreamConnection("https://worker.local", "worker-key");
       const result = await kernel.runRemoteImageJob(
         {
           payload: {
@@ -132,10 +138,10 @@ test("desktop remote kernel can reach mock upstream through worker for responses
       );
       assert.equal(result.imageB64, "d29ya2VyLWltYWdl");
       assert.equal(result.revisedPrompt, "worker revised");
-      assert.equal(upstream.requests[0].url, "/v1/models");
-      assert.equal(upstream.requests[1].url, "/v1/responses");
-      const responseBody = JSON.parse(upstream.requests[1].body.toString("utf8"));
+      assert.equal(upstream.requests[0].url, "/v1/responses");
+      const responseBody = JSON.parse(upstream.requests[0].body.toString("utf8"));
       assert.ok(responseBody.instructions.includes("VERBATIM"));
+      assert.equal(responseBody.tools[0].partial_images, 1);
     });
   } finally {
     await upstream.close();
@@ -166,6 +172,7 @@ test("desktop remote kernel can reach mock upstream through worker for images ap
             textModelID: "",
             imageModelID: "gpt-image-2",
             apiMode: "images",
+            requestPolicy: "openai",
             noPromptRevision: false,
             concurrencyLimit: 0,
           },
@@ -173,7 +180,7 @@ test("desktop remote kernel can reach mock upstream through worker for images ap
         { signal: new AbortController().signal },
       );
       assert.equal(imagesResult.imageB64, "aW1hZ2VzLWdlbg==");
-      assert.equal(imagesResult.revisedPrompt, "images revised");
+      assert.equal(imagesResult.sourceEvent, "images_api");
 
       const editResult = await kernel.runRemoteImageJob(
         {
@@ -193,6 +200,7 @@ test("desktop remote kernel can reach mock upstream through worker for images ap
             textModelID: "",
             imageModelID: "gpt-image-2",
             apiMode: "images",
+            requestPolicy: "openai",
             noPromptRevision: false,
             concurrencyLimit: 0,
           },
@@ -220,6 +228,9 @@ test("desktop remote kernel can reach mock upstream through worker for images ap
       assert.ok(generationReq);
       assert.ok(editReq);
       assert.ok(optimizeReq);
+      const generationBody = JSON.parse(generationReq.body.toString("utf8"));
+      assert.equal(generationBody.stream, true);
+      assert.equal(generationBody.partial_images, 1);
       assert.match(editReq.headers["content-type"], /^multipart\/form-data; boundary=/);
     });
   } finally {

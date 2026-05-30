@@ -88,8 +88,12 @@ export async function optimizePromptRemote(
     Accept: "application/json",
   };
   const body = JSON.stringify(buildPromptOptimizePayload(input, sourceDataURLs));
+  const proxyMode = input.proxyMode === "none" || input.proxyMode === "custom" ? input.proxyMode : "system";
   const response = shouldUseAndroidNativeHTTP()
-    ? await nativeHttpRequestText(url, "POST", headers, body, signal)
+    ? await nativeHttpRequestText(url, "POST", headers, body, signal, undefined, {
+        proxyMode,
+        proxyURL: input.proxyURL || "",
+      })
     : {
         status: 0,
         body: "",
@@ -97,6 +101,9 @@ export async function optimizePromptRemote(
   const raw = shouldUseAndroidNativeHTTP()
     ? response.body
     : await (async () => {
+        if (proxyMode !== "system") {
+          throw new RemoteKernelError("当前远程内核不能控制代理,请切回本地内核或使用 Android 原生运行");
+        }
         const webResponse = await fetch(url, {
           method: "POST",
           headers,
@@ -115,39 +122,6 @@ export async function optimizePromptRemote(
     throw new RemoteKernelError("上游没有返回可用的优化结果");
   }
   return text;
-}
-
-export async function probeUpstreamConnection(
-  baseURL: string,
-  apiKey: string,
-  signal?: AbortSignal,
-): Promise<void> {
-  if (shouldUseAndroidNativeHTTP()) {
-    const response = await nativeHttpRequestText(
-      `${normalizeBaseURL(baseURL)}/v1/models`,
-      "GET",
-      {
-        Authorization: `Bearer ${apiKey.trim()}`,
-      },
-      null,
-      signal,
-    );
-    if (response.status < 200 || response.status >= 300) {
-      throw new RemoteKernelError(`${response.status}${response.body ? ` ${response.body.slice(0, 160)}` : ""}`);
-    }
-    return;
-  }
-  const response = await fetch(`${normalizeBaseURL(baseURL)}/v1/models`, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${apiKey.trim()}`,
-    },
-    signal,
-  });
-  if (!response.ok) {
-    const text = await response.text().catch(() => "");
-    throw new RemoteKernelError(`${response.status}${text ? ` ${text.slice(0, 160)}` : ""}`);
-  }
 }
 
 export {

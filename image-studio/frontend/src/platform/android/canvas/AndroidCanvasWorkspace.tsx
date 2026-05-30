@@ -33,6 +33,7 @@ import { ANNOTATION_COLORS, type AnnotationKind, type HistoryItem, type SourceIm
 import { useStudioStore } from "../../../state/studioStore";
 import { base64ToBlob, useBlobURL } from "../../../lib/images";
 import { qualityLabel, sizeLabel } from "../../../components/history/historyLabels";
+import { StreamPreviewBadge } from "../../../components/canvas/StreamPreviewBadge";
 import { OpenImageDialog } from "../../runtime/host";
 import { genId } from "../../../state/studioStore.shared";
 import { usePlatform } from "../../context";
@@ -49,6 +50,7 @@ export function AndroidCanvasWorkspace() {
     sources,
     isRunning,
     progress,
+    streamPreview,
     runningJobs,
     jobsCompleted,
     jobsTotal,
@@ -112,14 +114,19 @@ export function AndroidCanvasWorkspace() {
     try {
       vibrateForPlatform(10);
       const res = await OpenImageDialog();
-      if (!res?.path || !res.imageB64) return;
+      if (!res?.path || (!res.previewUrl && !res.imageB64)) return;
       const name = res.path.split(/[\\/]/).pop() ?? `import-${Date.now()}.png`;
-      const imageBlob = base64ToBlob(res.imageB64);
-      const previewBlob = res.previewB64 ? base64ToBlob(res.previewB64, "image/jpeg") : imageBlob;
+      const imageBlob = res.previewUrl ? null : base64ToBlob(res.imageB64 ?? "");
       const imported: HistoryItem = {
         id: genId(),
-        imageB64: res.imageB64,
-        imageBlob,
+        imageId: res.imageId || undefined,
+        previewUrl: res.previewUrl || undefined,
+        previewWidth: res.previewWidth,
+        previewHeight: res.previewHeight,
+        imageB64: res.previewUrl ? undefined : res.imageB64,
+        imageBlob: null,
+        previewBlob: imageBlob,
+        previewOnly: true,
         prompt: `(导入)${name}`,
         mode: "edit",
         size: "auto",
@@ -134,7 +141,14 @@ export function AndroidCanvasWorkspace() {
       if (!alreadyIn) {
         setField("sources", [
           ...useStudioStore.getState().sources,
-          { path: res.path, name, size: res.size ?? 0, imageB64: res.imageB64, imageBlob: previewBlob },
+          {
+            path: res.path,
+            name,
+            size: res.size ?? 0,
+            previewUrl: res.previewUrl,
+            imageB64: res.previewUrl ? undefined : res.imageB64,
+            imageBlob,
+          },
         ]);
       }
       pushToast("已导入到画布", "success");
@@ -166,6 +180,7 @@ export function AndroidCanvasWorkspace() {
         currentImage={currentImage}
         isRunning={isRunning}
         progressLabel={statusLabel}
+        streamPreviewActive={!!streamPreview}
         zoomLabel={hasImage ? `${Math.round(viewZoom * 100)}%` : "Fit"}
         batchCount={batchResults.length}
         sourceCount={sources.length}
@@ -196,6 +211,7 @@ export function AndroidCanvasWorkspace() {
               runningJobs={runningJobs.length}
               jobsCompleted={jobsCompleted}
               jobsTotal={jobsTotal}
+              streamPreviewActive={!!streamPreview}
             />
           ) : null}
           {hasImage ? (
@@ -336,6 +352,7 @@ function AndroidCanvasHeader({
   currentImage,
   isRunning,
   progressLabel,
+  streamPreviewActive,
   zoomLabel,
   batchCount,
   sourceCount,
@@ -348,6 +365,7 @@ function AndroidCanvasHeader({
   currentImage: HistoryItem | null;
   isRunning: boolean;
   progressLabel: string;
+  streamPreviewActive: boolean;
   zoomLabel: string;
   batchCount: number;
   sourceCount: number;
@@ -370,6 +388,11 @@ function AndroidCanvasHeader({
         </div>
       </div>
       <div className="android-canvas-header-actions">
+        {streamPreviewActive ? (
+          <button type="button" className="android-canvas-status-chip stream-preview-chip" title="流式预览">
+            <StreamPreviewBadge compact />
+          </button>
+        ) : null}
         <button type="button" className="android-canvas-status-chip primary">
           {zoomLabel}
         </button>
@@ -403,6 +426,7 @@ function AndroidCanvasProgressOverlay({
   runningJobs,
   jobsCompleted,
   jobsTotal,
+  streamPreviewActive,
 }: {
   stage?: string;
   elapsed?: number;
@@ -410,6 +434,7 @@ function AndroidCanvasProgressOverlay({
   runningJobs: number;
   jobsCompleted: number;
   jobsTotal: number;
+  streamPreviewActive: boolean;
 }) {
   return (
     <div className="android-canvas-progress">
@@ -421,6 +446,7 @@ function AndroidCanvasProgressOverlay({
         {typeof elapsed === "number" ? <span>{elapsed.toFixed(1)}s</span> : null}
         {typeof bytes === "number" && bytes > 0 ? <span>{formatBytes(bytes)}</span> : null}
         {jobsTotal > 1 ? <span>{runningJobs} 并发 · {jobsCompleted}/{jobsTotal}</span> : null}
+        {streamPreviewActive ? <span>流式预览</span> : null}
       </div>
     </div>
   );
@@ -592,7 +618,8 @@ function AndroidSourceTile({
   onRemove: (index: number) => void;
   onMove: (from: number, to: number) => void;
 }) {
-  const previewURL = useBlobURL(source.imageBlob ?? null, source.imageB64 ?? null);
+  const objectURL = useBlobURL(source.imageBlob ?? null, source.imageB64 ?? null);
+  const previewURL = source.previewUrl || objectURL;
   return (
     <div className="android-canvas-source-tile" title={source.name}>
       <div className="android-canvas-source-preview">

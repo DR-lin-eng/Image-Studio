@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/yuanhua/image-gptcodex/pkg/client"
 )
 
 func TestFlattenTransparentImageRewritesPNG(t *testing.T) {
@@ -90,7 +92,7 @@ func TestExtractResponseErrorMessage(t *testing.T) {
 }
 
 func TestOptimizePromptRejectsEmptyPrompt(t *testing.T) {
-	if _, err := optimizePromptWithLLM(t.Context(), "https://example.com", "sk-test", "", "generate", "   ", nil); err == nil || !strings.Contains(err.Error(), "提示词") {
+	if _, err := optimizePromptWithLLM(t.Context(), "https://example.com", "sk-test", "", "generate", "   ", nil, client.ProxyConfig{}); err == nil || !strings.Contains(err.Error(), "提示词") {
 		t.Fatalf("expected prompt error, got %v", err)
 	}
 }

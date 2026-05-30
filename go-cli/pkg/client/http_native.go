@@ -14,6 +14,7 @@ import (
 type NativeTransport struct {
 	// Client is optional; if nil a sensible default is used.
 	Client *http.Client
+	Proxy  ProxyConfig
 }
 
 func (t *NativeTransport) Stream(ctx context.Context, req Request, rawSink io.Writer, progress chan<- string) error {
@@ -28,14 +29,17 @@ func (t *NativeTransport) Stream(ctx context.Context, req Request, rawSink io.Wr
 
 	cli := t.Client
 	if cli == nil {
+		transport, err := NewHTTPTransport(t.Proxy)
+		if err != nil {
+			return err
+		}
+		transport.DisableCompression = true
+		transport.MaxIdleConnsPerHost = 2
+		transport.ResponseHeaderTimeout = 60 * time.Second
 		cli = &http.Client{
 			// No global timeout: SSE streams legitimately take minutes.
 			// Cancellation is via ctx.
-			Transport: &http.Transport{
-				DisableCompression:    true,
-				MaxIdleConnsPerHost:   2,
-				ResponseHeaderTimeout: 60 * time.Second,
-			},
+			Transport: transport,
 		}
 	}
 

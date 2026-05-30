@@ -41,6 +41,7 @@ type Service struct {
 	apiKeys          apiKeyStore
 
 	trustedOutputRoots map[string]struct{}
+	mediaAssets        map[string]mediaAsset
 }
 
 type job struct {
@@ -56,6 +57,7 @@ func NewService() *Service {
 		runningByAPIMode:   map[string]int{},
 		apiKeys:            keyringAPIKeyStore{},
 		trustedOutputRoots: map[string]struct{}{},
+		mediaAssets:        map[string]mediaAsset{},
 	}
 }
 
@@ -174,7 +176,11 @@ func (s *Service) OptimizePrompt(opts PromptOptimizeOptions) (string, error) {
 	if modelID == "" {
 		modelID = client.TextModel
 	}
-	return optimizePromptWithLLM(s.ctx, baseURL, opts.APIKey, modelID, opts.Mode, opts.Prompt, refPaths)
+	proxyConfig, err := client.NormalizeProxyConfig(opts.ProxyMode, opts.ProxyURL)
+	if err != nil {
+		return "", err
+	}
+	return optimizePromptWithLLM(s.ctx, baseURL, opts.APIKey, modelID, opts.Mode, opts.Prompt, refPaths, proxyConfig)
 }
 
 // Cancel terminates a running job. Safe to call with unknown IDs.
@@ -287,9 +293,11 @@ func (s *Service) runJob(ctx context.Context, jobID string, opts GenerateOptions
 		BaseURL:          opts.BaseURL,
 		TextModelID:      opts.TextModelID,
 		ImageModelID:     opts.ImageModelID,
+		Proxy:            client.ProxyConfig{Mode: opts.ProxyMode, URL: opts.ProxyURL},
 		APIMode:          apiMode,
 		RequestPolicy:    client.RequestPolicy(strings.TrimSpace(opts.RequestPolicy)),
 		NoPromptRevision: opts.NoPromptRevision,
+		PartialImages:    opts.PartialImages,
 	}
 	if mode == client.ModeEdit {
 		paths, cleanup, prepErr := prepareUploadSourcePaths(opts.collectPaths())
@@ -315,7 +323,7 @@ func (s *Service) runJob(ctx context.Context, jobID string, opts GenerateOptions
 		}
 	}
 
-	transport, err := client.PickTransport()
+	transport, err := client.PickTransportWithProxy(clientOpts.Proxy)
 	if err != nil {
 		s.emitError(jobID, err)
 		return
@@ -328,8 +336,18 @@ func (s *Service) runJob(ctx context.Context, jobID string, opts GenerateOptions
 	}
 	// 拆 PNG 和 raw response 到两个子目录,避免单目录文件混杂。
 	imagesDir := imagesSubdir(rootDir)
+	thumbsDir := thumbsSubdir(rootDir)
+	previewsDir := previewsSubdir(rootDir)
 	logDir := logSubdir(rootDir)
 	if err := os.MkdirAll(imagesDir, secureDirMode); err != nil {
+		s.emitError(jobID, err)
+		return
+	}
+	if err := os.MkdirAll(thumbsDir, secureDirMode); err != nil {
+		s.emitError(jobID, err)
+		return
+	}
+	if err := os.MkdirAll(previewsDir, secureDirMode); err != nil {
 		s.emitError(jobID, err)
 		return
 	}
@@ -354,10 +372,47 @@ func (s *Service) runJob(ctx context.Context, jobID string, opts GenerateOptions
 			Stage: stage, Elapsed: elapsed, Bytes: bytes,
 		})
 	}
+	previewFn := func(partial client.PartialImage) {
+		payload := PreviewPayload{
+			RevisedPrompt:     partial.RevisedPrompt,
+			PartialImageIndex: partial.PartialImageIndex,
+			Mode:              string(mode),
+			Prompt:            opts.Prompt,
+		}
+		if strings.TrimSpace(partial.ImageB64) == "" {
+			return
+		}
+		previewName := fmt.Sprintf("preview-%s-%03d-%d.avif", timestamp, partial.PartialImageIndex, time.Now().UnixNano())
+		previewPath := filepath.Join(previewsDir, previewName)
+		previewW, previewH, previewErr := createAVIFThumbnailFromBase64(partial.ImageB64, previewPath, mediaPreviewMaxEdge)
+		if previewErr != nil {
+			logFn(fmt.Sprintf("生成中间预览 AVIF 失败:%v", previewErr))
+			return
+		}
+		asset, mediaErr := s.registerPreviewMedia(previewPath, previewW, previewH)
+		if mediaErr != nil {
+			logFn(fmt.Sprintf("登记中间预览失败:%v", mediaErr))
+			return
+		}
+		payload.ImageID = asset.ID
+		payload.PreviewURL = asset.PreviewURL
+		payload.PreviewWidth = asset.PreviewWidth
+		payload.PreviewHeight = asset.PreviewHeight
+		runtime.EventsEmit(s.ctx, "preview:"+jobID, PreviewPayload{
+			ImageID:           payload.ImageID,
+			PreviewURL:        payload.PreviewURL,
+			PreviewWidth:      payload.PreviewWidth,
+			PreviewHeight:     payload.PreviewHeight,
+			RevisedPrompt:     payload.RevisedPrompt,
+			PartialImageIndex: payload.PartialImageIndex,
+			Mode:              payload.Mode,
+			Prompt:            payload.Prompt,
+		})
+	}
 
 	// raw response(SSE 文本 / Images API JSON)落到 log 子目录;PNG 落到 images 子目录。
-	result, rawPath, err := client.RequestAndExtractWithRetries(
-		ctx, transport, clientOpts, logDir, timestamp, logFn, progressFn,
+	result, rawPath, err := client.RequestAndExtractWithRetriesAndPartial(
+		ctx, transport, clientOpts, logDir, timestamp, logFn, progressFn, previewFn,
 	)
 	if err != nil {
 		// 即使失败也把 rawPath 透给前端,「查看日志」按钮直接打开它。
@@ -367,16 +422,36 @@ func (s *Service) runJob(ctx context.Context, jobID string, opts GenerateOptions
 
 	imageName := buildImageName(mode, opts.Prompt, timestamp, opts.OutputFormat)
 	savedPath := filepath.Join(imagesDir, imageName)
-	if abs, werr := writeBase64PNG(result.ImageB64, savedPath); werr == nil {
-		savedPath = abs
+	absSaved, werr := writeBase64PNG(result.ImageB64, savedPath)
+	if werr != nil {
+		s.emitErrorWithRaw(jobID, fmt.Errorf("保存结果图片失败:%w", werr), rawPath)
+		return
+	}
+	savedPath = absSaved
+	thumbName := strings.TrimSuffix(filepath.Base(imageName), filepath.Ext(imageName)) + ".avif"
+	thumbPath := filepath.Join(thumbsDir, thumbName)
+	thumbW, thumbH, thumbErr := createAVIFThumbnail(savedPath, thumbPath, mediaThumbMaxEdge)
+	if thumbErr != nil {
+		s.emitErrorWithRaw(jobID, fmt.Errorf("生成 AVIF 缩略图失败:%w", thumbErr), rawPath)
+		return
+	}
+	asset, mediaErr := s.registerGeneratedMedia(savedPath, thumbPath, thumbW, thumbH)
+	if mediaErr != nil {
+		s.emitErrorWithRaw(jobID, fmt.Errorf("登记本地图片失败:%w", mediaErr), rawPath)
+		return
 	}
 	absRaw, _ := filepath.Abs(rawPath)
 
 	runtime.EventsEmit(s.ctx, "result:"+jobID, ResultPayload{
-		ImageB64:      result.ImageB64,
 		RevisedPrompt: result.RevisedPrompt,
 		SourceEvent:   result.SourceEvent,
+		ImageID:       asset.ID,
 		SavedPath:     savedPath,
+		ThumbPath:     asset.ThumbPath,
+		PreviewURL:    asset.PreviewURL,
+		FullURL:       asset.FullURL,
+		PreviewWidth:  asset.PreviewWidth,
+		PreviewHeight: asset.PreviewHeight,
 		RawPath:       absRaw,
 		Mode:          string(mode),
 		Prompt:        opts.Prompt,

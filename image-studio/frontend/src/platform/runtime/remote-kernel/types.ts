@@ -23,13 +23,22 @@ export type RemoteGeneratePayload = {
   baseURL: string;
   textModelID: string;
   imageModelID: string;
+  proxyMode?: string;
+  proxyURL?: string;
   apiMode: string;
   requestPolicy: RequestPolicy;
   noPromptRevision: boolean;
   concurrencyLimit?: number;
+  partialImages?: number;
 };
 
 export type ProgressCallback = (stage: string, elapsedSeconds: number, bytesReceived: number) => void;
+export type PartialImageCallback = (partial: {
+  imageB64: string;
+  revisedPrompt?: string;
+  partialImageIndex?: number;
+  sourceEvent?: "responses_partial" | "images_partial";
+}) => void;
 
 export type RemoteJobRequest = {
   payload: RemoteGeneratePayload;
@@ -40,6 +49,7 @@ export type RemoteJobCallbacks = {
   signal: AbortSignal;
   onLog?: (line: string) => void;
   onProgress?: ProgressCallback;
+  onPartialImage?: PartialImageCallback;
 };
 
 export type RemoteJobResult = {
@@ -57,6 +67,8 @@ export type RemotePromptOptimizeInput = {
   mode: string;
   baseURL: string;
   textModelID: string;
+  proxyMode?: string;
+  proxyURL?: string;
   imagePaths?: string[];
   imagePath?: string;
   sourceImages?: KernelImageSource[];

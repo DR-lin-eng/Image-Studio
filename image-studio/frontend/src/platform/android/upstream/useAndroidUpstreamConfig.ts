@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { GetStoredAPIKey } from "../../runtime/host";
 import { keyringUserFor } from "../../../lib/profiles";
-import { validateBaseURL } from "../../../lib/security";
 import { useStudioStore } from "../../../state/studioStore";
 import type { APIMode, RequestPolicy, UpstreamProfile } from "../../../types/domain";
 
@@ -87,16 +86,12 @@ export function useAndroidUpstreamConfig(open: boolean) {
     [activeProfileId, profiles],
   );
 
-  const baseURLError = useMemo(() => {
-    if (!draft || !draft.baseURL.trim()) return null;
-    return validateBaseURL(draft.baseURL);
-  }, [draft]);
+  const baseURLError = useMemo(() => null, [draft]);
 
   const canSave = !!draft
     && !!draft.name.trim()
     && !!draft.baseURL.trim()
     && !!draftKey.trim()
-    && !baseURLError
     && savedKeyLoaded
     && !saving;
 
@@ -106,7 +101,6 @@ export function useAndroidUpstreamConfig(open: boolean) {
 
   async function handleNew(apiMode: APIMode = "responses") {
     const id = await createProfile({
-      name: apiMode === "responses" ? "主配置" : "图片配置",
       apiMode,
       requestPolicy: "openai",
       setActive: profiles.length === 0,
@@ -159,22 +153,24 @@ export function useAndroidUpstreamConfig(open: boolean) {
     pushToast("已切换当前上游", "success");
   }
 
-  async function handleSaveAndSetActive() {
+  async function handleSaveAndSetActive(onSaved?: () => void) {
     if (!draft) return;
     const draftId = draft.id;
     const saved = await handleSave();
     if (saved && draftId !== activeProfileId) {
       await setActiveProfile(draftId);
     }
+    if (saved) onSaved?.();
   }
 
-  async function handleSaveAndTest() {
+  async function handleSaveAndTest(onSaved?: () => void) {
     const saved = await handleSave();
     if (!saved || !draft) return;
     if (draft.id !== useStudioStore.getState().activeProfileId) {
       await setActiveProfile(draft.id);
     }
-    await testAPIKey();
+    onSaved?.();
+    setTimeout(() => { void testAPIKey(); }, 0);
   }
 
   return {

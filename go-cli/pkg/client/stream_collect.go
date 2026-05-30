@@ -2,6 +2,7 @@ package client
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"strings"
 	"sync/atomic"
@@ -20,6 +21,13 @@ type responseCollector struct {
 
 func newResponseCollector(rawSink io.Writer) *responseCollector {
 	return &responseCollector{rawSink: rawSink}
+}
+
+func newResponseCollectorWithPartial(rawSink io.Writer, onPartial func(PartialImage)) *responseCollector {
+	return &responseCollector{
+		rawSink:   rawSink,
+		extractor: streamImageExtractor{onPartial: onPartial},
+	}
 }
 
 func (c *responseCollector) Write(p []byte) (int, error) {
@@ -99,6 +107,7 @@ type streamImageExtractor struct {
 	partialPrompt string
 	final         ImageResult
 	hasFinal      bool
+	onPartial     func(PartialImage)
 }
 
 func (e *streamImageExtractor) consume(line []byte) bool {
@@ -133,6 +142,20 @@ func (e *streamImageExtractor) consumeJSONPayload(payload string) bool {
 	case "response.image_generation_call.partial_image":
 		if v, ok := ev["partial_image_b64"].(string); ok && v != "" {
 			e.partialB64 = v
+			partial := PartialImage{
+				ImageB64:          v,
+				RevisedPrompt:     e.partialPrompt,
+				PartialImageIndex: -1,
+			}
+			if prompt, ok := ev["revised_prompt"].(string); ok && prompt != "" {
+				partial.RevisedPrompt = prompt
+			}
+			if idx, ok := numberFromAny(ev["partial_image_index"]); ok {
+				partial.PartialImageIndex = idx
+			}
+			if e.onPartial != nil {
+				e.onPartial(partial)
+			}
 		}
 		if v, ok := ev["revised_prompt"].(string); ok && v != "" {
 			e.partialPrompt = v
@@ -183,4 +206,21 @@ func (e *streamImageExtractor) result() (ImageResult, bool) {
 		}, true
 	}
 	return ImageResult{}, false
+}
+
+func numberFromAny(value any) (int, bool) {
+	switch v := value.(type) {
+	case int:
+		return v, true
+	case int64:
+		return int(v), true
+	case float64:
+		return int(v), true
+	case json.Number:
+		i, err := v.Int64()
+		if err == nil {
+			return int(i), true
+		}
+	}
+	return 0, false
 }

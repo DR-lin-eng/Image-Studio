@@ -14,6 +14,7 @@ import {
 } from "./historyFilters";
 import { TimelineHistoryItem } from "./TimelineHistoryItem";
 import { useHistoryContextMenu } from "./useHistoryContextMenu";
+import { toPreviewOnlyHistoryItem } from "../../state/studioStore.runtime";
 
 type ModeFilter = "all" | Mode;
 type DateFilter = TimelineHistoryDateFilter;
@@ -79,9 +80,11 @@ export function HistoryTimelineModal() {
   }, [filtered]);
 
   async function selectHistory(item: HistoryItem) {
-    setField("currentImage", item);
-    const full = await materializeCurrentImage(item).catch(() => null);
-    if (full) setField("currentImage", full);
+    setField("currentImage", toPreviewOnlyHistoryItem(item));
+    if (!item.previewUrl) {
+      const full = await materializeCurrentImage(item).catch(() => null);
+      if (full) setField("currentImage", toPreviewOnlyHistoryItem(full));
+    }
     closeHistoryTimeline();
   }
 

@@ -4,6 +4,7 @@ import {
 } from "../../../lib/images.ts";
 import {
   buildResponsesPayload as buildSharedResponsesPayload,
+  normalizePartialImages,
   shouldSendExtendedImageParameters,
   supportsImagesResponseFormat,
 } from "../../../../../../shared/kernel/requestModel.js";
@@ -31,6 +32,7 @@ export async function buildImagesRequestBody(
   const quality = request.payload.quality || "auto";
   const outputFormat = request.payload.outputFormat || "png";
   const includeExtended = shouldSendExtendedImageParameters(request.payload.requestPolicy);
+  const partialImages = normalizePartialImages(request.payload.partialImages);
 
   if (mode === "edit") {
     if (sourceDataURLs.length === 0) {
@@ -58,6 +60,8 @@ export async function buildImagesRequestBody(
     if (supportsImagesResponseFormat(imageModel, mode)) {
       form.append("response_format", "b64_json");
     }
+    form.append("stream", "true");
+    form.append("partial_images", String(partialImages));
     if (includeExtended && request.payload.seed) form.append("seed", String(request.payload.seed));
     if (includeExtended && request.payload.negativePrompt.trim()) form.append("negative_prompt", request.payload.negativePrompt.trim());
     return { url: `${baseURL}/v1/images/edits`, body: form };
@@ -74,6 +78,8 @@ export async function buildImagesRequestBody(
   if (supportsImagesResponseFormat(imageModel, mode)) {
     payload.response_format = "b64_json";
   }
+  payload.stream = true;
+  payload.partial_images = partialImages;
   if (includeExtended && request.payload.seed) payload.seed = request.payload.seed;
   if (includeExtended && request.payload.negativePrompt.trim()) payload.negative_prompt = request.payload.negativePrompt.trim();
   return {

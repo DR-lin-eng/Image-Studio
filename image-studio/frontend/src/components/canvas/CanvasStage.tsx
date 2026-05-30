@@ -5,13 +5,15 @@ import { useStudioStore } from "../../state/studioStore";
 import { HistoryItem } from "../../types/domain";
 import { usePlatform } from "../../platform/context";
 import { ContextMenu, MenuItem } from "../common/ContextMenu";
-import { BatchResultGrid } from "./BatchResultGrid";
+import { BatchResultGrid, type BatchGridSlot } from "./BatchResultGrid";
 import { CompareOverlay } from "./CompareOverlay";
 import type { Stroke } from "../../state/studioStore.types";
 import { EmptyState } from "./EmptyState";
-import { useImageFromSource, copyImageB64ToClipboard } from "./canvasImage";
+import { copyImageB64ToClipboard, copyImageURLToClipboard, useImageFromSource } from "./canvasImage";
 import { AnnotationShape } from "./AnnotationShape";
 import { useCanvasShortcuts } from "./useCanvasShortcuts";
+import { StreamPreviewBadge } from "./StreamPreviewBadge";
+import { streamPreviewItemsFromPreviews } from "../../state/studioStore.streamPreview";
 
 export function CanvasStage() {
   const {
@@ -24,12 +26,39 @@ export function CanvasStage() {
     undoStack, redoStack, undo, redo,
     compareB, compareSplit, setCompareSplit, setCompareB,
     isRunning, cancel, errorMessage, setField,
+    streamPreview,
+    streamPreviews,
+    runningJobs,
+    jobsTotal,
+    jobsCompleted,
     toggleFullscreen,
     batchResults, resultGridOpen, selectBatchResult, closeResultGrid,
     canvasViewResetTick,
   } = useStudioStore();
   const { isMac } = usePlatform();
-  const showingResultGrid = resultGridOpen && batchResults.length > 1;
+  const streamPreviewItems = streamPreviewItemsFromPreviews(streamPreviews, {
+    workspaceId: useStudioStore.getState().activeWorkspaceId,
+    mode: useStudioStore.getState().mode,
+    prompt: useStudioStore.getState().prompt,
+    size: useStudioStore.getState().size,
+    quality: useStudioStore.getState().quality,
+    outputFormat: useStudioStore.getState().outputFormat,
+    currentImage,
+  });
+  const liveBatchSlotCount = Math.max(jobsTotal, batchResults.length + runningJobs.length, batchResults.length + streamPreviewItems.length);
+  const liveBatchSlots: BatchGridSlot[] = Array.from({ length: liveBatchSlotCount }, (_, index) => ({ type: "pending", id: `pending-${index}` }));
+  for (const item of batchResults) {
+    const index = typeof item.batchIndex === "number" ? item.batchIndex : liveBatchSlots.findIndex((slot) => slot.type === "pending");
+    if (index >= 0 && index < liveBatchSlots.length) liveBatchSlots[index] = { type: "result", item };
+  }
+  for (const item of streamPreviewItems) {
+    const index = typeof item.batchIndex === "number" ? item.batchIndex : liveBatchSlots.findIndex((slot) => slot.type === "pending");
+    if (index >= 0 && index < liveBatchSlots.length && liveBatchSlots[index].type === "pending") {
+      liveBatchSlots[index] = { type: "preview", item };
+    }
+  }
+  const showingLiveBatchGrid = isRunning && liveBatchSlotCount > 1;
+  const showingResultGrid = showingLiveBatchGrid || (resultGridOpen && batchResults.length > 1);
 
   // Hold-space-for-pan: while space is held, override tool to "pan".
   const [spacePan, setSpacePan] = useState(false);
@@ -40,7 +69,10 @@ export function CanvasStage() {
   const maskLayerRef = useRef<Konva.Layer | null>(null);
   const roRef = useRef<ResizeObserver | null>(null);
 
-  const image = useImageFromSource(currentImage?.imageBlob ?? null, currentImage?.imageB64);
+  const currentImageURL = currentImage?.previewOnly
+    ? currentImage.previewUrl
+    : (currentImage?.fullUrl || currentImage?.previewUrl);
+  const image = useImageFromSource(currentImage?.imageBlob ?? null, currentImage?.imageB64, currentImageURL);
 
   // ★ Measure the OUTER wrapper (.stage-host) — which is a normal grid item
   // bounded by its parent shell — instead of the inner absolute container.
@@ -325,7 +357,12 @@ export function CanvasStage() {
     compareB,
     copyCurrentImage: () => {
       if (!currentImage) return;
-      copyImageB64ToClipboard(currentImage.imageB64).then((ok) => {
+      const copyPromise = useStudioStore.getState().materializeCurrentImage(currentImage).then((full) => (
+        full.fullUrl
+          ? copyImageURLToClipboard(full.fullUrl)
+          : copyImageB64ToClipboard(full.imageB64 ?? "")
+      ));
+      copyPromise.then((ok) => {
         const pushToast = useStudioStore.getState().pushToast;
         if (ok) pushToast("已复制图片到剪贴板", "success");
         else pushToast("复制失败,当前运行环境拒绝写剪贴板", "error");
@@ -380,21 +417,31 @@ export function CanvasStage() {
         className="stage-host"
         style={{ cursor: !currentImage ? "default" : (effectiveTool === "pan" ? (spacePan ? "grabbing" : "grab") : "crosshair") }}
       >
-        {!currentImage && <EmptyState />}
+        {!currentImage && !showingResultGrid && <EmptyState />}
+        {streamPreview && currentImage && !showingLiveBatchGrid ? (
+          <div className="stream-preview-overlay">
+            <StreamPreviewBadge />
+          </div>
+        ) : null}
         {showingResultGrid && (
           <BatchResultGrid
             items={batchResults}
+            slots={showingLiveBatchGrid ? liveBatchSlots : undefined}
             currentId={currentImage?.id ?? null}
             onSelect={selectBatchResult}
             onClose={closeResultGrid}
+            showClose={!showingLiveBatchGrid}
+            title={showingLiveBatchGrid ? `本批预览 · ${jobsCompleted}/${jobsTotal}` : undefined}
           />
         )}
         {!showingResultGrid && currentImage && compareB && (
           <CompareOverlay
             aBlob={currentImage.imageBlob ?? null}
             aB64={currentImage.imageB64}
+            aUrl={currentImage.fullUrl}
             bBlob={compareB.imageBlob ?? null}
             bB64={compareB.imageB64}
+            bUrl={compareB.fullUrl}
             split={compareSplit}
             onSplit={setCompareSplit}
           />

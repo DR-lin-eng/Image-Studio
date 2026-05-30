@@ -47,6 +47,9 @@ func TestBuildPayloadUsesSizeAndQuality(t *testing.T) {
 	if v["stream"] != true {
 		t.Errorf("stream = %v, want true", v["stream"])
 	}
+	if tool["partial_images"] != float64(DefaultPartialImages) {
+		t.Errorf("partial_images = %v, want %d", tool["partial_images"], DefaultPartialImages)
+	}
 
 	input := v["input"].([]any)[0].(map[string]any)
 	content := input["content"].([]any)
@@ -56,6 +59,32 @@ func TestBuildPayloadUsesSizeAndQuality(t *testing.T) {
 	first := content[0].(map[string]any)
 	if first["type"] != "input_text" || first["text"] != "生成海报" {
 		t.Errorf("input_text = %v", first)
+	}
+}
+
+func TestBuildPayloadNormalizesPartialImages(t *testing.T) {
+	tests := []struct {
+		name string
+		in   int
+		want float64
+	}{
+		{name: "zero uses default", in: 0, want: float64(DefaultPartialImages)},
+		{name: "negative uses default", in: -2, want: float64(DefaultPartialImages)},
+		{name: "keeps explicit", in: 2, want: 2},
+		{name: "clamps max", in: 9, want: 3},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			raw, err := BuildPayload(Options{Prompt: "x", PartialImages: tt.in})
+			if err != nil {
+				t.Fatal(err)
+			}
+			v := mustDecodePayload(t, raw)
+			tool := v["tools"].([]any)[0].(map[string]any)
+			if tool["partial_images"] != tt.want {
+				t.Fatalf("partial_images = %v, want %v", tool["partial_images"], tt.want)
+			}
+		})
 	}
 }
 

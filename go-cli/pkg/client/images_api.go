@@ -5,7 +5,8 @@ package client
 //   POST {base}/v1/images/edits        (multipart/form-data,图生图)
 //
 // 与 Responses API 路径(client.go / sse.go)的最大区别:
-//   - 一次性 JSON 响应,无 SSE,因此无法做流式保活;Cloudflare 524 风险更高
+//   - 结果事件形态不同;支持官方 Images API 的 stream/partial_images 时可流式预览,
+//     否则回退解析一次性 JSON 响应。
 //   - 多图编辑能力受上游约束(OpenAI 官方仅接受 1 张 image,部分中转站允许 image[] 数组),
 //     为最大兼容,这里默认只取第一张源图;如果上游支持多张,可后续扩展
 //   - 默认优先走 OpenAI 官方公开字段;若请求策略切到 compat,可附带 relay 扩展字段
@@ -65,6 +66,75 @@ type imagesAPIResponse struct {
 	} `json:"error,omitempty"`
 }
 
+type imageStreamExtractor struct {
+	partialB64 string
+	final      ImageResult
+	hasFinal   bool
+	onPartial  func(PartialImage)
+}
+
+func (e *imageStreamExtractor) consume(line string) bool {
+	stripped := strings.TrimSpace(line)
+	if stripped == "" {
+		return false
+	}
+	if !strings.HasPrefix(stripped, "data: ") {
+		return false
+	}
+	payload := strings.TrimSpace(stripped[6:])
+	if payload == "" || payload == "[DONE]" {
+		return true
+	}
+	var ev Event
+	if err := decodeEvent(payload, &ev); err != nil {
+		return false
+	}
+	evType, _ := ev["type"].(string)
+	switch evType {
+	case "image_generation.partial_image", "image_edit.partial_image":
+		if b64, ok := ev["b64_json"].(string); ok && b64 != "" {
+			e.partialB64 = b64
+			partial := PartialImage{ImageB64: b64, PartialImageIndex: -1}
+			if idx, ok := numberFromAny(ev["partial_image_index"]); ok {
+				partial.PartialImageIndex = idx
+			}
+			if e.onPartial != nil {
+				e.onPartial(partial)
+			}
+		}
+		return true
+	case "image_generation.completed", "image_edit.completed":
+		if b64, ok := ev["b64_json"].(string); ok && b64 != "" {
+			e.final = ImageResult{ImageB64: b64, SourceEvent: "images_api"}
+			e.hasFinal = true
+			return true
+		}
+	case "error":
+		return true
+	}
+	if ev["object"] == "image.generation.result" || ev["object"] == "image.edit.result" {
+		b, err := json.Marshal(ev)
+		if err == nil {
+			if result, err := parseImagesAPIResponseBytes(b, 200); err == nil {
+				e.final = result
+				e.hasFinal = true
+				return true
+			}
+		}
+	}
+	return true
+}
+
+func (e *imageStreamExtractor) result() (ImageResult, bool) {
+	if e.hasFinal {
+		return e.final, true
+	}
+	if e.partialB64 != "" {
+		return ImageResult{ImageB64: e.partialB64, SourceEvent: "images_api_partial"}, true
+	}
+	return ImageResult{}, false
+}
+
 // RequestImagesAPI executes a single (no-retry) request against the standard
 // OpenAI Images API and returns the parsed image. Raw response body is teed
 // to rawSink so callers can dump it for debugging.
@@ -73,6 +143,16 @@ func RequestImagesAPI(
 	opts Options,
 	rawSink io.Writer,
 	onProgress func(stage string, elapsedSeconds int, bytesReceived int64),
+) (ImageResult, error) {
+	return RequestImagesAPIWithPartial(ctx, opts, rawSink, onProgress, nil)
+}
+
+func RequestImagesAPIWithPartial(
+	ctx context.Context,
+	opts Options,
+	rawSink io.Writer,
+	onProgress func(stage string, elapsedSeconds int, bytesReceived int64),
+	onPartial func(PartialImage),
 ) (ImageResult, error) {
 	if strings.TrimSpace(opts.APIKey) == "" {
 		return ImageResult{}, ErrEmptyAPIKey
@@ -119,7 +199,7 @@ func RequestImagesAPI(
 		if len(paths) == 0 {
 			return ImageResult{}, errors.New("图生图模式需要至少一张源图(请在面板里添加参考图)")
 		}
-		multipartBuf, mpType, err := buildEditsMultipart(paths, opts.MaskB64, opts.Prompt, model, size, quality, outputFormat, opts.NegativePrompt, opts.Seed, opts.RequestPolicy)
+		multipartBuf, mpType, err := buildEditsMultipart(paths, opts.MaskB64, opts.Prompt, model, size, quality, outputFormat, opts.NegativePrompt, opts.Seed, opts.RequestPolicy, normalizePartialImages(opts.PartialImages))
 		if err != nil {
 			return ImageResult{}, err
 		}
@@ -128,16 +208,18 @@ func RequestImagesAPI(
 		contentType = mpType
 	} else {
 		payload := map[string]any{
-			"model":           model,
-			"prompt":          opts.Prompt,
-			"n":               1,
-			"size":            size,
-			"quality":         quality,
-			"output_format":   outputFormat,
+			"model":         model,
+			"prompt":        opts.Prompt,
+			"n":             1,
+			"size":          size,
+			"quality":       quality,
+			"output_format": outputFormat,
 		}
 		if supportsImagesResponseFormat(model, opts.Mode) {
 			payload["response_format"] = "b64_json"
 		}
+		payload["stream"] = true
+		payload["partial_images"] = normalizePartialImages(opts.PartialImages)
 		if includeExtended && opts.Seed != 0 {
 			payload["seed"] = opts.Seed
 		}
@@ -159,11 +241,16 @@ func RequestImagesAPI(
 	}
 	req.Header.Set("Content-Type", contentType)
 	req.Header.Set("Authorization", "Bearer "+opts.APIKey)
-	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Accept", "text/event-stream, application/json")
 	req.Header.Set("User-Agent", UserAgent())
 
+	transport, err := NewHTTPTransport(opts.Proxy)
+	if err != nil {
+		return ImageResult{}, err
+	}
 	httpClient := &http.Client{
-		Timeout: 8 * time.Minute,
+		Timeout:   8 * time.Minute,
+		Transport: transport,
 	}
 
 	startedAt := time.Now()
@@ -190,6 +277,39 @@ func RequestImagesAPI(
 		return ImageResult{}, err
 	}
 	defer resp.Body.Close()
+
+	contentTypeHeader := strings.ToLower(resp.Header.Get("Content-Type"))
+	if strings.Contains(contentTypeHeader, "text/event-stream") {
+		var rawBytes int64
+		extractor := imageStreamExtractor{onPartial: onPartial}
+		scanner := NewSSEScanner(resp.Body)
+		for scanner.Scan() {
+			line := scanner.Bytes()
+			rawBytes += int64(len(line) + 1)
+			if _, err := rawSink.Write(line); err != nil {
+				return ImageResult{}, fmt.Errorf("write raw: %w", err)
+			}
+			if _, err := rawSink.Write([]byte("\n")); err != nil {
+				return ImageResult{}, fmt.Errorf("write raw: %w", err)
+			}
+			if extractor.consume(string(line)) && onProgress != nil {
+				onProgress("已收到 Images API 流式事件", int(time.Since(startedAt).Seconds()), rawBytes)
+			}
+		}
+		if err := scanner.Err(); err != nil {
+			if result, ok := extractor.result(); ok && result.ImageB64 != "" {
+				return result, nil
+			}
+			return ImageResult{}, fmt.Errorf("read Images API stream: %w", err)
+		}
+		if resp.StatusCode/100 != 2 {
+			return ImageResult{}, fmt.Errorf("上游返回 HTTP %d", resp.StatusCode)
+		}
+		if result, ok := extractor.result(); ok {
+			return result, nil
+		}
+		return ImageResult{}, ErrNoImageInResponse
+	}
 
 	preview := newCappedPreviewBuffer(4096)
 	teeReader := io.TeeReader(resp.Body, io.MultiWriter(rawSink, preview))
@@ -235,11 +355,35 @@ func RequestImagesAPI(
 		}
 		return ImageResult{}, ErrNoImageInResponse
 	}
+	return imageResultFromImagesDatum(d), nil
+}
+
+func imageResultFromImagesDatum(d imagesAPIDatum) ImageResult {
 	return ImageResult{
 		ImageB64:      d.B64JSON,
 		RevisedPrompt: d.RevisedPrompt,
 		SourceEvent:   "images_api",
-	}, nil
+	}
+}
+
+func parseImagesAPIResponseBytes(raw []byte, statusCode int) (ImageResult, error) {
+	var parsed imagesAPIResponse
+	if err := json.Unmarshal(raw, &parsed); err != nil {
+		return ImageResult{}, err
+	}
+	if statusCode/100 != 2 {
+		if parsed.Error != nil {
+			return ImageResult{}, fmt.Errorf("上游返回 %d:%s", statusCode, parsed.Error.Message)
+		}
+		return ImageResult{}, fmt.Errorf("上游返回 HTTP %d", statusCode)
+	}
+	if parsed.Error != nil {
+		return ImageResult{}, fmt.Errorf("上游返回错误:%s", parsed.Error.Message)
+	}
+	if len(parsed.Data) == 0 || parsed.Data[0].B64JSON == "" {
+		return ImageResult{}, ErrNoImageInResponse
+	}
+	return imageResultFromImagesDatum(parsed.Data[0]), nil
 }
 
 type cappedPreviewBuffer struct {
@@ -330,7 +474,7 @@ func writeDataURLToTemp(dataURL string) (string, error) {
 // 多张源图按 image[] / image[1] / ... 形式串联 —— 不同中转站对多图编辑支持不一,
 // 仅第一张是 OpenAI 官方接受的最小可用形态,其余作为兼容性 best-effort。
 func buildEditsMultipart(
-	paths []string, maskB64, prompt, model, size, quality, outputFormat, negativePrompt string, seed int64, requestPolicy RequestPolicy,
+	paths []string, maskB64, prompt, model, size, quality, outputFormat, negativePrompt string, seed int64, requestPolicy RequestPolicy, partialImages int,
 ) (*bytes.Buffer, string, error) {
 	buf := &bytes.Buffer{}
 	w := multipart.NewWriter(buf)
@@ -374,6 +518,8 @@ func buildEditsMultipart(
 	if supportsImagesResponseFormat(model, ModeEdit) {
 		_ = w.WriteField("response_format", "b64_json")
 	}
+	_ = w.WriteField("stream", "true")
+	_ = w.WriteField("partial_images", fmt.Sprintf("%d", partialImages))
 	if shouldSendExtendedImageParameters(requestPolicy) && seed != 0 {
 		_ = w.WriteField("seed", fmt.Sprintf("%d", seed))
 	}

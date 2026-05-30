@@ -4,6 +4,7 @@ import { useStudioStore } from "../../state/studioStore";
 import { usePlatform } from "../../platform/context";
 import { HistoryMetaBadges } from "../history/HistoryMetaBadges";
 import { qualityLabel, sizeLabel } from "../history/historyLabels";
+import { StreamPreviewBadge } from "./StreamPreviewBadge";
 
 function fmtBytes(b: number): string {
   if (b < 1024) return `${b} B`;
@@ -12,7 +13,7 @@ function fmtBytes(b: number): string {
 }
 
 export function StatusBar() {
-  const { isRunning, progress, currentImage, lastLogLine, viewZoom, recentDurations, jobsTotal, jobsCompleted, runningJobs } = useStudioStore();
+  const { isRunning, progress, currentImage, streamPreview, lastLogLine, viewZoom, recentDurations, jobsTotal, jobsCompleted, runningJobs } = useStudioStore();
   const { isAndroidPhone, isMac, isWindows, usesFluentUI, usesAppleUI } = usePlatform();
   const [clockNow, setClockNow] = useState(() => Date.now());
   const [progressAnchor, setProgressAnchor] = useState(() => ({ elapsed: 0, at: Date.now() }));
@@ -58,6 +59,7 @@ export function StatusBar() {
             并发 {runningJobs.length} · {jobsCompleted}/{jobsTotal}
           </span>
         )}
+        {streamPreview ? <StreamPreviewBadge compact /> : null}
         {eta !== null && <span className="text-zinc-500">≈ 剩余 {eta}s</span>}
         <div className="absolute bottom-0 left-0 right-0 h-px animate-pulse bg-[color:var(--accent)]/35" />
         {!isAndroidPhone && !isMac && (

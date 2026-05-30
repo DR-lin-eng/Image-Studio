@@ -36,15 +36,23 @@ export function OpenOutputDir():Promise<void>;
 
 export function OptimizePrompt(arg1:backend.PromptOptimizeOptions):Promise<string>;
 
+export function ProbeUpstream(arg1:backend.ProbeUpstreamOptions):Promise<backend.ProbeUpstreamResult>;
+
 export function ReadImageAsBase64(arg1:string):Promise<string>;
 
 export function ReadTextFile(arg1:string):Promise<string>;
+
+export function RegisterMediaAsset(arg1:string,arg2:string):Promise<backend.MediaAssetRef>;
+
+export function RegisterImportedImageAsset(arg1:string):Promise<backend.MediaAssetRef>;
 
 export function RegisterTrustedOutputDir(arg1:string):Promise<void>;
 
 export function RotateImage(arg1:string,arg2:number):Promise<backend.ImageTransformResult>;
 
 export function SaveImageAs(arg1:string,arg2:string):Promise<string>;
+
+export function SaveImagePathAs(arg1:string,arg2:string):Promise<string>;
 
 export function SetOutputDir(arg1:string):Promise<void>;
 

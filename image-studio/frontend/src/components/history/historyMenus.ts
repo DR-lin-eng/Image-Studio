@@ -54,7 +54,7 @@ export function buildSharedHistoryMenu(
       separatorBefore: true,
       label: "设为源图",
       icon: "→",
-      disabled: !(item.savedPath || item.imageB64),
+      disabled: !(item.savedPath || item.imageB64 || item.fullUrl || item.imageId),
       onClick: actions.onReuseAsSource,
     },
     {

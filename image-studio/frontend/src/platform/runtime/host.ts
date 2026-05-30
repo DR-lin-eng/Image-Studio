@@ -1,6 +1,5 @@
 import { targetPlatform } from "../index.ts";
 import {
-  probeUpstreamConnection,
   RemoteKernelError,
   runRemoteImageJob,
   optimizePromptRemote,
@@ -48,6 +47,9 @@ import type {
   ImportedImageLike,
   JobStartedLike,
   KernelRuntimeMode,
+  MediaAssetRefLike,
+  ProbeUpstreamOptionsLike,
+  ProbeUpstreamResultLike,
   PromptOptimizeOptionsLike,
   SelectFileResponseLike,
 } from "./hostTypes.ts";
@@ -143,6 +145,13 @@ async function startRemoteJob(options: GenerateOptionsLike): Promise<JobStartedL
         signal: controller.signal,
         onLog: (line) => emitLocalEvent(`log:${jobId}`, line),
         onProgress: (stage, elapsed, bytes) => emitLocalEvent(`progress:${jobId}`, { stage, elapsed, bytes }),
+        onPartialImage: (partial) => emitLocalEvent(`preview:${jobId}`, {
+          imageB64: partial.imageB64,
+          revisedPrompt: partial.revisedPrompt || "",
+          partialImageIndex: partial.partialImageIndex ?? -1,
+          mode: options.mode || "generate",
+          prompt: options.prompt,
+        }),
       });
       if (controller.signal.aborted) return;
       const saved = registerVirtualImage({
@@ -308,6 +317,8 @@ export function OptimizePrompt(options: PromptOptimizeOptionsLike): Promise<stri
     mode: options.mode,
     baseURL: options.baseURL,
     textModelID: options.textModelID,
+    proxyMode: options.proxyMode,
+    proxyURL: options.proxyURL,
     imagePaths: options.imagePaths,
     imagePath: options.imagePath,
   }, controller.signal);
@@ -385,12 +396,43 @@ export function SaveImageAs(imageB64: string, suggestedName: string): Promise<st
   if (hasServiceMethod("SaveImageAs")) {
     return invokeService<string>(unsupportedMessage, "SaveImageAs", imageB64, suggestedName);
   }
+  if (canInvokeAndroidMethod("SaveImageAs")) {
+    return invokeAndroid<string>(unsupportedMessage, "SaveImageAs", imageB64, suggestedName);
+  }
   const mimeType = suggestedName.toLowerCase().endsWith(".jpg") || suggestedName.toLowerCase().endsWith(".jpeg")
     ? "image/jpeg"
     : suggestedName.toLowerCase().endsWith(".webp")
       ? "image/webp"
       : "image/png";
   return Promise.resolve(saveByDownload(new Blob([Uint8Array.from(atob(imageB64), (ch) => ch.charCodeAt(0))], { type: mimeType }), suggestedName));
+}
+
+export function SaveImagePathAs(path: string, suggestedName: string): Promise<string> {
+  if (hasServiceMethod("SaveImagePathAs")) {
+    return invokeService<string>(unsupportedMessage, "SaveImagePathAs", path, suggestedName);
+  }
+  if (isVirtualPath(path)) {
+    return ReadImageAsBase64(path).then((b64) => SaveImageAs(b64, suggestedName));
+  }
+  if (canInvokeAndroidMethod("SaveImagePathAs")) {
+    return invokeAndroid<string>(unsupportedMessage, "SaveImagePathAs", path, suggestedName)
+      .catch(() => ReadImageAsBase64(path).then((b64) => SaveImageAs(b64, suggestedName)));
+  }
+  return ReadImageAsBase64(path).then((b64) => SaveImageAs(b64, suggestedName));
+}
+
+export function RegisterMediaAsset(savedPath: string, thumbPath: string): Promise<MediaAssetRefLike> {
+  if (hasServiceMethod("RegisterMediaAsset")) {
+    return invokeService<MediaAssetRefLike>(unsupportedMessage, "RegisterMediaAsset", savedPath, thumbPath);
+  }
+  return Promise.resolve({ savedPath, thumbPath });
+}
+
+export function RegisterImportedImageAsset(path: string): Promise<MediaAssetRefLike> {
+  if (hasServiceMethod("RegisterImportedImageAsset")) {
+    return invokeService<MediaAssetRefLike>(unsupportedMessage, "RegisterImportedImageAsset", path);
+  }
+  return Promise.resolve({ savedPath: path });
 }
 
 export function ImportImageFromB64(imageB64: string, suggestedName: string): Promise<ImportedImageLike> {
@@ -537,8 +579,24 @@ export function ReadTextFile(path: string): Promise<string> {
   return invokeService<string>(unsupportedMessage, "ReadTextFile", path);
 }
 
-export function probeCurrentUpstream(baseURL: string, apiKey: string, signal?: AbortSignal): Promise<void> {
-  return probeUpstreamConnection(baseURL, apiKey, signal);
+export async function probeCurrentUpstream(
+  baseURL: string,
+  apiKey: string,
+  proxyMode = "system",
+  proxyURL = "",
+  signal?: AbortSignal,
+): Promise<void> {
+  if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+  const options: ProbeUpstreamOptionsLike = { baseURL, apiKey, proxyMode, proxyURL };
+  if (hasServiceMethod("ProbeUpstream")) {
+    await invokeService<ProbeUpstreamResultLike>(unsupportedMessage, "ProbeUpstream", options);
+    return;
+  }
+  if (canInvokeAndroidMethod("ProbeUpstream")) {
+    await invokeAndroid<ProbeUpstreamResultLike>(unsupportedMessage, "ProbeUpstream", options);
+    return;
+  }
+  throw new Error(unsupportedMessage("ProbeUpstream"));
 }
 
 export function registerEphemeralLog(text: string, suggestedName = "raw-response.txt"): string {

@@ -70,12 +70,24 @@ export function OptimizePrompt(arg1) {
   return window['go']['backend']['Service']['OptimizePrompt'](arg1);
 }
 
+export function ProbeUpstream(arg1) {
+  return window['go']['backend']['Service']['ProbeUpstream'](arg1);
+}
+
 export function ReadImageAsBase64(arg1) {
   return window['go']['backend']['Service']['ReadImageAsBase64'](arg1);
 }
 
 export function ReadTextFile(arg1) {
   return window['go']['backend']['Service']['ReadTextFile'](arg1);
+}
+
+export function RegisterMediaAsset(arg1, arg2) {
+  return window['go']['backend']['Service']['RegisterMediaAsset'](arg1, arg2);
+}
+
+export function RegisterImportedImageAsset(arg1) {
+  return window['go']['backend']['Service']['RegisterImportedImageAsset'](arg1);
 }
 
 export function RegisterTrustedOutputDir(arg1) {
@@ -88,6 +100,10 @@ export function RotateImage(arg1, arg2) {
 
 export function SaveImageAs(arg1, arg2) {
   return window['go']['backend']['Service']['SaveImageAs'](arg1, arg2);
+}
+
+export function SaveImagePathAs(arg1, arg2) {
+  return window['go']['backend']['Service']['SaveImagePathAs'](arg1, arg2);
 }
 
 export function SetOutputDir(arg1) {

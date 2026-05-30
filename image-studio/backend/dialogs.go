@@ -6,6 +6,7 @@ import (
 	"fmt"
 	neturl "net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -13,16 +14,8 @@ import (
 )
 
 // OpenImageDialog shows a file picker filtered to supported image types and
-// returns the selected absolute path + size + raw bytes (base64)。
-//
-// 之所以把 b64 也读出来:前端 SourceStrip 用它直接渲染缩略图,不必再调
-// ReadImageAsBase64(那条路径强制 managed-roots,而文件选择器返回的是用户
-// 桌面 / D 盘任意路径,会被拒)。用户主动经 OS 对话框挑的路径默认就是信任
-// 来源,这里直接读没问题。
-//
-// 文件 > 50MB 时只回 path/size,b64 留空 —— 一来太大走 JSON bridge 太重,
-// 二来 client.MaxInputImageBytes 本身也不接受这么大的源图,前端 SourceStrip
-// 会自动落到扩展名占位 UI。
+// returns the selected absolute path, size, and a managed AVIF preview URL when
+// thumbnail generation succeeds.
 const maxDialogReadBytes int64 = 50 * 1024 * 1024
 
 func (s *Service) OpenImageDialog() (SelectFileResponse, error) {
@@ -45,8 +38,11 @@ func (s *Service) OpenImageDialog() (SelectFileResponse, error) {
 	}
 	resp := SelectFileResponse{Path: path, Size: info.Size()}
 	if info.Size() > 0 && info.Size() <= maxDialogReadBytes {
-		if data, readErr := os.ReadFile(path); readErr == nil {
-			resp.ImageB64 = base64.StdEncoding.EncodeToString(data)
+		if preview, previewErr := s.registerImportedPreview(path); previewErr == nil {
+			resp.ImageID = preview.ID
+			resp.PreviewURL = preview.PreviewURL
+			resp.PreviewWidth = preview.PreviewWidth
+			resp.PreviewHeight = preview.PreviewHeight
 		}
 	}
 	return resp, nil
@@ -70,6 +66,39 @@ func (s *Service) SaveImageAs(imageB64, suggestedName string) (string, error) {
 	return writeBase64PNG(imageB64, dst)
 }
 
+// SaveImagePathAs copies an existing managed image to a user-selected path.
+// Generated results use this path-first route so the frontend does not have to
+// read the full image into JS memory just to save a copy.
+func (s *Service) SaveImagePathAs(path, suggestedName string) (string, error) {
+	allowed, err := s.ensureManagedReadablePath(path, managedImageFile)
+	if err != nil {
+		return "", err
+	}
+	if suggestedName == "" {
+		suggestedName = filepath.Base(allowed)
+	}
+	dst, err := runtime.SaveFileDialog(s.ctx, runtime.SaveDialogOptions{
+		Title:           "保存图片",
+		DefaultFilename: suggestedName,
+		Filters: []runtime.FileFilter{
+			{DisplayName: "图片文件 (*.png;*.jpg;*.jpeg;*.webp;*.avif)", Pattern: "*.png;*.jpg;*.jpeg;*.webp;*.avif"},
+			{DisplayName: "所有文件 (*.*)", Pattern: "*.*"},
+		},
+	})
+	if err != nil || dst == "" {
+		return "", err
+	}
+	data, err := os.ReadFile(allowed)
+	if err != nil {
+		return "", err
+	}
+	if err := os.WriteFile(dst, data, secureFileMode); err != nil {
+		return "", err
+	}
+	abs, _ := filepath.Abs(dst)
+	return abs, nil
+}
+
 // GetOutputDir returns the directory where generated images and raw response
 // dumps are written —— 用户自定义优先,空时回退到默认。
 func (s *Service) GetOutputDir() (string, error) {
@@ -86,6 +115,12 @@ func (s *Service) OpenOutputDir() error {
 		return err
 	}
 	if err := os.MkdirAll(imagesSubdir(dir), secureDirMode); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(thumbsSubdir(dir), secureDirMode); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(previewsSubdir(dir), secureDirMode); err != nil {
 		return err
 	}
 	if err := os.MkdirAll(logSubdir(dir), secureDirMode); err != nil {

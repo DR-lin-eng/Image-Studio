@@ -8,10 +8,13 @@ import type {
   OutputFormatValue,
   Preset,
   ProgressInfo,
+  ProxyMode,
   QualityValue,
   RequestPolicy,
   SizeValue,
   SourceImage,
+  StreamPreview,
+  StreamPreviewMap,
   ThemeMode,
   Toast,
   UpstreamProfile,
@@ -33,6 +36,8 @@ export interface PromptOptimizeRequest {
   mode: Mode;
   baseURL: string;
   textModelID: string;
+  proxyMode: ProxyMode;
+  proxyURL: string;
   imagePaths: string[];
   imagePath: string;
 }
@@ -61,6 +66,8 @@ export interface StudioState {
   kernelRuntimeMode: KernelRuntimeMode;
   baseURL: string;
   textModelID: string;
+  proxyMode: ProxyMode;
+  proxyURL: string;
   imageModelID: string;
   apiMode: APIMode;
   requestPolicy: RequestPolicy;
@@ -72,6 +79,8 @@ export interface StudioState {
   jobsTotal: number;
   jobsCompleted: number;
   progress: ProgressInfo | null;
+  streamPreview: StreamPreview | null;
+  streamPreviews: StreamPreviewMap;
   lastLogLine: string;
   errorMessage: string | null;
   errorRawPath: string | null;
@@ -116,7 +125,7 @@ export interface StudioState {
   setAPIKey: (v: string) => Promise<void>;
   clearError: () => void;
   createProfile: (input: {
-    name: string;
+    name?: string;
     apiMode: APIMode;
     baseURL?: string;
     requestPolicy?: RequestPolicy;
@@ -175,6 +184,7 @@ export interface StudioState {
   importHistory: () => Promise<void>;
   setTheme: (t: ThemeMode) => void;
   setFontScale: (v: number) => void;
+  setProxyConfig: (mode: ProxyMode, url?: string) => void;
   settingsOpen: boolean;
   openSettings: () => void;
   closeSettings: () => void;

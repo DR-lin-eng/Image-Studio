@@ -153,6 +153,8 @@ function buildWorkspace(
     jobsTotal: 0,
     jobsCompleted: 0,
     progress: null,
+    streamPreview: null,
+    streamPreviews: {},
     lastLogLine: "",
     errorMessage: null,
     errorRawPath: null,

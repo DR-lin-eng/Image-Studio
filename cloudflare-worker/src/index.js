@@ -120,6 +120,7 @@ function sanitizePayload(input) {
     apiMode: String(input?.apiMode || ""),
     requestPolicy: input?.requestPolicy === "compat" ? "compat" : "openai",
     noPromptRevision: !!input?.noPromptRevision,
+    partialImages: Number(input?.partialImages || 0),
   };
 }
 

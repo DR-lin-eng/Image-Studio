@@ -1,6 +1,19 @@
 import { invokeAndroidNative } from "../../android/nativeInvoke.ts";
 import type { NativeTextResponse } from "./types.ts";
 
+type NativeProgressWindow = Window & {
+  __imageStudioNativeProgress?: (requestId: string, payload: unknown) => void;
+};
+
+export type NativeHTTPProxyConfig = {
+  proxyMode?: string;
+  proxyURL?: string;
+};
+
+const nativeHttpProgressHandlers = new Map<string, (payload: unknown) => void>();
+let progressHookInstalled = false;
+let progressHookWindow: NativeProgressWindow | null = null;
+
 function bytesToBase64(bytes: Uint8Array): string {
   let binary = "";
   const chunkSize = 0x8000;
@@ -37,16 +50,49 @@ async function encodeRequestBody(
   };
 }
 
+function ensureAndroidProgressHook() {
+  if (typeof window === "undefined") return;
+  const browserWindow = window as NativeProgressWindow;
+  if (progressHookInstalled && progressHookWindow === browserWindow) return;
+  const previous = browserWindow.__imageStudioNativeProgress;
+  browserWindow.__imageStudioNativeProgress = (requestId, payload) => {
+    const handler = nativeHttpProgressHandlers.get(requestId);
+    if (handler) {
+      handler(payload);
+      return;
+    }
+    previous?.(requestId, payload);
+  };
+  progressHookInstalled = true;
+  progressHookWindow = browserWindow;
+}
+
+function streamLineFromPayload(payload: unknown): string {
+  if (typeof payload === "string") return payload;
+  if (!payload || typeof payload !== "object") return "";
+  const line = (payload as { line?: unknown }).line;
+  return typeof line === "string" ? line : "";
+}
+
 export async function nativeHttpRequestText(
   url: string,
   method: string,
   headers: Record<string, string>,
   body: BodyInit | null | undefined,
   signal?: AbortSignal,
+  onStreamLine?: (line: string) => void,
+  proxyConfig?: NativeHTTPProxyConfig,
 ): Promise<NativeTextResponse> {
   const requestKey = `native-http-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
   const encoded = await encodeRequestBody(body, headers);
   if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+  ensureAndroidProgressHook();
+  if (onStreamLine) {
+    nativeHttpProgressHandlers.set(requestKey, (payload) => {
+      const line = streamLineFromPayload(payload);
+      if (line) onStreamLine(line);
+    });
+  }
   let aborted = false;
   const onAbort = () => {
     aborted = true;
@@ -61,10 +107,14 @@ export async function nativeHttpRequestText(
       headers,
       bodyBase64: encoded.bodyBase64,
       contentType: encoded.contentType,
+      streamLines: Boolean(onStreamLine),
+      proxyMode: proxyConfig?.proxyMode || "system",
+      proxyURL: proxyConfig?.proxyURL || "",
     });
     if (aborted) throw new DOMException("Aborted", "AbortError");
     return response;
   } finally {
+    nativeHttpProgressHandlers.delete(requestKey);
     signal?.removeEventListener("abort", onAbort);
   }
 }

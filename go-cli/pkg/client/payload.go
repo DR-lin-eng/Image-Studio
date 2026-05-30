@@ -76,6 +76,7 @@ func BuildPayload(opts Options) ([]byte, error) {
 	if includeExtended && strings.TrimSpace(opts.NegativePrompt) != "" {
 		tool["negative_prompt"] = opts.NegativePrompt
 	}
+	tool["partial_images"] = normalizePartialImages(opts.PartialImages)
 
 	textModel := opts.TextModelID
 	if textModel == "" {
@@ -106,6 +107,16 @@ func BuildPayload(opts Options) ([]byte, error) {
 	// Encoder appends a trailing '\n'; strip for cleanliness.
 	out := strings.TrimRight(buf.String(), "\n")
 	return []byte(out), nil
+}
+
+func normalizePartialImages(value int) int {
+	if value <= 0 {
+		return DefaultPartialImages
+	}
+	if value > 3 {
+		return 3
+	}
+	return value
 }
 
 var slugRe = regexp.MustCompile(`-{2,}`)

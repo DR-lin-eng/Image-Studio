@@ -26,7 +26,11 @@ import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.InputStream
+import java.io.OutputStream
 import java.net.HttpURLConnection
+import java.net.InetSocketAddress
+import java.net.URI
+import java.net.Proxy
 import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -111,9 +115,14 @@ class AndroidImageStudioBridge(
                 }
                 "ExportHistoryToFile" -> exportHistory(args.optString(0))
                 "SaveImageAs" -> saveImage(args.optString(0), args.optString(1))
+                "SaveImagePathAs" -> saveImagePathAs(args.optString(0), args.optString(1))
                 "HttpRequestText" -> {
                     val payload = args.optJSONObject(0) ?: throw IllegalArgumentException("缺少 HTTP 请求参数")
                     runHttpRequestText(requestId, payload)
+                }
+                "ProbeUpstream" -> {
+                    val payload = args.optJSONObject(0) ?: throw IllegalArgumentException("缺少测活参数")
+                    runProbeUpstream(requestId, payload)
                 }
                 "CancelHttpRequest" -> {
                     cancelHttpRequest(args.optString(0))
@@ -258,13 +267,32 @@ class AndroidImageStudioBridge(
 
     @JavascriptInterface
     fun saveImage(imageB64: String, suggestedName: String): String {
-        val name = if (suggestedName.endsWith(".png", true)) suggestedName else "$suggestedName.png"
+        if (imageB64.isBlank()) throw IllegalArgumentException("图片数据为空")
+        val name = ensureImageFileName(suggestedName, "image-${timestamp()}.png")
         val bytes = Base64.decode(imageB64, Base64.DEFAULT)
+        return saveImageStream(name, imageMimeForName(name)) { output ->
+            output.write(bytes)
+        }
+    }
 
+    @JavascriptInterface
+    fun saveImagePathAs(path: String, suggestedName: String): String {
+        val trimmed = path.trim()
+        if (trimmed.isBlank()) throw IllegalArgumentException("图片路径为空")
+        val fallback = trimmed.substringAfterLast('/').substringAfterLast('\\').ifBlank { "image-${timestamp()}.png" }
+        val name = ensureImageFileName(suggestedName.ifBlank { fallback }, fallback)
+        return saveImageStream(name, imageMimeForName(name)) { output ->
+            openInputStreamForPath(trimmed).use { input ->
+                input.copyTo(output)
+            }
+        }
+    }
+
+    private fun saveImageStream(name: String, mimeType: String, write: (OutputStream) -> Unit): String {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val contentValues = ContentValues().apply {
                 put(MediaStore.MediaColumns.DISPLAY_NAME, name)
-                put(MediaStore.MediaColumns.MIME_TYPE, "image/png")
+                put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
                 put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + File.separator + "ImageStudio")
                 put(MediaStore.MediaColumns.IS_PENDING, 1)
             }
@@ -272,8 +300,13 @@ class AndroidImageStudioBridge(
             val resolver = context.contentResolver
             val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
             if (uri != null) {
-                resolver.openOutputStream(uri)?.use { output ->
-                    output.write(bytes)
+                try {
+                    resolver.openOutputStream(uri)?.use { output ->
+                        write(output)
+                    } ?: throw IllegalStateException("无法写入相册文件")
+                } catch (error: Exception) {
+                    resolver.delete(uri, null, null)
+                    throw error
                 }
                 contentValues.clear()
                 contentValues.put(MediaStore.MediaColumns.IS_PENDING, 0)
@@ -284,7 +317,9 @@ class AndroidImageStudioBridge(
 
         val file = File(getOutputDir(), name)
         file.parentFile?.mkdirs()
-        file.writeBytes(bytes)
+        FileOutputStream(file).use { output ->
+            write(output)
+        }
         return file.absolutePath
     }
 
@@ -342,9 +377,12 @@ class AndroidImageStudioBridge(
         val headersJson = payload.optJSONObject("headers")
         val bodyBase64 = payload.optString("bodyBase64")
         val contentType = payload.optString("contentType")
+        val streamLines = payload.optBoolean("streamLines", false)
+        val proxyMode = payload.optString("proxyMode", "system")
+        val proxyUrl = payload.optString("proxyURL", "")
         thread(name = "image-studio-http-$requestKey") {
             try {
-                val connection = (URL(url).openConnection() as HttpURLConnection).apply {
+                val connection = openHttpConnection(url, proxyMode, proxyUrl).apply {
                     requestMethod = method
                     instanceFollowRedirects = true
                     connectTimeout = 30_000
@@ -369,7 +407,18 @@ class AndroidImageStudioBridge(
                 }
                 val status = connection.responseCode
                 val stream = if (status >= 400) connection.errorStream else connection.inputStream
-                val body = stream?.bufferedReader()?.use { it.readText() } ?: ""
+                val body = if (streamLines) {
+                    val lines = mutableListOf<String>()
+                    stream?.bufferedReader()?.useLines { sequence ->
+                        sequence.forEach { line ->
+                            lines.add(line)
+                            emitNativeProgress(requestKey, mapOf("line" to line))
+                        }
+                    }
+                    if (lines.isEmpty()) "" else lines.joinToString(separator = "\n", postfix = "\n")
+                } else {
+                    stream?.bufferedReader()?.use { it.readText() } ?: ""
+                }
                 val result = mapOf(
                     "status" to status,
                     "body" to body,
@@ -385,8 +434,129 @@ class AndroidImageStudioBridge(
         throw EarlyResolve()
     }
 
+    private fun runProbeUpstream(requestId: String, payload: JSONObject): Nothing {
+        val baseUrl = validateProbeBaseUrl(payload.optString("baseURL"))
+        val apiKey = payload.optString("apiKey").trim()
+        val proxyMode = payload.optString("proxyMode", "system")
+        val proxyUrl = payload.optString("proxyURL", "")
+        if (apiKey.isBlank()) throw IllegalArgumentException("API Key 不能为空")
+        thread(name = "image-studio-probe-${requestId.take(12)}") {
+            try {
+                val connection = openHttpConnection("$baseUrl/v1/models", proxyMode, proxyUrl).apply {
+                    requestMethod = "GET"
+                    instanceFollowRedirects = true
+                    connectTimeout = 20_000
+                    readTimeout = 20_000
+                    doInput = true
+                    setRequestProperty("Authorization", "Bearer $apiKey")
+                    setRequestProperty("Accept", "application/json")
+                    setRequestProperty("User-Agent", "image-studio-android")
+                }
+                val status = connection.responseCode
+                val stream = if (status >= 400) connection.errorStream else connection.inputStream
+                val body = stream?.bufferedReader()?.use { reader ->
+                    reader.readText().take(1_048_576)
+                } ?: ""
+                connection.disconnect()
+                if (status !in 200..299) {
+                    throw IllegalStateException("上游 /v1/models 返回 $status${summarizeProbeBody(body).let { if (it.isBlank()) "" else ": $it" }}")
+                }
+                val parsed = JSONObject(body)
+                if (!parsed.has("data") || parsed.isNull("data")) {
+                    throw IllegalStateException("上游 /v1/models 响应缺少 data 数组")
+                }
+                val data = parsed.optJSONArray("data") ?: throw IllegalStateException("上游 /v1/models 响应缺少 data 数组")
+                resolve(requestId, mapOf("modelCount" to data.length()))
+            } catch (error: Exception) {
+                reject(requestId, error.message ?: error.javaClass.simpleName)
+            }
+        }
+        throw EarlyResolve()
+    }
+
+    private fun openHttpConnection(url: String, proxyMode: String, proxyUrl: String): HttpURLConnection {
+        val target = URL(url)
+        val connection = when (normalizeProxyMode(proxyMode)) {
+            "none" -> target.openConnection(Proxy.NO_PROXY)
+            "custom" -> target.openConnection(parseCustomProxy(proxyUrl))
+            else -> target.openConnection()
+        }
+        return connection as HttpURLConnection
+    }
+
+    private fun normalizeProxyMode(raw: String): String {
+        return when (raw.trim().lowercase(Locale.US)) {
+            "none" -> "none"
+            "custom" -> "custom"
+            else -> "system"
+        }
+    }
+
+    private fun parseCustomProxy(raw: String): Proxy {
+        val cleaned = raw.trim()
+        if (cleaned.isBlank()) throw IllegalArgumentException("自定义代理地址不能为空")
+        val uri = try {
+            URI(cleaned)
+        } catch (error: Exception) {
+            throw IllegalArgumentException("代理地址无效: ${error.message ?: error.javaClass.simpleName}")
+        }
+        val scheme = uri.scheme?.lowercase(Locale.US) ?: ""
+        if (scheme != "http" && scheme != "https") {
+            throw IllegalArgumentException("代理地址仅支持 http:// 或 https://")
+        }
+        val host = uri.host ?: throw IllegalArgumentException("代理地址必须包含主机")
+        if (!uri.rawQuery.isNullOrBlank() || !uri.rawFragment.isNullOrBlank()) {
+            throw IllegalArgumentException("代理地址不能包含 query 或 fragment")
+        }
+        val path = uri.rawPath ?: ""
+        if (path.isNotBlank() && path != "/") {
+            throw IllegalArgumentException("代理地址不能包含路径")
+        }
+        val port = if (uri.port > 0) uri.port else if (scheme == "https") 443 else 80
+        return Proxy(Proxy.Type.HTTP, InetSocketAddress.createUnresolved(host, port))
+    }
+
     private fun cancelHttpRequest(requestKey: String) {
         httpRequests.remove(requestKey)?.disconnect()
+    }
+
+    private fun validateProbeBaseUrl(raw: String): String {
+        val cleaned = raw.trim().trimEnd('/')
+        if (cleaned.isBlank()) throw IllegalArgumentException("未配置上游 BASE_URL")
+        val uri = try {
+            URI(cleaned)
+        } catch (error: Exception) {
+            throw IllegalArgumentException("BASE_URL 无效: ${error.message ?: error.javaClass.simpleName}")
+        }
+        val scheme = uri.scheme?.lowercase(Locale.US) ?: ""
+        val host = uri.host ?: ""
+        if (scheme.isBlank() || host.isBlank()) {
+            throw IllegalArgumentException("BASE_URL 必须包含协议和主机,例如 https://example.com")
+        }
+        if (scheme == "https") return cleaned
+        if (scheme == "http" && isProbeLoopbackHost(host)) return cleaned
+        if (scheme == "http") {
+            throw IllegalArgumentException("拒绝使用非 TLS 上游: $cleaned。只有 localhost / 127.0.0.1 / ::1 允许 http://")
+        }
+        throw IllegalArgumentException("BASE_URL 仅支持 http:// 或 https://")
+    }
+
+    private fun isProbeLoopbackHost(host: String): Boolean {
+        val lower = host.lowercase(Locale.US).trim('[', ']')
+        return lower == "localhost" || lower.endsWith(".localhost") || lower == "127.0.0.1" || lower == "::1" || lower == "0:0:0:0:0:0:0:1"
+    }
+
+    private fun summarizeProbeBody(body: String): String {
+        val trimmed = body.trim()
+        if (trimmed.isBlank()) return ""
+        return try {
+            val parsed = JSONObject(trimmed)
+            val message = parsed.optJSONObject("error")?.optString("message")?.trim().orEmpty()
+            val fallback = parsed.optString("message").trim()
+            (message.ifBlank { fallback }).ifBlank { trimmed }.take(160)
+        } catch (_: Exception) {
+            trimmed.take(160)
+        }
     }
 
     fun onOpenImageDialogResult(uri: Uri?) {
@@ -441,6 +611,24 @@ class AndroidImageStudioBridge(
         val trimmed = name.trim()
         if (trimmed.isEmpty()) return fallback
         return trimmed.replace(Regex("[^A-Za-z0-9._\\-\\u4E00-\\u9FFF]+"), "-")
+    }
+
+    private fun ensureImageFileName(name: String, fallback: String): String {
+        val safe = sanitizeFileName(name, fallback)
+        return if (Regex("\\.(png|jpe?g|webp)$", RegexOption.IGNORE_CASE).containsMatchIn(safe)) {
+            safe
+        } else {
+            "$safe.png"
+        }
+    }
+
+    private fun imageMimeForName(name: String): String {
+        val lower = name.lowercase(Locale.US)
+        return when {
+            lower.endsWith(".jpg") || lower.endsWith(".jpeg") -> "image/jpeg"
+            lower.endsWith(".webp") -> "image/webp"
+            else -> "image/png"
+        }
     }
 
     private fun queryDisplayName(uri: Uri): String? {
@@ -573,6 +761,18 @@ class AndroidImageStudioBridge(
                 "window.__imageStudioNativeReject(${JSONObject.quote(requestId)}, ${JSONObject.quote(message)})",
                 null,
             )
+        }
+    }
+
+    private fun emitNativeProgress(requestId: String, payload: Any?) {
+        val serialized = when (payload) {
+            null -> "null"
+            is String -> JSONObject.quote(payload)
+            is Number, is Boolean -> payload.toString()
+            else -> JSONObject.wrap(payload)?.toString() ?: "null"
+        }
+        webView.post {
+            webView.evaluateJavascript("window.__imageStudioNativeProgress?.(${JSONObject.quote(requestId)}, $serialized)", null)
         }
     }
 

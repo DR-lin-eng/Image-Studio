@@ -1,5 +1,5 @@
 import type { backend } from "../../wailsjs/go/models";
-import type { ProgressInfo, Workspace } from "../types/domain";
+import type { ProgressInfo, StreamPreview, StreamPreviewMap, Workspace } from "../types/domain";
 
 export type APIModeValue = "responses" | "images";
 
@@ -19,6 +19,8 @@ export interface WorkspaceRuntimeState {
   jobsTotal: number;
   jobsCompleted: number;
   progress: ProgressInfo | null;
+  streamPreview: StreamPreview | null;
+  streamPreviews?: StreamPreviewMap;
   lastLogLine: string;
   errorMessage: string | null;
   errorRawPath: string | null;
@@ -31,6 +33,8 @@ export interface WorkspaceRuntimeMirror {
   jobsTotal: number;
   jobsCompleted: number;
   progress: ProgressInfo | null;
+  streamPreview: StreamPreview | null;
+  streamPreviews: StreamPreviewMap;
   lastLogLine: string;
   errorMessage: string | null;
   errorRawPath: string | null;
@@ -70,6 +74,8 @@ export function patchWorkspaceRuntime(workspaces: Workspace[], workspaceId: stri
     if (patch.jobsTotal !== undefined) next.jobsTotal = patch.jobsTotal;
     if (patch.jobsCompleted !== undefined) next.jobsCompleted = patch.jobsCompleted;
     if (patch.progress !== undefined) next.progress = patch.progress;
+    if (patch.streamPreview !== undefined) next.streamPreview = patch.streamPreview;
+    if (patch.streamPreviews !== undefined) next.streamPreviews = patch.streamPreviews;
     if (patch.lastLogLine !== undefined) next.lastLogLine = patch.lastLogLine;
     if (patch.errorMessage !== undefined) next.errorMessage = patch.errorMessage;
     if (patch.errorRawPath !== undefined) next.errorRawPath = patch.errorRawPath;
@@ -88,6 +94,8 @@ export function workspaceRuntimeFromState(
       jobsTotal: s.jobsTotal,
       jobsCompleted: s.jobsCompleted,
       progress: s.progress,
+      streamPreview: s.streamPreview,
+      streamPreviews: s.streamPreviews ?? {},
       lastLogLine: s.lastLogLine,
       errorMessage: s.errorMessage,
       errorRawPath: s.errorRawPath,
@@ -102,6 +110,8 @@ export function workspaceRuntimeFromState(
     jobsTotal: w?.jobsTotal ?? 0,
     jobsCompleted: w?.jobsCompleted ?? 0,
     progress: w?.progress ?? null,
+    streamPreview: w?.streamPreview ?? null,
+    streamPreviews: w?.streamPreviews ?? {},
     lastLogLine: w?.lastLogLine ?? "",
     errorMessage: w?.errorMessage ?? null,
     errorRawPath: w?.errorRawPath ?? null,
@@ -123,6 +133,8 @@ export function activeRuntimePatch(patch: WorkspacePatch): Partial<WorkspaceRunt
   if (patch.jobsTotal !== undefined) out.jobsTotal = patch.jobsTotal;
   if (patch.jobsCompleted !== undefined) out.jobsCompleted = patch.jobsCompleted;
   if (patch.progress !== undefined) out.progress = patch.progress;
+  if (patch.streamPreview !== undefined) out.streamPreview = patch.streamPreview;
+  if (patch.streamPreviews !== undefined) out.streamPreviews = patch.streamPreviews;
   if (patch.lastLogLine !== undefined) out.lastLogLine = patch.lastLogLine;
   if (patch.errorMessage !== undefined) out.errorMessage = patch.errorMessage;
   if (patch.errorRawPath !== undefined) out.errorRawPath = patch.errorRawPath;

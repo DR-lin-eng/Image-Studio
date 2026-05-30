@@ -13,10 +13,13 @@ export type GenerateOptionsLike = {
   baseURL: string;
   textModelID: string;
   imageModelID: string;
+  proxyMode?: string;
+  proxyURL?: string;
   apiMode: string;
   requestPolicy: string;
   noPromptRevision: boolean;
   concurrencyLimit?: number;
+  partialImages?: number;
   requestedJobId?: string;
   sourceImages?: Array<{
     path?: string;
@@ -33,15 +36,51 @@ export type PromptOptimizeOptionsLike = {
   mode: string;
   baseURL: string;
   textModelID: string;
+  proxyMode?: string;
+  proxyURL?: string;
   imagePaths: string[];
   imagePath: string;
 };
 
-export type JobStartedLike = { jobId: string };
-export type ImportedImageLike = { path: string; imageB64: string };
-export type ImageTransformResultLike = { path: string; acceleration?: string };
-export type SelectFileResponseLike = { path: string; size: number; imageB64?: string; previewB64?: string };
+export type ProbeUpstreamOptionsLike = {
+  apiKey: string;
+  baseURL: string;
+  proxyMode?: string;
+  proxyURL?: string;
+};
 
+export type ProbeUpstreamResultLike = {
+  modelCount: number;
+};
+
+export type JobStartedLike = { jobId: string };
+export type ImportedImageLike = {
+  path: string;
+  imageB64?: string;
+  imageId?: string;
+  previewUrl?: string;
+  previewWidth?: number;
+  previewHeight?: number;
+};
+export type ImageTransformResultLike = { path: string; acceleration?: string };
+export type SelectFileResponseLike = {
+  path: string;
+  size: number;
+  imageB64?: string;
+  imageId?: string;
+  previewUrl?: string;
+  previewWidth?: number;
+  previewHeight?: number;
+};
+export type MediaAssetRefLike = {
+  imageId?: string;
+  savedPath?: string;
+  thumbPath?: string;
+  previewUrl?: string;
+  fullUrl?: string;
+  previewWidth?: number;
+  previewHeight?: number;
+};
 export type HostKind = "wails-desktop" | "android-shell" | "browser";
 
 export type HostCapabilities = {

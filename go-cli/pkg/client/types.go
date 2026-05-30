@@ -3,14 +3,15 @@ package client
 import "errors"
 
 const (
-	BaseURL            = "" // 不再内置默认上游;调用方必须显式提供 Options.BaseURL
-	TextModel          = "gpt-5.5"
-	ImageModel         = "gpt-image-2"
-	DefaultSize        = "1024x1024"
-	DefaultQuality     = "auto"
-	OutputFormat       = "png"
-	MaxInputImageBytes = 50 * 1024 * 1024
-	MaxAttempts        = 3
+	BaseURL              = "" // 不再内置默认上游;调用方必须显式提供 Options.BaseURL
+	TextModel            = "gpt-5.5"
+	ImageModel           = "gpt-image-2"
+	DefaultSize          = "1024x1024"
+	DefaultQuality       = "auto"
+	OutputFormat         = "png"
+	DefaultPartialImages = 1
+	MaxInputImageBytes   = 50 * 1024 * 1024
+	MaxAttempts          = 3
 )
 
 // Tunable knobs (exposed as vars so tests can shrink them).
@@ -163,15 +164,22 @@ type Options struct {
 
 	// Optional overrides for the URL and model IDs. Empty values fall back
 	// to BaseURL / TextModel / ImageModel constants.
-	BaseURL         string
-	TextModelID     string
-	ImageModelID    string
+	BaseURL      string
+	TextModelID  string
+	ImageModelID string
+
+	// Proxy controls outbound upstream HTTP(S) requests.
+	// Empty Mode defaults to system proxy settings.
+	Proxy ProxyConfig
 
 	// NoPromptRevision is kept for backward compatibility. Responses API
 	// payloads now always add instructions that ask the text model to pass the
 	// prompt to image_generation verbatim. Images API ignores this field.
 	NoPromptRevision bool
 
+	// PartialImages controls streaming partial_images for GPT image models.
+	// Negative values fall back to DefaultPartialImages; values above 3 are clamped.
+	PartialImages int
 }
 
 // EffectiveImageDataURLs returns the merged list, deduplicating empty entries.
@@ -192,7 +200,13 @@ func (o Options) EffectiveImageDataURLs() []string {
 type ImageResult struct {
 	ImageB64      string
 	RevisedPrompt string
-	SourceEvent   string // "final" | "partial" | "json"
+	SourceEvent   string // "final" | "partial" | "json" | "images_api"
+}
+
+type PartialImage struct {
+	ImageB64          string
+	RevisedPrompt     string
+	PartialImageIndex int
 }
 
 // Progress is streamed by Transport.Stream during a request.

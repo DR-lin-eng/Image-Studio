@@ -180,6 +180,7 @@ async function withPatchedGlobals(setup, run) {
     globalThis.URL = realURL;
     globalThis.atob = realAtob;
     globalThis.btoa = realBtoa;
+    delete globalThis.__probeCalls;
   }
 }
 
@@ -250,6 +251,122 @@ test("runtimeHost remote mode emits job lifecycle events", async () => {
   });
 });
 
+test("runtimeHost remote mode forwards partial image previews", async () => {
+  await withPatchedGlobals(async () => {
+    globalThis.fetch = async (url) => {
+      if (String(url).endsWith("/v1/responses")) {
+        return new Response(
+          'data: {"type":"response.image_generation_call.partial_image","partial_image_index":0,"partial_image_b64":"cGFydGlhbA==","revised_prompt":"partial rev"}\n' +
+          'data: {"type":"response.output_item.done","item":{"type":"image_generation_call","result":"ZmluYWw=","revised_prompt":"final rev"}}\n',
+          { status: 200, headers: { "content-type": "text/event-stream" } },
+        );
+      }
+      throw new Error(`unexpected fetch ${url}`);
+    };
+  }, async () => {
+    const runtimeHost = await loadRuntimeHost();
+    runtimeHost.setKernelRuntimeMode("remote");
+
+    const started = await runtimeHost.Generate({
+      apiKey: "key",
+      mode: "generate",
+      prompt: "cat",
+      size: "1024x1024",
+      quality: "low",
+      outputFormat: "png",
+      imagePaths: [],
+      imagePath: "",
+      maskB64: "",
+      seed: 0,
+      negativePrompt: "",
+      baseURL: "https://upstream.example",
+      textModelID: "gpt-5.5",
+      imageModelID: "gpt-image-2",
+      apiMode: "responses",
+      noPromptRevision: false,
+      concurrencyLimit: 0,
+      partialImages: 1,
+    });
+
+    const seen = { preview: [], result: [] };
+    const offPreview = runtimeHost.EventsOn(`preview:${started.jobId}`, (payload) => {
+      seen.preview.push(payload);
+    });
+    const offResult = runtimeHost.EventsOn(`result:${started.jobId}`, (payload) => {
+      seen.result.push(payload);
+    });
+
+    await new Promise((resolve) => setImmediate(resolve));
+    offPreview();
+    offResult();
+
+    assert.equal(seen.preview.length, 1);
+    assert.equal(seen.preview[0].imageB64, "cGFydGlhbA==");
+    assert.equal(seen.preview[0].partialImageIndex, 0);
+    assert.equal(seen.preview[0].mode, "generate");
+    assert.equal(seen.preview[0].prompt, "cat");
+    assert.equal(seen.result[0].imageB64, "ZmluYWw=");
+  });
+});
+
+test("runtimeHost remote images mode forwards partial image previews", async () => {
+  await withPatchedGlobals(async () => {
+    globalThis.fetch = async (url) => {
+      if (String(url).endsWith("/v1/images/generations")) {
+        return new Response(
+          'data: {"type":"image_generation.partial_image","partial_image_index":1,"b64_json":"aW1hZ2VzLXBhcnRpYWw="}\n' +
+          'data: {"type":"image_generation.completed","b64_json":"aW1hZ2VzLWZpbmFs"}\n',
+          { status: 200, headers: { "content-type": "text/event-stream" } },
+        );
+      }
+      throw new Error(`unexpected fetch ${url}`);
+    };
+  }, async () => {
+    const runtimeHost = await loadRuntimeHost();
+    runtimeHost.setKernelRuntimeMode("remote");
+
+    const started = await runtimeHost.Generate({
+      apiKey: "key",
+      mode: "generate",
+      prompt: "cat",
+      size: "1024x1024",
+      quality: "low",
+      outputFormat: "png",
+      imagePaths: [],
+      imagePath: "",
+      maskB64: "",
+      seed: 0,
+      negativePrompt: "",
+      baseURL: "https://upstream.example",
+      textModelID: "",
+      imageModelID: "gpt-image-2",
+      apiMode: "images",
+      requestPolicy: "openai",
+      noPromptRevision: false,
+      concurrencyLimit: 0,
+      partialImages: 1,
+    });
+
+    const seen = { preview: [], result: [] };
+    const offPreview = runtimeHost.EventsOn(`preview:${started.jobId}`, (payload) => {
+      seen.preview.push(payload);
+    });
+    const offResult = runtimeHost.EventsOn(`result:${started.jobId}`, (payload) => {
+      seen.result.push(payload);
+    });
+
+    await new Promise((resolve) => setImmediate(resolve));
+    offPreview();
+    offResult();
+
+    assert.equal(seen.preview.length, 1);
+    assert.equal(seen.preview[0].imageB64, "aW1hZ2VzLXBhcnRpYWw=");
+    assert.equal(seen.preview[0].partialImageIndex, 1);
+    assert.equal(seen.preview[0].mode, "generate");
+    assert.equal(seen.result[0].imageB64, "aW1hZ2VzLWZpbmFs");
+  });
+});
+
 test("runtimeHost Android transforms persist GPU-backed results to host files", async () => {
   await withPatchedGlobals(async () => {
     globalThis.createImageBitmap = async () => ({
@@ -281,6 +398,35 @@ test("runtimeHost Android transforms persist GPU-backed results to host files", 
     const result = await runtimeHost.RotateImage("/sdcard/imports/source.png", 90);
     assert.equal(result.path, "/sdcard/imports/gpu-rotated.png");
     assert.equal(result.acceleration, "gpu-webgl");
+  });
+});
+
+test("runtimeHost Android SaveImagePathAs uses native path save", async () => {
+  const calls = [];
+  await withPatchedGlobals(async () => {
+    globalThis.window.AndroidImageStudio = {
+      invoke(requestId, method, payloadJson) {
+        const args = JSON.parse(payloadJson);
+        calls.push({ method, args });
+        queueMicrotask(() => {
+          if (method === "SaveImagePathAs") {
+            window.__imageStudioNativeResolve?.(requestId, "content://media/external/images/media/42");
+            return;
+          }
+          window.__imageStudioNativeReject?.(requestId, `unexpected ${method}`);
+        });
+      },
+    };
+  }, async () => {
+    const runtimeHost = await loadRuntimeHost();
+    const saved = await runtimeHost.SaveImagePathAs("/data/user/0/app/files/full.png", "result.png");
+    assert.equal(saved, "content://media/external/images/media/42");
+    assert.deepEqual(calls, [
+      {
+        method: "SaveImagePathAs",
+        args: ["/data/user/0/app/files/full.png", "result.png"],
+      },
+    ]);
   });
 });
 
@@ -397,6 +543,77 @@ test("runtimeHost remote cancel aborts pending remote jobs", async () => {
     await runtimeHost.Cancel(started.jobId);
     await new Promise((resolve) => setImmediate(resolve));
     assert.equal(typeof started.jobId, "string");
+  });
+});
+
+test("runtimeHost probes upstream through Wails backend", async () => {
+  await withPatchedGlobals(async () => {
+    Object.defineProperty(globalThis, "navigator", {
+      configurable: true,
+      value: {
+        userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_0)",
+        platform: "MacIntel",
+        userAgentData: { platform: "macOS" },
+      },
+    });
+    const calls = [];
+    globalThis.window.go = {
+      backend: {
+        Service: {
+          Generate: async () => ({ jobId: "job" }),
+          Edit: async () => ({ jobId: "job" }),
+          ProbeUpstream: async (payload) => {
+            calls.push(payload);
+            return { modelCount: 1 };
+          },
+        },
+      },
+    };
+    globalThis.window.runtime = {
+      EventsOnMultiple: () => () => {},
+      EventsOff: () => {},
+    };
+    globalThis.__probeCalls = calls;
+    globalThis.fetch = async () => {
+      throw new Error("probe should not use browser fetch");
+    };
+  }, async () => {
+    const runtimeHost = await loadRuntimeHost();
+    await runtimeHost.probeCurrentUpstream("https://relay.example.com", "sk-test");
+    assert.deepEqual(globalThis.__probeCalls, [
+      { baseURL: "https://relay.example.com", apiKey: "sk-test", proxyMode: "system", proxyURL: "" },
+    ]);
+  });
+});
+
+test("runtimeHost probes upstream through Android backend", async () => {
+  await withPatchedGlobals(async () => {
+    const calls = [];
+    globalThis.window.AndroidImageStudio = {
+      invoke(requestId, method, payloadJson) {
+        calls.push({ method, args: JSON.parse(payloadJson) });
+        queueMicrotask(() => {
+          if (method === "ProbeUpstream") {
+            window.__imageStudioNativeResolve?.(requestId, { modelCount: 2 });
+            return;
+          }
+          window.__imageStudioNativeReject?.(requestId, `unsupported ${method}`);
+        });
+      },
+    };
+    globalThis.__probeCalls = calls;
+    globalThis.fetch = async () => {
+      throw new Error("probe should not use browser fetch");
+    };
+  }, async () => {
+    const runtimeHost = await loadRuntimeHost();
+    await runtimeHost.probeCurrentUpstream("https://relay.example.com", "sk-android");
+    assert.deepEqual(globalThis.__probeCalls, [
+      {
+        method: "ProbeUpstream",
+        args: [{ baseURL: "https://relay.example.com", apiKey: "sk-android", proxyMode: "system", proxyURL: "" }],
+      },
+    ]);
   });
 });
 

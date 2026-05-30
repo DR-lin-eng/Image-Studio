@@ -49,6 +49,7 @@ export type SizeValue =
   | "2160x3840";
 export type QualityValue = "auto" | "high" | "medium" | "low";
 export type KernelRuntimeMode = "auto" | "local" | "remote";
+export type ProxyMode = "none" | "system" | "custom";
 // 让上游做编码;落盘扩展名 jpeg → .jpg,其他原样。
 export type OutputFormatValue = "png" | "jpeg" | "webp";
 export type ThemeMode = "system" | "light" | "dark";
@@ -92,18 +93,24 @@ export interface SourceImage {
   path: string;
   name: string;
   size: number;       // bytes; 0 when unknown (e.g. reused-from-history)
+  previewUrl?: string;
   imageBlob?: Blob | null;
-  // Optional base64 for canvas preview. OpenImageDialog now returns it for
-  // reasonably sized files, while very large files still fall back to the
-  // extension placeholder UI to avoid blowing up the JSON bridge.
+  // Legacy/browser fallback for canvas preview. Wails source previews should
+  // prefer previewUrl so selected files do not cross the bridge as base64.
   imageB64?: string;
 }
 
 export interface HistoryItem {
   id: string;
-  // For history entries this may be a compact preview; currentImage/resultDetail
-  // may hold the full-resolution image.
-  imageB64: string;
+  imageId?: string;
+  previewUrl?: string;
+  fullUrl?: string;
+  thumbPath?: string;
+  previewWidth?: number;
+  previewHeight?: number;
+  // Legacy/import/browser fallback. New Wails result records keep this empty so
+  // full images do not live in persistent Zustand/history/batch state.
+  imageB64?: string;
   imageBlob?: Blob | null;
   previewBlob?: Blob | null;
   previewOnly?: boolean;
@@ -121,6 +128,7 @@ export interface HistoryItem {
   seed?: number;
   negativePrompt?: string;
   styleTag?: string;
+  batchIndex?: number;
   elapsedSec?: number;     // generation duration in seconds
 
   savedPath?: string;
@@ -132,6 +140,21 @@ export interface ProgressInfo {
   elapsed: number;
   bytes: number;
 }
+
+export interface StreamPreview {
+  jobId: string;
+  imageId?: string;
+  previewUrl?: string;
+  previewWidth?: number;
+  previewHeight?: number;
+  imageB64?: string;
+  revisedPrompt?: string;
+  partialImageIndex?: number;
+  batchIndex?: number;
+  updatedAt: number;
+}
+
+export type StreamPreviewMap = Record<string, StreamPreview>;
 
 export interface Workspace {
   id: string;
@@ -157,6 +180,8 @@ export interface Workspace {
   jobsTotal: number;
   jobsCompleted: number;
   progress: ProgressInfo | null;
+  streamPreview: StreamPreview | null;
+  streamPreviews?: StreamPreviewMap;
   lastLogLine: string;
   errorMessage: string | null;
   // 最近一次失败时上游原始响应文件的绝对路径(SSE / Images API JSON)。前端

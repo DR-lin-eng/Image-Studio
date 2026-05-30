@@ -46,9 +46,12 @@ export function AndroidUpstreamConfigModal({
                 isTestingKey={upstream.isTestingKey}
                 onChangeDraftKey={upstream.setDraftKey}
                 onPatchDraft={upstream.patchDraft}
-                onSave={() => { void upstream.handleSave(); }}
-                onSaveAndSetActive={upstream.handleSaveAndSetActive}
-                onSaveAndTest={upstream.handleSaveAndTest}
+                onSave={async () => {
+                  const saved = await upstream.handleSave();
+                  if (saved) onClose();
+                }}
+                onSaveAndSetActive={() => upstream.handleSaveAndSetActive(onClose)}
+                onSaveAndTest={() => upstream.handleSaveAndTest(onClose)}
                 onSetActive={upstream.handleSetActive}
                 savedKeyLoaded={upstream.savedKeyLoaded}
                 saving={upstream.saving}

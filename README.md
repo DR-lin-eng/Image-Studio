@@ -20,7 +20,7 @@ Image Studio 面向 OpenAI 兼容图像上游，解决长时间图像推理在 C
   <br />
   <img src="./docs/picture/windows.png" alt="Image Studio · Windows" width="880">
   <br />
-  <img src="./docs/picture/android.jpg" alt="Image Studio · Android" width="880">
+  <img src="./docs/picture/android.jpg" alt="Image Studio · Android" width="280">
   <br />
   <sub>macOS · Windows · Android 端界面预览</sub>
 </p>

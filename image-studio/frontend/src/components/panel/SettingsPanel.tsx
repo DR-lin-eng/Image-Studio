@@ -10,6 +10,7 @@ import {
 import type { KernelRuntimeMode, ProxyMode } from "../../types/domain";
 import { Modal } from "../common/Modal";
 import { rememberTrustedOutputRoot } from "../../lib/storage";
+import { scheduleCompatibilityExport } from "../../lib/compatState";
 import { platformOutputRootLabel } from "../../platform";
 import { androidSaveHint, androidTarget, openExternalURLForPlatform, openOutputLocationForPlatform } from "../../platform/android/bridge";
 import { AndroidSettingsPanel } from "../../platform/android/settings/AndroidSettingsPanel";
@@ -203,6 +204,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
                         try { localStorage.setItem("gptcodex.outputDir", chosen); } catch {}
                         rememberTrustedOutputRoot(chosen);
                         setOutputDir(chosen);
+                        scheduleCompatibilityExport(useStudioStore.getState());
                         pushToast(`输出目录已切换:${chosen}`, "success");
                       }
                     } catch (e: any) {
@@ -221,6 +223,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
                       const def = await GetOutputDir();
                       rememberTrustedOutputRoot(def);
                       setOutputDir(def);
+                      scheduleCompatibilityExport(useStudioStore.getState());
                       pushToast("已恢复默认输出目录", "success");
                     } catch (e: any) {
                       pushToast(`重置失败:${e?.message ?? e}`, "error", 5000);

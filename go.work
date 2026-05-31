@@ -6,4 +6,5 @@ use (
 	./gio-client
 	./go-cli
 	./image-studio
+	./shared/compat-go
 )

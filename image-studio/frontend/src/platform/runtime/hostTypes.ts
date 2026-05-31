@@ -81,6 +81,7 @@ export type MediaAssetRefLike = {
   previewWidth?: number;
   previewHeight?: number;
 };
+export type CompatibilityStateLike = Record<string, unknown>;
 export type HostKind = "wails-desktop" | "android-shell" | "browser";
 
 export type HostCapabilities = {

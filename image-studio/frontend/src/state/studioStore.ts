@@ -11,6 +11,7 @@ import {
   GetStoredAPIKey,
   SetStoredAPIKey,
   RegisterMediaAsset,
+  RegisterImportedImageAsset,
   SetOutputDir,
   probeCurrentUpstream,
   setKernelRuntimeMode,
@@ -42,6 +43,11 @@ import {
   rememberTrustedOutputRoot,
   loadAllHistory,
 } from "../lib/storage";
+import {
+  compatibilityExportFingerprint,
+  importCompatibilityStateIfNewer,
+  scheduleCompatibilityExport,
+} from "../lib/compatState";
 import {
   cleanBaseURL,
 } from "../lib/security";
@@ -648,6 +654,10 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       return;
     }
 
+    await importCompatibilityStateIfNewer().catch((error) => {
+      if (typeof console !== "undefined") console.warn("compat import failed", error);
+      return false;
+    });
     const loadedItems = await loadAllHistory();
     let items = trimHistory(loadedItems);
     let promptHistory: string[] = [];
@@ -801,9 +811,11 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     for (const root of trustedRoots) rememberTrustedOutputRoot(root);
     await registerTrustedOutputRoots(Array.from(trustedRoots));
     items = await Promise.all(items.map(async (item) => {
-      if (!item.savedPath || !item.thumbPath) return item;
+      if (!item.savedPath) return item;
       try {
-        const ref = await RegisterMediaAsset(item.savedPath, item.thumbPath);
+        const ref = item.thumbPath
+          ? await RegisterMediaAsset(item.savedPath, item.thumbPath)
+          : await RegisterImportedImageAsset(item.savedPath);
         return withMediaAssetRef(item, ref);
       } catch {
         return item;
@@ -856,6 +868,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       upstreamModalOpen: false,
       upstreamReturnTarget: shouldAutoOpenSettings ? "settings" : "app",
     });
+    enableCompatibilityExport();
   },
 
   setMaskDataURL: (v) => set({ maskDataURL: v }),
@@ -1422,6 +1435,24 @@ async function launchOneJob(
 }
 
 export { tempDataURLFromB64, writeBase64ToTempFile };
+
+let compatibilityExportEnabled = false;
+let compatibilityFingerprint = "";
+
+function enableCompatibilityExport() {
+  const state = useStudioStore.getState();
+  compatibilityExportEnabled = true;
+  compatibilityFingerprint = compatibilityExportFingerprint(state);
+  scheduleCompatibilityExport(state);
+}
+
+useStudioStore.subscribe((state) => {
+  if (!compatibilityExportEnabled) return;
+  const next = compatibilityExportFingerprint(state);
+  if (next === compatibilityFingerprint) return;
+  compatibilityFingerprint = next;
+  scheduleCompatibilityExport(state);
+});
 
 async function materializeHistoryItem(item: HistoryItem): Promise<HistoryItem> {
   return materializeHistoryItemRuntime(item, {

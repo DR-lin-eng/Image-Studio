@@ -42,7 +42,7 @@ func TestNormalizeConfigDefaults(t *testing.T) {
 
 func TestBuildImageNameMapsJPEGExtension(t *testing.T) {
 	got := buildImageName(client.ModeEdit, "A cat wearing sunglasses", "20260531-120000", "jpeg")
-	want := "gptcodex-edit-a-cat-wearing-sunglasses-20260531-120000.jpg"
+	want := "image-edit-a-cat-wearing-sunglasses-20260531-120000.jpg"
 	if got != want {
 		t.Fatalf("got %q want %q", got, want)
 	}

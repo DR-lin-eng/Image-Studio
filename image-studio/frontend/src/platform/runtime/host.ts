@@ -43,6 +43,7 @@ import type {
   GenerateOptionsLike,
   HostCapabilities,
   HostKind,
+  CompatibilityStateLike,
   ImageTransformResultLike,
   ImportedImageLike,
   JobStartedLike,
@@ -502,6 +503,21 @@ export function ImportHistoryFromFile(): Promise<string> {
     return invokeAndroid<string>(unsupportedMessage, "ImportHistoryFromFile");
   }
   return importHistoryFallback();
+}
+
+export function LoadCompatibilityState(): Promise<CompatibilityStateLike | null> {
+  if (hasServiceMethod("LoadCompatibilityState")) {
+    return invokeService<CompatibilityStateLike>(unsupportedMessage, "LoadCompatibilityState")
+      .catch(() => null);
+  }
+  return Promise.resolve(null);
+}
+
+export function SaveCompatibilityState(state: CompatibilityStateLike): Promise<void> {
+  if (hasServiceMethod("SaveCompatibilityState")) {
+    return invokeService<void>(unsupportedMessage, "SaveCompatibilityState", state);
+  }
+  return Promise.resolve();
 }
 
 export function RegisterTrustedOutputDir(root: string): Promise<void> {

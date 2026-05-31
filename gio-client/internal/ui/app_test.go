@@ -83,6 +83,19 @@ func TestTodayHistoryCountUsesLocalDayBoundary(t *testing.T) {
 	}
 }
 
+func TestFilteredHistoryItemsRespectsQueryModeAndDate(t *testing.T) {
+	now := time.Date(2026, time.May, 31, 15, 4, 0, 0, time.Local)
+	items := []sharedCompat.HistoryItem{
+		{ID: "a", Prompt: "城市夜景", Mode: "generate", CreatedAt: now.Add(-2 * time.Hour).UnixMilli()},
+		{ID: "b", Prompt: "城市夜景", Mode: "edit", CreatedAt: now.Add(-48 * time.Hour).UnixMilli()},
+		{ID: "c", Prompt: "森林雾气", Mode: "generate", CreatedAt: now.Add(-2 * time.Hour).UnixMilli()},
+	}
+	got := filteredHistoryItems(items, "城市", "generate", "today", now)
+	if len(got) != 1 || got[0].ID != "a" {
+		t.Fatalf("filteredHistoryItems=%v want only a", got)
+	}
+}
+
 func TestAugmentPromptWithStyle(t *testing.T) {
 	got := augmentPromptWithStyle("一只猫坐在窗边", "anime")
 	want := "一只猫坐在窗边, anime style, cel shading, vibrant colors, detailed illustration"
@@ -136,6 +149,25 @@ func TestFindPromptGroupForItemReturnsGroupedItems(t *testing.T) {
 	}
 }
 
+func TestBuildHistoryDayGroupsKeepsPromptGroupsByDay(t *testing.T) {
+	now := time.Date(2026, time.May, 31, 15, 4, 0, 0, time.Local)
+	items := []sharedCompat.HistoryItem{
+		{ID: "1", Prompt: "cat poster", CreatedAt: now.UnixMilli()},
+		{ID: "2", Prompt: "cat poster", CreatedAt: now.Add(-2 * time.Hour).UnixMilli()},
+		{ID: "3", Prompt: "dog poster", CreatedAt: now.Add(-26 * time.Hour).UnixMilli()},
+	}
+	groups := buildHistoryDayGroups(items)
+	if len(groups) != 2 {
+		t.Fatalf("len(buildHistoryDayGroups)=%d want 2", len(groups))
+	}
+	if groups[0].Label != "2026-05-31" || len(groups[0].Entries) != 1 || groups[0].Entries[0].Kind != "group" {
+		t.Fatalf("unexpected first day group: %#v", groups[0])
+	}
+	if groups[1].Label != "2026-05-30" || len(groups[1].Entries) != 1 || groups[1].Entries[0].Item.ID != "3" {
+		t.Fatalf("unexpected second day group: %#v", groups[1])
+	}
+}
+
 func TestNextProfileNameFindsSmallestMissingNumber(t *testing.T) {
 	profiles := []sharedCompat.UpstreamProfile{
 		{Name: "配置1"},
@@ -163,6 +195,26 @@ func TestWorkspaceSwitchPreservesPrompt(t *testing.T) {
 	app.switchWorkspace(second)
 	if got := strings.TrimSpace(app.promptInput.Text()); got != "workspace two" {
 		t.Fatalf("after switch second prompt=%q want workspace two", got)
+	}
+}
+
+func TestWorkspaceRenameUpdatesState(t *testing.T) {
+	app := New()
+	id := app.activeWorkspaceID
+	app.startWorkspaceRename(id)
+	app.workspaceNameInput.SetText("封面方案")
+	app.commitWorkspaceRename()
+	if app.workspaces[0].Name != "封面方案" {
+		t.Fatalf("workspace name=%q want 封面方案", app.workspaces[0].Name)
+	}
+}
+
+func TestDisplayedWorkspaceNameUsesPromptForDefaultActiveWorkspace(t *testing.T) {
+	app := New()
+	app.promptInput.SetText("夜色城市概念海报")
+	name := app.displayedWorkspaceName(app.workspaces[0])
+	if name != "夜色城市概念海报" {
+		t.Fatalf("displayedWorkspaceName=%q want 夜色城市概念海报", name)
 	}
 }
 

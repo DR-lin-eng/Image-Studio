@@ -14,6 +14,7 @@ import (
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/unit"
+	"github.com/yuanhua/image-gptcodex/pkg/client"
 )
 
 func (a *App) layoutHistoryAndLogs(gtx layout.Context) layout.Dimensions {
@@ -22,6 +23,12 @@ func (a *App) layoutHistoryAndLogs(gtx layout.Context) layout.Dimensions {
 	}
 	for a.historyCollapseButton.Clicked(gtx) {
 		a.historyRailCollapsed = !a.historyRailCollapsed
+	}
+	for a.openHistoryTimelineButton.Clicked(gtx) {
+		a.openHistoryTimeline()
+	}
+	for a.openHistoryTimelineMoreButton.Clicked(gtx) {
+		a.openHistoryTimeline()
 	}
 	for idx, value := range []string{"all", "generate", "edit"} {
 		for a.historyModeButtons[idx].Clicked(gtx) {
@@ -138,17 +145,7 @@ func (a *App) layoutHistoryAndLogs(gtx layout.Context) layout.Dimensions {
 					if a.historyRailCollapsed {
 						return a.layoutLogsCard(gtx, snap)
 					}
-					return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-						layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-							return a.layoutHistoryResultsCard(gtx, snap, filtered, entries, visible)
-						}),
-						layout.Rigid(layout.Spacer{Height: unit.Dp(10)}.Layout),
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return fixedHeight(gtx, unit.Dp(196), func(gtx layout.Context) layout.Dimensions {
-								return a.layoutLogsCard(gtx, snap)
-							})
-						}),
-					)
+					return a.layoutHistoryResultsCard(gtx, snap, filtered, entries, visible)
 				}),
 			)
 			return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
@@ -168,8 +165,12 @@ func (a *App) layoutUpstreamCard(gtx layout.Context, snap snapshot) layout.Dimen
 	if activeName == "" {
 		activeName = "还没有上游配置"
 	}
+	activeMode := activeProfileAPIMode(snap.Profiles, snap.ActiveProfileID)
+	if activeMode == "" {
+		activeMode = a.api
+	}
 	apiModeLabel := "Responses API"
-	if a.api == "images" {
+	if activeMode == string(client.APIModeImages) {
 		apiModeLabel = "Images API"
 	}
 	ready := strings.TrimSpace(a.apiKeyInput.Text()) != "" && strings.TrimSpace(a.baseURLInput.Text()) != ""
@@ -206,7 +207,7 @@ func (a *App) layoutUpstreamCard(gtx layout.Context, snap snapshot) layout.Dimen
 
 		if len(snap.Profiles) == 0 {
 			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return a.label(gtx, "还没有上游配置，先在左侧高级参数里补上 BASE_URL 和 API Key。", unit.Sp(11), fluent.textMuted, font.Normal)
+				return a.label(gtx, "还没有上游配置，先打开设置新建一条配置。", unit.Sp(11), fluent.textMuted, font.Normal)
 			}))
 		} else {
 			children = append(children,
@@ -233,10 +234,23 @@ func (a *App) layoutUpstreamCard(gtx layout.Context, snap snapshot) layout.Dimen
 								}),
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 									state := "展开"
+									icon := uiIconExpand
 									if a.profilePickerOpen {
 										state = "收起"
+										icon = uiIconCollapse
 									}
-									return a.label(gtx, state, unit.Sp(11), fluent.textDim, font.Medium)
+									return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Gap: gtx.Dp(unit.Dp(4))}.Layout(gtx,
+										layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+											return fixedWidth(gtx, unit.Dp(12), func(gtx layout.Context) layout.Dimensions {
+												return fixedHeight(gtx, unit.Dp(12), func(gtx layout.Context) layout.Dimensions {
+													return icon.Layout(gtx, fluent.textDim)
+												})
+											})
+										}),
+										layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+											return a.label(gtx, state, unit.Sp(11), fluent.textDim, font.Medium)
+										}),
+									)
 								}),
 							)
 						},
@@ -264,21 +278,15 @@ func (a *App) layoutUpstreamCard(gtx layout.Context, snap snapshot) layout.Dimen
 		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(8))}.Layout(gtx,
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-					return a.button(gtx, &a.upstreamConfigButton, "上游配置", fluent.surface2, fluent.text)
+					return a.compactIconTextButton(gtx, &a.upstreamConfigButton, uiIconSettings, "上游配置", false)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return fixedWidth(gtx, unit.Dp(88), func(gtx layout.Context) layout.Dimensions {
+					return fixedWidth(gtx, unit.Dp(104), func(gtx layout.Context) layout.Dimensions {
 						label := "测试"
 						if snap.TestingUpstream {
 							label = "检查中"
 						}
-						bg := fluent.surface2
-						fg := fluent.text
-						if snap.LastProbeSummary != "" && !snap.TestingUpstream {
-							bg = fluent.accentSoft
-							fg = fluent.accent
-						}
-						return a.button(gtx, &a.testUpstreamButton, label, bg, fg)
+						return a.compactIconTextButton(gtx, &a.testUpstreamButton, uiIconRefresh, label, !snap.TestingUpstream && strings.TrimSpace(snap.LastProbeSummary) != "")
 					})
 				}),
 			)
@@ -352,20 +360,24 @@ func (a *App) layoutHistorySummaryCard(
 						)
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return a.compactButton(gtx, &a.historyCollapseButton, chooseHistoryCollapseLabel(a.historyRailCollapsed), a.historyRailCollapsed)
+						icon := uiIconCollapse
+						if a.historyRailCollapsed {
+							icon = uiIconExpand
+						}
+						return a.compactIconTextButton(gtx, &a.historyCollapseButton, icon, chooseHistoryCollapseLabel(a.historyRailCollapsed), a.historyRailCollapsed)
 					}),
 				)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx,
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return a.pillButton(gtx, &a.historyModeButtons[0], "全部 "+strconv.Itoa(len(snap.History)), a.historyModeFilter == "all")
+				return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx,
+					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+						return a.pillIconTextButton(gtx, &a.historyModeButtons[0], uiIconList, "全部 "+strconv.Itoa(len(snap.History)), a.historyModeFilter == "all")
 					}),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return a.pillButton(gtx, &a.historyModeButtons[1], "文生图 "+strconv.Itoa(generateCount), a.historyModeFilter == "generate")
+					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+						return a.pillIconTextButton(gtx, &a.historyModeButtons[1], uiIconPlay, "文生图 "+strconv.Itoa(generateCount), a.historyModeFilter == "generate")
 					}),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return a.pillButton(gtx, &a.historyModeButtons[2], "图生图 "+strconv.Itoa(editCount), a.historyModeFilter == "edit")
+					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+						return a.pillIconTextButton(gtx, &a.historyModeButtons[2], uiIconEdit, "图生图 "+strconv.Itoa(editCount), a.historyModeFilter == "edit")
 					}),
 				)
 			}),
@@ -375,13 +387,13 @@ func (a *App) layoutHistorySummaryCard(
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx,
 					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-						return a.pillButton(gtx, &a.historyDateButtons[0], "全部", a.historyDateFilter == "all")
+						return a.pillIconTextButton(gtx, &a.historyDateButtons[0], uiIconList, "全部", a.historyDateFilter == "all")
 					}),
 					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-						return a.pillButton(gtx, &a.historyDateButtons[1], "今天", a.historyDateFilter == "today")
+						return a.pillIconTextButton(gtx, &a.historyDateButtons[1], uiIconHistory, "今天", a.historyDateFilter == "today")
 					}),
 					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-						return a.pillButton(gtx, &a.historyDateButtons[2], "本周", a.historyDateFilter == "week")
+						return a.pillIconTextButton(gtx, &a.historyDateButtons[2], uiIconHistory, "本周", a.historyDateFilter == "week")
 					}),
 				)
 			}),
@@ -393,6 +405,7 @@ func (a *App) layoutLatestHistoryCard(gtx layout.Context, item sharedCompat.Hist
 	btn := a.historyButton("feature:" + item.ID)
 	reuseBtn := a.historyActionButton("feature-reuse:" + item.ID)
 	deleteBtn := a.historyActionButton("feature-delete:" + item.ID)
+	detailBtn := a.historyActionButton("feature-detail:" + item.ID)
 	return a.surfaceButton(
 		gtx,
 		btn,
@@ -412,35 +425,38 @@ func (a *App) layoutLatestHistoryCard(gtx layout.Context, item sharedCompat.Hist
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							return a.label(gtx, formatHistoryClock(item.CreatedAt), unit.Sp(11), fluent.textDim, font.Normal)
 						}),
+						layout.Rigid(layout.Spacer{Width: unit.Dp(8)}.Layout),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return a.compactIconTextButton(gtx, &a.openHistoryTimelineButton, uiIconGrid, "完整历史", false)
+						}),
 					)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Gap: gtx.Dp(unit.Dp(10))}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return a.imageThumb(gtx, img, unit.Dp(88), unit.Dp(88), unit.Dp(4))
+							return a.layoutHistoryModeThumb(gtx, img, item.Mode, unit.Dp(88), unit.Dp(88))
 						}),
 						layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-							return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(5))}.Layout(gtx,
+							return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx,
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 									return a.label(gtx, shortPrompt(item.Prompt), unit.Sp(12), fluent.text, font.Medium)
 								}),
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-									return a.label(gtx, historyMetaText(item), unit.Sp(11), fluent.textMuted, font.Normal)
+									return a.label(gtx, historyMetaText(item), unit.Sp(10), fluent.textMuted, font.Normal)
 								}),
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 									return a.label(gtx, historyPathText(item.SavedPath), unit.Sp(10), fluent.textDim, font.Normal)
 								}),
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-									detailBtn := a.historyActionButton("feature-detail:" + item.ID)
 									return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx,
 										layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-											return a.compactButton(gtx, detailBtn, "详情", false)
+											return a.compactIconTextButton(gtx, detailBtn, uiIconInfo, "详情", false)
 										}),
 										layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-											return a.compactButton(gtx, reuseBtn, "设为源图", false)
+											return a.compactIconTextButton(gtx, reuseBtn, uiIconSource, "设为源图", false)
 										}),
 										layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-											return a.compactButton(gtx, deleteBtn, "删除", false)
+											return a.compactIconTextButton(gtx, deleteBtn, uiIconDelete, "删除", false)
 										}),
 									)
 								}),
@@ -503,8 +519,8 @@ func (a *App) layoutPromptGroupModal(gtx layout.Context) layout.Dimensions {
 										)
 									}),
 									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-										return fixedWidth(gtx, unit.Dp(88), func(gtx layout.Context) layout.Dimensions {
-											return a.button(gtx, &a.closePromptGroupButton, "关闭", fluent.surface2, fluent.text)
+										return fixedWidth(gtx, unit.Dp(104), func(gtx layout.Context) layout.Dimensions {
+											return a.compactIconTextButton(gtx, &a.closePromptGroupButton, uiIconClose, "关闭", false)
 										})
 									}),
 								)
@@ -563,7 +579,7 @@ func (a *App) layoutPromptGroupModalTile(gtx layout.Context, item sharedCompat.H
 			img, _ := a.imageForHistoryItem(item)
 			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(8))}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return a.imageThumb(gtx, img, unit.Dp(180), unit.Dp(180), unit.Dp(4))
+					return a.imageThumbCover(gtx, img, unit.Dp(180), unit.Dp(180), unit.Dp(4))
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return a.label(gtx, shortPrompt(item.Prompt), unit.Sp(11), fluent.text, font.Medium)
@@ -585,7 +601,7 @@ func (a *App) layoutPromptGroupModalTile(gtx layout.Context, item sharedCompat.H
 					return layout.Dimensions{}
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return a.compactButton(gtx, detailBtn, "详情", false)
+					return a.compactIconTextButton(gtx, detailBtn, uiIconInfo, "详情", false)
 				}),
 			)
 		},
@@ -633,6 +649,12 @@ func (a *App) layoutHistoryResultsCard(
 					})
 				})
 			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				if len(entries) <= len(visible) {
+					return layout.Dimensions{}
+				}
+				return a.compactIconTextButton(gtx, &a.openHistoryTimelineMoreButton, uiIconGrid, "查看更多历史", false)
+			}),
 		)
 	})
 }
@@ -675,7 +697,7 @@ func (a *App) layoutHistoryGroupRow(gtx layout.Context, group historyPromptGroup
 							})
 						}),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return a.compactButton(gtx, expandBtn, "展开", false)
+							return a.compactIconTextButton(gtx, expandBtn, uiIconGrid, "同提示词", false)
 						}),
 					)
 				}),
@@ -702,7 +724,7 @@ func (a *App) layoutHistoryGroupPile(gtx layout.Context, group historyPromptGrou
 							Left: unit.Dp(float32(offset)),
 							Top:  unit.Dp(float32(offset) / 2),
 						}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return a.imageThumb(gtx, img, unit.Dp(40), unit.Dp(30), unit.Dp(4))
+							return a.imageThumbCover(gtx, img, unit.Dp(40), unit.Dp(30), unit.Dp(4))
 						})
 					}
 					return layout.Dimensions{Size: image.Pt(gtx.Constraints.Min.X, gtx.Constraints.Min.Y)}
@@ -715,6 +737,33 @@ func (a *App) layoutHistoryGroupPile(gtx layout.Context, group historyPromptGrou
 					})
 				}),
 			)
+		})
+	})
+}
+
+func (a *App) layoutHistoryModeThumb(gtx layout.Context, img image.Image, mode string, width unit.Dp, height unit.Dp) layout.Dimensions {
+	return layout.Stack{}.Layout(gtx,
+		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
+			return a.imageThumbCover(gtx, img, width, height, unit.Dp(4))
+		}),
+		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
+			return layout.NW.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.Inset{Left: unit.Dp(4), Top: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return a.historyModeBadge(gtx, mode)
+				})
+			})
+		}),
+	)
+}
+
+func (a *App) historyModeBadge(gtx layout.Context, mode string) layout.Dimensions {
+	label := "文生图"
+	if mode == "edit" {
+		label = "图生图"
+	}
+	return a.surface(gtx, rgba(0x111111, 0xba), unit.Dp(4), func(gtx layout.Context) layout.Dimensions {
+		return layout.Inset{Top: 2, Bottom: 2, Left: 6, Right: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return a.label(gtx, label, unit.Sp(9), fluent.white, font.Medium)
 		})
 	})
 }
@@ -736,10 +785,10 @@ func (a *App) layoutHistoryRow(gtx layout.Context, item sharedCompat.HistoryItem
 			img, _ := a.imageForHistoryItem(item)
 			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Gap: gtx.Dp(unit.Dp(8))}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return a.imageThumb(gtx, img, unit.Dp(48), unit.Dp(48), unit.Dp(4))
+					return a.layoutHistoryModeThumb(gtx, img, item.Mode, unit.Dp(56), unit.Dp(56))
 				}),
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-					return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(4))}.Layout(gtx,
+					return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(5))}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							return a.label(gtx, shortPrompt(item.Prompt), unit.Sp(12), fluent.text, font.Medium)
 						}),
@@ -748,6 +797,19 @@ func (a *App) layoutHistoryRow(gtx layout.Context, item sharedCompat.HistoryItem
 						}),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							return a.label(gtx, historyPathText(item.SavedPath), unit.Sp(10), fluent.textDim, font.Normal)
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx,
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									return a.compactIconTextButton(gtx, detailBtn, uiIconInfo, "详情", false)
+								}),
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									return a.compactIconTextButton(gtx, reuseBtn, uiIconSource, "源图", false)
+								}),
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									return a.compactIconTextButton(gtx, deleteBtn, uiIconDelete, "删除", false)
+								}),
+							)
 						}),
 					)
 				}),
@@ -758,15 +820,6 @@ func (a *App) layoutHistoryRow(gtx layout.Context, item sharedCompat.HistoryItem
 								return a.badge(gtx, "当前", fluent.accentSoft, fluent.accent)
 							}
 							return layout.Dimensions{}
-						}),
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return a.compactButton(gtx, detailBtn, "详情", false)
-						}),
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return a.compactButton(gtx, reuseBtn, "源图", false)
-						}),
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return a.compactButton(gtx, deleteBtn, "删除", false)
 						}),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							return a.label(gtx, formatHistoryClock(item.CreatedAt), unit.Sp(10), fluent.textDim, font.Normal)
@@ -787,7 +840,7 @@ func (a *App) layoutLogsCard(gtx layout.Context, snap snapshot) layout.Dimension
 						return a.sectionEyebrow(gtx, "运行日志")
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return a.compactButton(gtx, &a.clearLogButton, "清空", false)
+						return a.compactIconTextButton(gtx, &a.clearLogButton, uiIconClear, "清空", false)
 					}),
 				)
 			}),

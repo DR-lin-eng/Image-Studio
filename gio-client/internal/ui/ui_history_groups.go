@@ -20,6 +20,12 @@ type historyPromptEntry struct {
 	Group historyPromptGroup
 }
 
+type historyDayGroup struct {
+	Key     string
+	Label   string
+	Entries []historyPromptEntry
+}
+
 func normalizeHistoryPrompt(prompt string) string {
 	return strings.ToLower(strings.Join(strings.Fields(strings.TrimSpace(prompt)), " "))
 }
@@ -65,6 +71,34 @@ func buildHistoryPromptEntries(items []sharedCompat.HistoryItem) []historyPrompt
 		})
 	}
 	return entries
+}
+
+func buildHistoryDayGroups(items []sharedCompat.HistoryItem) []historyDayGroup {
+	entries := buildHistoryPromptEntries(items)
+	groups := make([]historyDayGroup, 0, len(entries))
+	indexByKey := map[string]int{}
+	for _, entry := range entries {
+		representative := historyEntryRepresentative(entry)
+		key := formatHistoryDay(representative.CreatedAt)
+		if idx, ok := indexByKey[key]; ok {
+			groups[idx].Entries = append(groups[idx].Entries, entry)
+			continue
+		}
+		indexByKey[key] = len(groups)
+		groups = append(groups, historyDayGroup{
+			Key:     key,
+			Label:   key,
+			Entries: []historyPromptEntry{entry},
+		})
+	}
+	return groups
+}
+
+func historyEntryRepresentative(entry historyPromptEntry) sharedCompat.HistoryItem {
+	if entry.Kind == "group" {
+		return entry.Group.Representative
+	}
+	return entry.Item
 }
 
 func historyPromptGroupContains(group historyPromptGroup, itemID string) bool {

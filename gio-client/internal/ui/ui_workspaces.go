@@ -46,6 +46,17 @@ func (a *App) closeWorkspaceButton(id string) *widget.Clickable {
 	return btn
 }
 
+func (a *App) displayedWorkspaceName(ws workspaceState) string {
+	name := strings.TrimSpace(ws.Name)
+	if name == "" {
+		name = "未命名"
+	}
+	if ws.ID == a.activeWorkspaceID && isDefaultWorkspaceName(name) {
+		name = conciseWorkspaceName(a.promptInput.Text(), name)
+	}
+	return name
+}
+
 func (a *App) buildWorkspaceSnapshot() workspaceState {
 	name := "未命名"
 	for _, ws := range a.workspaces {
@@ -139,6 +150,7 @@ func (a *App) createWorkspace() {
 		a.appendLog("运行中不能新建标签")
 		return
 	}
+	a.commitWorkspaceRename()
 	a.saveActiveWorkspaceSnapshot()
 	name := fmt.Sprintf("图片 %d", len(a.workspaces)+1)
 	ws := workspaceState{
@@ -159,6 +171,9 @@ func (a *App) switchWorkspace(id string) {
 	if a.isRunning() {
 		a.appendLog("运行中不能切换标签")
 		return
+	}
+	if a.workspaceRenameID != "" && a.workspaceRenameID != id {
+		a.commitWorkspaceRename()
 	}
 	if id == a.activeWorkspaceID {
 		return
@@ -182,6 +197,9 @@ func (a *App) closeWorkspace(id string) {
 		a.appendLog("运行中不能关闭标签")
 		return
 	}
+	if a.workspaceRenameID == id {
+		a.cancelWorkspaceRename()
+	}
 	a.saveActiveWorkspaceSnapshot()
 	next := make([]workspaceState, 0, len(a.workspaces)-1)
 	for _, ws := range a.workspaces {
@@ -195,6 +213,68 @@ func (a *App) closeWorkspace(id string) {
 		a.activeWorkspaceID = next[0].ID
 		a.applyWorkspace(next[0])
 	}
+}
+
+func (a *App) startWorkspaceRename(id string) {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return
+	}
+	for _, ws := range a.workspaces {
+		if ws.ID != id {
+			continue
+		}
+		a.workspaceRenameID = id
+		a.workspaceNameInput.SetText(strings.TrimSpace(ws.Name))
+		a.invalidateNow()
+		return
+	}
+}
+
+func (a *App) commitWorkspaceRename() {
+	id := strings.TrimSpace(a.workspaceRenameID)
+	if id == "" {
+		return
+	}
+	name := strings.TrimSpace(a.workspaceNameInput.Text())
+	if name == "" {
+		name = "未命名"
+	}
+	next := make([]workspaceState, 0, len(a.workspaces))
+	for _, ws := range a.workspaces {
+		if ws.ID == id {
+			ws.Name = name
+		}
+		next = append(next, ws)
+	}
+	a.workspaces = next
+	a.workspaceRenameID = ""
+	a.workspaceNameInput.SetText("")
+	a.invalidateNow()
+}
+
+func (a *App) cancelWorkspaceRename() {
+	a.workspaceRenameID = ""
+	a.workspaceNameInput.SetText("")
+	a.invalidateNow()
+}
+
+func (a *App) handleWorkspacePrimaryClick(id string, now time.Time) {
+	if strings.TrimSpace(id) == "" {
+		return
+	}
+	if a.workspaceRenameID == id {
+		return
+	}
+	if a.workspaceLastClickID == id && !a.workspaceLastClickAt.IsZero() && now.Sub(a.workspaceLastClickAt) <= 450*time.Millisecond {
+		a.workspaceLastClickID = ""
+		a.workspaceLastClickAt = time.Time{}
+		a.startWorkspaceRename(id)
+		return
+	}
+	a.workspaceLastClickID = id
+	a.workspaceLastClickAt = now
+	a.switchWorkspace(id)
 }
 
 func conciseWorkspaceName(prompt string, fallback string) string {

@@ -153,26 +153,23 @@ func (a *App) historyActionButton(id string) *widget.Clickable {
 }
 
 func (a *App) filteredHistory(items []sharedCompat.HistoryItem) []sharedCompat.HistoryItem {
-	query := strings.TrimSpace(strings.ToLower(a.historyQueryInput.Text()))
-	modeFilter := strings.TrimSpace(a.historyModeFilter)
-	dateFilter := strings.TrimSpace(a.historyDateFilter)
-	if query == "" && modeFilter == "all" && dateFilter == "all" {
-		return items
-	}
-	filtered := make([]sharedCompat.HistoryItem, 0, len(items))
-	for _, item := range items {
-		if modeFilter != "" && modeFilter != "all" && item.Mode != modeFilter {
-			continue
-		}
-		if !matchHistoryDate(item.CreatedAt, dateFilter, time.Now()) {
-			continue
-		}
-		if !matchHistoryQuery(item, query) {
-			continue
-		}
-		filtered = append(filtered, item)
-	}
-	return filtered
+	return filteredHistoryItems(
+		items,
+		a.historyQueryInput.Text(),
+		a.historyModeFilter,
+		a.historyDateFilter,
+		time.Now(),
+	)
+}
+
+func (a *App) filteredTimelineHistory(items []sharedCompat.HistoryItem) []sharedCompat.HistoryItem {
+	return filteredHistoryItems(
+		items,
+		a.historyTimelineQueryInput.Text(),
+		a.historyTimelineModeFilter,
+		a.historyTimelineDateFilter,
+		time.Now(),
+	)
 }
 
 func (a *App) loadHistoryPreview(item sharedCompat.HistoryItem, addLog bool) error {
@@ -299,6 +296,12 @@ func (a *App) switchActiveProfile(profileID string) {
 	a.status = "已切换上游: " + activeProfileName(state.Profiles, profileID)
 	a.logs = appendBounded(a.logs, "切换上游配置: "+activeProfileName(state.Profiles, profileID))
 	a.mu.Unlock()
+	a.profileNameInput.SetText(activeProfileName(state.Profiles, profileID))
+	if limit := activeProfileConcurrencyLimit(state.Profiles, profileID); limit > 0 {
+		a.concurrencyLimitInput.SetText(strconv.Itoa(limit))
+	} else {
+		a.concurrencyLimitInput.SetText("")
+	}
 	a.profilePickerOpen = false
 	a.invalidateNow()
 }
@@ -310,6 +313,100 @@ func activeProfileName(profiles []sharedCompat.UpstreamProfile, profileID string
 		}
 	}
 	return ""
+}
+
+func activeProfileAPIMode(profiles []sharedCompat.UpstreamProfile, profileID string) string {
+	for _, profile := range profiles {
+		if profile.ID == profileID {
+			return strings.TrimSpace(profile.APIMode)
+		}
+	}
+	return ""
+}
+
+func activeProfileConcurrencyLimit(profiles []sharedCompat.UpstreamProfile, profileID string) int {
+	for _, profile := range profiles {
+		if profile.ID == profileID {
+			return profile.ConcurrencyLimit
+		}
+	}
+	return 0
+}
+
+func (a *App) saveActiveProfileMetadata() error {
+	state, _, err := gioCompat.LoadState()
+	if err != nil {
+		return err
+	}
+	state = sharedCompat.Normalize(state)
+	current, ok := currentActiveProfile(state)
+	if !ok {
+		return nil
+	}
+	name := strings.TrimSpace(a.profileNameInput.Text())
+	if name == "" {
+		name = strings.TrimSpace(current.Name)
+	}
+	if name == "" {
+		name = nextProfileName(state.Profiles)
+	}
+	concurrencyLimit := 0
+	if raw := strings.TrimSpace(a.concurrencyLimitInput.Text()); raw != "" {
+		if value, err := strconv.Atoi(raw); err == nil && value > 0 {
+			concurrencyLimit = value
+		}
+	}
+	updated := false
+	for i := range state.Profiles {
+		if state.Profiles[i].ID != current.ID {
+			continue
+		}
+		state.Profiles[i].Name = name
+		state.Profiles[i].ConcurrencyLimit = concurrencyLimit
+		state.Profiles[i].LastUsedAt = time.Now().UnixMilli()
+		updated = true
+		break
+	}
+	if !updated {
+		return nil
+	}
+	state.UpdatedAt = time.Now().UnixMilli()
+	if err := gioCompat.SaveState(state); err != nil {
+		return err
+	}
+	a.mu.Lock()
+	a.profiles = append([]sharedCompat.UpstreamProfile(nil), state.Profiles...)
+	a.mu.Unlock()
+	return nil
+}
+
+func filteredHistoryItems(
+	items []sharedCompat.HistoryItem,
+	query string,
+	modeFilter string,
+	dateFilter string,
+	now time.Time,
+) []sharedCompat.HistoryItem {
+	query = strings.TrimSpace(strings.ToLower(query))
+	modeFilter = strings.TrimSpace(modeFilter)
+	dateFilter = strings.TrimSpace(dateFilter)
+	if query == "" && modeFilter == "all" && dateFilter == "all" {
+		return items
+	}
+	filtered := make([]sharedCompat.HistoryItem, 0, len(items))
+	for _, item := range items {
+		if modeFilter != "" && modeFilter != "all" && item.Mode != modeFilter {
+			continue
+		}
+		if !matchHistoryDate(item.CreatedAt, dateFilter, now) {
+			continue
+		}
+		if !matchHistoryQuery(item, query) {
+			continue
+		}
+		filtered = append(filtered, item)
+	}
+	return filtered
 }
 
 func nextProfileName(profiles []sharedCompat.UpstreamProfile) string {
@@ -363,6 +460,8 @@ func (a *App) createBlankProfile() {
 	a.status = "已创建配置: " + profile.Name
 	a.logs = appendBounded(a.logs, "已创建配置: "+profile.Name)
 	a.mu.Unlock()
+	a.profileNameInput.SetText(profile.Name)
+	a.concurrencyLimitInput.SetText("")
 	a.invalidateNow()
 }
 
@@ -403,6 +502,12 @@ func (a *App) duplicateActiveProfile() {
 	a.status = "已复制配置: " + clone.Name
 	a.logs = appendBounded(a.logs, "已复制配置: "+clone.Name)
 	a.mu.Unlock()
+	a.profileNameInput.SetText(clone.Name)
+	if clone.ConcurrencyLimit > 0 {
+		a.concurrencyLimitInput.SetText(strconv.Itoa(clone.ConcurrencyLimit))
+	} else {
+		a.concurrencyLimitInput.SetText("")
+	}
 	a.invalidateNow()
 }
 
@@ -448,6 +553,12 @@ func (a *App) deleteActiveProfile() {
 	a.status = "已删除配置: " + current.Name
 	a.logs = appendBounded(a.logs, "已删除配置: "+current.Name)
 	a.mu.Unlock()
+	a.profileNameInput.SetText(activeProfileName(state.Profiles, state.ActiveProfile))
+	if limit := activeProfileConcurrencyLimit(state.Profiles, state.ActiveProfile); limit > 0 {
+		a.concurrencyLimitInput.SetText(strconv.Itoa(limit))
+	} else {
+		a.concurrencyLimitInput.SetText("")
+	}
 	a.invalidateNow()
 }
 
@@ -514,6 +625,18 @@ func (a *App) applyPromptSuggestion(text string) {
 	} else {
 		a.promptInput.SetText(current + "\n" + text)
 	}
+	a.promptHelperOpen = false
+	a.invalidateNow()
+}
+
+func (a *App) useResultPrompt(text string) {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return
+	}
+	a.promptInput.SetText(text)
+	a.appendLog("已应用为下次提示词")
+	a.closeResultDetail()
 	a.invalidateNow()
 }
 
@@ -529,6 +652,7 @@ func (a *App) applyPreset(preset sharedCompat.Preset) {
 	}
 	a.negativePromptInput.SetText(strings.TrimSpace(preset.NegativePrompt))
 	a.batchCount = normalizeBatchCount(preset.BatchCount)
+	a.promptHelperOpen = false
 	a.invalidateNow()
 }
 

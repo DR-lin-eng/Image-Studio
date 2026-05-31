@@ -78,6 +78,13 @@ func localDayStart(now time.Time) time.Time {
 	return time.Date(year, month, day, 0, 0, 0, 0, now.Location())
 }
 
+func formatHistoryDay(createdAt int64) string {
+	if createdAt <= 0 {
+		return "更早"
+	}
+	return time.UnixMilli(createdAt).Format("2006-01-02")
+}
+
 func matchHistoryDate(createdAt int64, filter string, now time.Time) bool {
 	switch strings.TrimSpace(filter) {
 	case "", "all":

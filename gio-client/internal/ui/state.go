@@ -11,6 +11,9 @@ func (a *App) saveCurrentConfig() {
 	if err := gioCompat.SaveConfig(a.currentConfig()); err != nil {
 		a.appendLog("兼容配置保存失败: " + err.Error())
 	}
+	if err := a.saveActiveProfileMetadata(); err != nil {
+		a.appendLog("配置元数据保存失败: " + err.Error())
+	}
 }
 
 func (a *App) cancelRun() {
@@ -84,6 +87,23 @@ func (a *App) closeSavePrompt() {
 	a.invalidateNow()
 }
 
+func (a *App) openHistoryTimeline() {
+	a.mu.Lock()
+	a.historyTimelineOpen = true
+	a.historyTimelineModeFilter = a.historyModeFilter
+	a.historyTimelineDateFilter = a.historyDateFilter
+	a.historyTimelineQueryInput.SetText(a.historyQueryInput.Text())
+	a.mu.Unlock()
+	a.invalidateNow()
+}
+
+func (a *App) closeHistoryTimeline() {
+	a.mu.Lock()
+	a.historyTimelineOpen = false
+	a.mu.Unlock()
+	a.invalidateNow()
+}
+
 func (a *App) openSavePromptForCurrent() {
 	a.mu.Lock()
 	src := strings.TrimSpace(a.result.SavedPath)
@@ -132,23 +152,24 @@ func (a *App) readSnapshot() snapshot {
 	promptHistory := append([]string(nil), a.promptHistory...)
 	presets := append([]sharedCompat.Preset(nil), a.presets...)
 	return snapshot{
-		Running:            a.running,
-		Status:             a.status,
-		Logs:               logs,
-		History:            history,
-		Profiles:           profiles,
-		ActiveProfileID:    a.activeProfileID,
-		SelectedHistoryID:  a.selectedHistoryID,
-		PromptHistory:      promptHistory,
-		Presets:            presets,
-		OptimizingPrompt:   a.optimizingPrompt,
-		TestingUpstream:    a.testingUpstream,
-		LastProbeSummary:   a.lastProbeSummary,
-		ActivePromptGroup:  a.activePromptGroup,
-		ActiveResultDetail: a.activeResultDetail,
-		Fullscreen:         a.fullscreen,
-		Result:             a.result,
-		SavePromptVisible:  a.savePromptVisible,
+		Running:             a.running,
+		Status:              a.status,
+		Logs:                logs,
+		History:             history,
+		Profiles:            profiles,
+		ActiveProfileID:     a.activeProfileID,
+		SelectedHistoryID:   a.selectedHistoryID,
+		PromptHistory:       promptHistory,
+		Presets:             presets,
+		OptimizingPrompt:    a.optimizingPrompt,
+		TestingUpstream:     a.testingUpstream,
+		LastProbeSummary:    a.lastProbeSummary,
+		ActivePromptGroup:   a.activePromptGroup,
+		ActiveResultDetail:  a.activeResultDetail,
+		HistoryTimelineOpen: a.historyTimelineOpen,
+		Fullscreen:          a.fullscreen,
+		Result:              a.result,
+		SavePromptVisible:   a.savePromptVisible,
 	}
 }
 

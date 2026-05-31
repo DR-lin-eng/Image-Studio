@@ -34,12 +34,23 @@ func (a *App) searchField(gtx layout.Context, editor *widget.Editor, hint string
 	return fixedHeight(gtx, unit.Dp(34), func(gtx layout.Context) layout.Dimensions {
 		return a.borderedSurface(gtx, fluent.surface, unit.Dp(4), fluent.border2, func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Top: 8, Bottom: 8, Left: 10, Right: 10}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				style := material.Editor(a.th, editor, hint)
-				style.Color = fluent.text
-				style.HintColor = fluent.textDim
-				style.SelectionColor = rgba(0x005fb8, 0x3d)
-				style.TextSize = unit.Sp(12)
-				return style.Layout(gtx)
+				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Gap: gtx.Dp(unit.Dp(8))}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return fixedWidth(gtx, unit.Dp(14), func(gtx layout.Context) layout.Dimensions {
+							return fixedHeight(gtx, unit.Dp(14), func(gtx layout.Context) layout.Dimensions {
+								return uiIconSearch.Layout(gtx, fluent.textDim)
+							})
+						})
+					}),
+					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+						style := material.Editor(a.th, editor, hint)
+						style.Color = fluent.text
+						style.HintColor = fluent.textDim
+						style.SelectionColor = rgba(0x005fb8, 0x3d)
+						style.TextSize = unit.Sp(12)
+						return style.Layout(gtx)
+					}),
+				)
 			})
 		})
 	})

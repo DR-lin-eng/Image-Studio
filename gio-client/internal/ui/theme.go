@@ -24,6 +24,9 @@ type fluentColors struct {
 	text       color.NRGBA
 	textMuted  color.NRGBA
 	textDim    color.NRGBA
+	cardShadow color.NRGBA
+	cardGlow   color.NRGBA
+	bgGlow     color.NRGBA
 	canvasBg   color.NRGBA
 	canvasTile color.NRGBA
 	success    color.NRGBA
@@ -49,6 +52,9 @@ var fluentLight = fluentColors{
 	text:       rgb(0x1f1f1f),
 	textMuted:  rgb(0x5f6368),
 	textDim:    rgb(0x8a8f98),
+	cardShadow: rgba(0x000000, 0x12),
+	cardGlow:   rgba(0xffffff, 0x4c),
+	bgGlow:     rgba(0xffffff, 0x46),
 	canvasBg:   rgb(0xeeeeee),
 	canvasTile: rgb(0xdedede),
 	success:    rgb(0x0f7b0f),
@@ -74,6 +80,9 @@ var fluentDark = fluentColors{
 	text:       rgb(0xf5f5f5),
 	textMuted:  rgb(0xc1c1c1),
 	textDim:    rgb(0x8e8e8e),
+	cardShadow: rgba(0x000000, 0x34),
+	cardGlow:   rgba(0xffffff, 0x10),
+	bgGlow:     rgba(0xffffff, 0x0c),
 	canvasBg:   rgb(0x1d1d1d),
 	canvasTile: rgb(0x262626),
 	success:    rgb(0x45d36b),

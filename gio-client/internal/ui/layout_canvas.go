@@ -3,7 +3,6 @@ package ui
 import (
 	"image"
 	"image/color"
-	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -16,23 +15,22 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"github.com/yuanhua/image-gptcodex/pkg/client"
 )
 
 func (a *App) layoutCanvas(gtx layout.Context) layout.Dimensions {
 	snap := a.readSnapshot()
 	sourcePaths := kernel.ParseSourcePaths(a.sourcePathsInput.Text())
-	showSourceStrip := a.mode == "edit" || len(sourcePaths) > 0
+	showSourceStrip := len(sourcePaths) > 0
 
 	children := []layout.FlexChild{
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return fixedHeight(gtx, unit.Dp(48), func(gtx layout.Context) layout.Dimensions {
-				return a.canvasToolbar(gtx, snap)
-			})
+			return a.canvasToolbar(gtx, snap)
 		}),
 	}
 	if showSourceStrip {
 		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return fixedHeight(gtx, unit.Dp(64), func(gtx layout.Context) layout.Dimensions {
+			return fixedHeight(gtx, unit.Dp(72), func(gtx layout.Context) layout.Dimensions {
 				return a.sourceStrip(gtx, sourcePaths)
 			})
 		}))
@@ -112,138 +110,87 @@ func (a *App) canvasToolbar(gtx layout.Context, snap snapshot) layout.Dimensions
 			a.openResultDetail(snap.Result.Item)
 		}
 	}
-	sizeLabel := sizeChoiceLabel(a.size)
-	qualityLabel := qualityChoiceLabel(a.quality)
-	if snap.Result.HasItem {
-		if strings.TrimSpace(snap.Result.Item.Size) != "" {
-			sizeLabel = snap.Result.Item.Size
-		}
-		if strings.TrimSpace(snap.Result.Item.Quality) != "" {
-			qualityLabel = snap.Result.Item.Quality
-		}
-	}
-	trailing := strings.TrimSpace(snap.Result.SourceEvent)
-	if trailing == "" {
-		trailing = snap.Status
-	}
 	showReturnLatest := len(snap.History) > 0 && snap.SelectedHistoryID != "" && snap.SelectedHistoryID != snap.History[0].ID
 
 	return a.borderedSurface(gtx, fluent.panel2, unit.Dp(0), fluent.border, func(gtx layout.Context) layout.Dimensions {
-		gtx.Constraints.Min = gtx.Constraints.Max
 		return layout.Inset{Top: 8, Bottom: 8, Left: 12, Right: 12}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(8))}.Layout(gtx,
+			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+					return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return a.toolPill(gtx, "画布", true)
+							return a.compactIconButton(gtx, &a.rotateLeftButton, uiIconRotateLeft, false)
 						}),
-						layout.Rigid(layout.Spacer{Width: unit.Dp(8)}.Layout),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return a.toolPill(gtx, a.modeLabel(), false)
+							return a.compactIconButton(gtx, &a.rotateRightButton, uiIconRotateRight, false)
 						}),
-						layout.Rigid(layout.Spacer{Width: unit.Dp(8)}.Layout),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return a.toolPill(gtx, sizeLabel, false)
+							return a.compactIconButton(gtx, &a.flipHorizontalButton, uiIconFlip, false)
 						}),
-						layout.Rigid(layout.Spacer{Width: unit.Dp(8)}.Layout),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return a.toolPill(gtx, qualityLabel, false)
-						}),
-						layout.Rigid(layout.Spacer{Width: unit.Dp(8)}.Layout),
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return a.toolPill(gtx, strings.ToUpper(a.format), false)
-						}),
-						layout.Flexed(1, layout.Spacer{}.Layout),
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return a.badge(gtx, trailing, fluent.surface, fluent.textMuted)
+							return a.compactIconButton(gtx, &a.flipVerticalButton, uiIconFlip, false)
 						}),
 					)
 				}),
+				layout.Rigid(layout.Spacer{Width: unit.Dp(8)}.Layout),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+					return a.toolbarSeparator(gtx)
+				}),
+				layout.Rigid(layout.Spacer{Width: unit.Dp(8)}.Layout),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					children := []layout.FlexChild{
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return a.toolbarGroupCard(gtx, "变换", func(gtx layout.Context) layout.Dimensions {
-								return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx,
-									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-										return a.compactButton(gtx, &a.rotateLeftButton, "左转", false)
-									}),
-									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-										return a.compactButton(gtx, &a.rotateRightButton, "右转", false)
-									}),
-									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-										return a.compactButton(gtx, &a.flipHorizontalButton, "水平翻转", false)
-									}),
-									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-										return a.compactButton(gtx, &a.flipVerticalButton, "竖直翻转", false)
-									}),
-								)
-							})
+							return a.compactIconButton(gtx, &a.clearCurrentButton, uiIconDelete, false)
 						}),
-						layout.Rigid(layout.Spacer{Width: unit.Dp(8)}.Layout),
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return a.toolbarGroupCard(gtx, "结果", func(gtx layout.Context) layout.Dimensions {
-								children := []layout.FlexChild{
-									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-										return a.compactButton(gtx, &a.clearCurrentButton, "清空", false)
-									}),
-								}
-								if showReturnLatest {
-									children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-										return a.compactButton(gtx, &a.latestResultButton, "返回当前图", false)
-									}))
-								}
-								if hasCurrentGroup && len(currentGroup.Items) > 1 {
-									children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-										return a.compactButton(gtx, &a.currentGroupButton, "网格 "+strconv.Itoa(len(currentGroup.Items)), snap.ActivePromptGroup.Key == currentGroup.Key)
-									}))
-								}
-								return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx, children...)
+					}
+					if showReturnLatest {
+						children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return a.compactIconButton(gtx, &a.latestResultButton, uiIconPhoto, false)
+						}))
+					}
+					if hasCurrentGroup && len(currentGroup.Items) > 1 {
+						children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return a.compactIconTextButton(gtx, &a.currentGroupButton, uiIconGrid, strconv.Itoa(len(currentGroup.Items)), snap.ActivePromptGroup.Key == currentGroup.Key)
+						}))
+					}
+					return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx, children...)
+				}),
+				layout.Flexed(1, layout.Spacer{}.Layout),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return a.toolbarSeparator(gtx)
+				}),
+				layout.Rigid(layout.Spacer{Width: unit.Dp(8)}.Layout),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					children := []layout.FlexChild{}
+					if strings.TrimSpace(snap.Result.SavedPath) != "" {
+						children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return fixedWidth(gtx, unit.Dp(112), func(gtx layout.Context) layout.Dimensions {
+								return a.primaryIconTextButton(gtx, &a.saveAsButton, uiIconDownload, "另存为", fluent.accent, fluent.white)
 							})
-						}),
-						layout.Flexed(1, layout.Spacer{}.Layout),
-						func() layout.FlexChild {
-							return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return a.toolbarGroupCard(gtx, "文件", func(gtx layout.Context) layout.Dimensions {
-									children := []layout.FlexChild{}
-									if strings.TrimSpace(snap.Result.SavedPath) != "" {
-										children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-											return fixedWidth(gtx, unit.Dp(88), func(gtx layout.Context) layout.Dimensions {
-												return a.button(gtx, &a.saveAsButton, "另存为", fluent.accent, fluent.white)
-											})
-										}))
-									}
-									if snap.Result.HasItem {
-										children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-											return a.compactButton(gtx, &a.resultDetailButton, "详情", false)
-										}))
-									}
-									label := "全屏"
-									if snap.Fullscreen {
-										label = "退出全屏"
-									}
-									children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-										return a.compactButton(gtx, &a.fullscreenButton, label, snap.Fullscreen)
-									}))
-									return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx, children...)
-								})
-							})
-						}(),
-					)
+						}))
+					}
+					if snap.Result.HasItem {
+						children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return a.compactIconButton(gtx, &a.resultDetailButton, uiIconInfo, false)
+						}))
+					}
+					children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						icon := uiIconFullscreen
+						if snap.Fullscreen {
+							icon = uiIconFullscreenExit
+						}
+						return a.compactIconButton(gtx, &a.fullscreenButton, icon, snap.Fullscreen)
+					}))
+					return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx, children...)
 				}),
 			)
 		})
 	})
 }
 
-func (a *App) toolbarGroupCard(gtx layout.Context, title string, body layout.Widget) layout.Dimensions {
-	return a.borderedSurface(gtx, fluent.surface, unit.Dp(6), fluent.border, func(gtx layout.Context) layout.Dimensions {
-		return layout.UniformInset(unit.Dp(8)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx,
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return a.label(gtx, title, unit.Sp(10), fluent.textDim, font.Medium)
-				}),
-				layout.Rigid(body),
-			)
+func (a *App) toolbarSeparator(gtx layout.Context) layout.Dimensions {
+	return fixedWidth(gtx, unit.Dp(1), func(gtx layout.Context) layout.Dimensions {
+		return fixedHeight(gtx, unit.Dp(18), func(gtx layout.Context) layout.Dimensions {
+			return a.surface(gtx, rgba(0x000000, 0x18), unit.Dp(0), layout.Spacer{}.Layout)
 		})
 	})
 }
@@ -279,7 +226,6 @@ func (a *App) sourceStrip(gtx layout.Context, sourcePaths []string) layout.Dimen
 	if len(sourcePaths) > 0 {
 		label = "参考图 " + strconv.Itoa(len(sourcePaths)) + " 张"
 	}
-	currentSaved := strings.TrimSpace(a.readSnapshot().Result.SavedPath)
 
 	return a.borderedSurface(gtx, fluent.panel2, unit.Dp(0), fluent.border, func(gtx layout.Context) layout.Dimensions {
 		gtx.Constraints.Min = gtx.Constraints.Max
@@ -289,41 +235,21 @@ func (a *App) sourceStrip(gtx layout.Context, sourcePaths []string) layout.Dimen
 					return a.label(gtx, label, unit.Sp(11), fluent.textMuted, font.Medium)
 				}),
 			}
-			if len(sourcePaths) == 0 {
+			for _, path := range sourcePaths {
+				path := path
 				children = append(children,
-					layout.Rigid(layout.Spacer{Width: unit.Dp(8)}.Layout),
+					layout.Rigid(layout.Spacer{Width: unit.Dp(10)}.Layout),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return a.compactButton(gtx, &a.addSourceStripButton, "添加图片", false)
-					}),
-					layout.Rigid(layout.Spacer{Width: unit.Dp(8)}.Layout),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						if currentSaved == "" {
-							return a.label(gtx, "先添加本地图片，或把当前结果设为源图。", unit.Sp(11), fluent.textDim, font.Normal)
-						}
-						return a.compactButton(gtx, &a.useCurrentAsSourceButton, "用当前图作源图", false)
-					}),
-				)
-			} else {
-				for _, path := range sourcePaths {
-					path := path
-					children = append(children,
-						layout.Rigid(layout.Spacer{Width: unit.Dp(8)}.Layout),
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return a.layoutSourceStripTile(gtx, path)
-						}),
-					)
-				}
-				children = append(children,
-					layout.Rigid(layout.Spacer{Width: unit.Dp(8)}.Layout),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return a.compactButton(gtx, &a.addSourceStripButton, "添加图片", false)
-					}),
-					layout.Rigid(layout.Spacer{Width: unit.Dp(8)}.Layout),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return a.compactButton(gtx, &a.clearSourcesButton, "清空", false)
+						return a.layoutSourceStripTile(gtx, path)
 					}),
 				)
 			}
+			children = append(children,
+				layout.Rigid(layout.Spacer{Width: unit.Dp(10)}.Layout),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return a.layoutSourceStripAddTile(gtx)
+				}),
+			)
 			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx, children...)
 		})
 	})
@@ -332,38 +258,85 @@ func (a *App) sourceStrip(gtx layout.Context, sourcePaths []string) layout.Dimen
 func (a *App) layoutSourceStripTile(gtx layout.Context, path string) layout.Dimensions {
 	btn := a.sourceButton("remove:" + path)
 	img, _ := a.imageForPath(path)
-	name := filepath.Base(strings.TrimSpace(path))
-	return a.surfaceButton(
-		gtx,
-		btn,
-		fluent.surface,
-		fluent.surface2,
-		fluent.border,
-		unit.Dp(6),
-		layout.Inset{Top: 6, Bottom: 6, Left: 6, Right: 6},
-		func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Gap: gtx.Dp(unit.Dp(8))}.Layout(gtx,
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return a.imageThumb(gtx, img, unit.Dp(48), unit.Dp(48), unit.Dp(4))
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return fixedWidth(gtx, unit.Dp(132), func(gtx layout.Context) layout.Dimensions {
-						return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(3))}.Layout(gtx,
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return a.label(gtx, name, unit.Sp(10), fluent.text, font.Medium)
-							}),
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return a.label(gtx, "点击移除", unit.Sp(9), fluent.textDim, font.Normal)
-							}),
-						)
-					})
-				}),
-			)
-		},
+	return layout.Stack{}.Layout(gtx,
+		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
+			return a.borderedSurface(gtx, fluent.surface, unit.Dp(4), fluent.border, func(gtx layout.Context) layout.Dimensions {
+				return a.imageThumbCover(gtx, img, unit.Dp(56), unit.Dp(56), unit.Dp(4))
+			})
+		}),
+		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
+			return layout.NW.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return a.badge(gtx, sourceStripIndexLabel(path, kernel.ParseSourcePaths(a.sourcePathsInput.Text())), rgba(0x111111, 0xc0), fluent.white)
+			})
+		}),
+		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
+			return layout.NE.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.Inset{Right: unit.Dp(2)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return a.surfaceButton(
+						gtx,
+						btn,
+						rgba(0x111111, 0xc0),
+						rgba(0xc42b1c, 0xd8),
+						rgba(0xffffff, 0x00),
+						unit.Dp(0),
+						layout.Inset{Top: 1, Bottom: 1, Left: 4, Right: 4},
+						func(gtx layout.Context) layout.Dimensions {
+							return a.label(gtx, "×", unit.Sp(9), fluent.white, font.Medium)
+						},
+					)
+				})
+			})
+		}),
 	)
 }
 
+func (a *App) layoutSourceStripAddTile(gtx layout.Context) layout.Dimensions {
+	return a.borderedSurface(gtx, fluent.surface, unit.Dp(4), fluent.border2, func(gtx layout.Context) layout.Dimensions {
+		return a.surfaceButton(
+			gtx,
+			&a.addSourceStripButton,
+			fluent.surface,
+			fluent.surface2,
+			rgba(0xffffff, 0x00),
+			unit.Dp(4),
+			layout.Inset{},
+			func(gtx layout.Context) layout.Dimensions {
+				return fixedWidth(gtx, unit.Dp(56), func(gtx layout.Context) layout.Dimensions {
+					return fixedHeight(gtx, unit.Dp(56), func(gtx layout.Context) layout.Dimensions {
+						return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							return fixedWidth(gtx, unit.Dp(18), func(gtx layout.Context) layout.Dimensions {
+								return fixedHeight(gtx, unit.Dp(18), func(gtx layout.Context) layout.Dimensions {
+									return uiIconAdd.Layout(gtx, fluent.textDim)
+								})
+							})
+						})
+					})
+				})
+			},
+		)
+	})
+}
+
+func sourceStripIndexLabel(path string, sourcePaths []string) string {
+	for idx, value := range sourcePaths {
+		if value == path {
+			return strconv.Itoa(idx + 1)
+		}
+	}
+	return ""
+}
+
 func (a *App) resultSurface(gtx layout.Context, snap snapshot) layout.Dimensions {
+	for a.emptyStateImportButton.Clicked(gtx) {
+		paths, err := chooseImageFiles()
+		if err != nil {
+			a.appendLog("选择图片失败: " + err.Error())
+		} else if len(paths) > 0 {
+			if err := a.replaceCurrentResultWithPath(paths[0], "import"); err != nil {
+				a.appendLog("载入本地图片失败: " + err.Error())
+			}
+		}
+	}
 	gtx.Constraints.Min = gtx.Constraints.Max
 	return a.surface(gtx, fluent.canvasBg, unit.Dp(0), func(gtx layout.Context) layout.Dimensions {
 		gtx.Constraints.Min = gtx.Constraints.Max
@@ -373,14 +346,60 @@ func (a *App) resultSurface(gtx layout.Context, snap snapshot) layout.Dimensions
 				gtx.Constraints.Min = gtx.Constraints.Max
 				if snap.Result.Image == nil {
 					return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle, Gap: gtx.Dp(unit.Dp(8))}.Layout(gtx,
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return a.label(gtx, "等待生成结果", unit.Sp(18), fluent.text, font.Medium)
-							}),
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return a.label(gtx, "生成完成后，结果会常驻在这里，右侧历史也会同步记录本次输出。", unit.Sp(13), fluent.textMuted, font.Normal)
-							}),
-						)
+						return fixedWidth(gtx, unit.Dp(360), func(gtx layout.Context) layout.Dimensions {
+							return a.borderedSurface(gtx, rgba(0xffffff, 0xd8), unit.Dp(12), fluent.border, func(gtx layout.Context) layout.Dimensions {
+								return layout.UniformInset(unit.Dp(18)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+									children := []layout.FlexChild{
+										layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+											return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+												return fixedWidth(gtx, unit.Dp(52), func(gtx layout.Context) layout.Dimensions {
+													return fixedHeight(gtx, unit.Dp(52), func(gtx layout.Context) layout.Dimensions {
+														return a.borderedSurface(gtx, fluent.accentSoft, unit.Dp(10), rgba(0x005fb8, 0x18), func(gtx layout.Context) layout.Dimensions {
+															return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+																return a.imageThumb(gtx, appLogoImage(), unit.Dp(28), unit.Dp(28), unit.Dp(6))
+															})
+														})
+													})
+												})
+											})
+										}),
+										layout.Rigid(layout.Spacer{Height: unit.Dp(12)}.Layout),
+										layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+											return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+												return a.label(gtx, "还没有图片", unit.Sp(20), fluent.text, font.SemiBold)
+											})
+										}),
+									}
+									copy := "先在左侧写提示词，再开始生成第一张图。"
+									if a.mode == string(client.ModeEdit) {
+										copy = "图生图时先在左侧添加参考图，或从历史结果里挑一张继续编辑。"
+									}
+									children = append(children,
+										layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
+										layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+											return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+												return a.label(gtx, copy, unit.Sp(13), fluent.textMuted, font.Normal)
+											})
+										}),
+										layout.Rigid(layout.Spacer{Height: unit.Dp(12)}.Layout),
+										layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+											return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+												return a.staticPill(gtx, "结果会常驻在这里", true, false)
+											})
+										}),
+										layout.Rigid(layout.Spacer{Height: unit.Dp(12)}.Layout),
+										layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+											return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+												return fixedWidth(gtx, unit.Dp(184), func(gtx layout.Context) layout.Dimensions {
+													return a.primaryIconTextButton(gtx, &a.emptyStateImportButton, uiIconSource, "选择本地图片", fluent.accent, fluent.white)
+												})
+											})
+										}),
+									)
+									return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
+								})
+							})
+						})
 					})
 				}
 				if snap.Result.Rev != a.imageOpRev {
@@ -430,7 +449,11 @@ func (a *App) canvasStatusBar(gtx layout.Context, snap snapshot) layout.Dimensio
 			if snap.Running {
 				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return a.label(gtx, snap.Status, unit.Sp(11), fluent.accent, font.Medium)
+						return a.badge(gtx, "运行中", fluent.accentSoft, fluent.accent)
+					}),
+					layout.Rigid(layout.Spacer{Width: unit.Dp(12)}.Layout),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return a.label(gtx, snap.Status, unit.Sp(11), fluent.text, font.Medium)
 					}),
 					layout.Rigid(layout.Spacer{Width: unit.Dp(12)}.Layout),
 					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
@@ -454,11 +477,18 @@ func (a *App) canvasStatusBar(gtx layout.Context, snap snapshot) layout.Dimensio
 				}
 				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return a.label(gtx, headline, unit.Sp(11), fluent.accent, font.Medium)
+						return a.badge(gtx, headline, fluent.accentSoft, fluent.accent)
 					}),
 					layout.Rigid(layout.Spacer{Width: unit.Dp(12)}.Layout),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return a.label(gtx, meta, unit.Sp(11), fluent.textMuted, font.Normal)
+						return a.staticPill(gtx, meta, false, true)
+					}),
+					layout.Rigid(layout.Spacer{Width: unit.Dp(12)}.Layout),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						if snap.Result.Item.CreatedAt <= 0 {
+							return layout.Dimensions{}
+						}
+						return a.label(gtx, formatHistoryClock(snap.Result.Item.CreatedAt), unit.Sp(11), fluent.textDim, font.Normal)
 					}),
 					layout.Rigid(layout.Spacer{Width: unit.Dp(12)}.Layout),
 					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
@@ -509,10 +539,10 @@ func (a *App) layoutSavePrompt(gtx layout.Context) layout.Dimensions {
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(10))}.Layout(gtx,
 								layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-									return a.button(gtx, &a.savePromptSkipButton, "稍后", fluent.surface2, fluent.text)
+									return a.compactIconTextButton(gtx, &a.savePromptSkipButton, uiIconClose, "稍后", false)
 								}),
 								layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-									return a.button(gtx, &a.savePromptSaveButton, "保存副本", fluent.accent, fluent.white)
+									return a.primaryIconTextButton(gtx, &a.savePromptSaveButton, uiIconSave, "保存副本", fluent.accent, fluent.white)
 								}),
 							)
 						}),

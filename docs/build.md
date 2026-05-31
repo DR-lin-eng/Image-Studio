@@ -11,6 +11,8 @@
 | macOS universal | `image-studio-macos-universal.zip` | 解压后如被 Gatekeeper 拦截，可执行 `xattr -dr com.apple.quarantine "Image Studio.app"`，或右键打开。 |
 | Linux x64 | `image-studio-linux-amd64.tar.gz` | Ubuntu 24.04 / Debian 新版本使用 WebKitGTK 4.1 依赖。 |
 | Linux ARM64 | `image-studio-linux-arm64.tar.gz` | 面向 ARM64 Linux 桌面环境，依赖同 Linux x64。 |
+| Gio Windows x64 / ARM64 | `image-studio-gio-*-windows-*.exe` | 独立 Gio 原生 GUI 测试版，不使用 WebView2。 |
+| Gio Linux x64 / ARM64 | `image-studio-gio-*-linux-*.tar.gz` | 独立 Gio 原生 GUI 测试版，不使用 WebKitGTK。 |
 | Android | `image-studio-android-release.apk` | 单 APK，运行时自适应 phone/pad 布局。 |
 
 main 分支抢先测试包可从 [DR-lin-eng/Image-Studio Actions](https://github.com/DR-lin-eng/Image-Studio/actions) 下载最近成功 workflow 的 artifact。
@@ -108,6 +110,41 @@ wails build -platform linux/amd64 -clean -tags webkit2_41
 
 Ubuntu 22.04 系通常使用 `libwebkit2gtk-4.0-dev`，构建时不加 `webkit2_41` tag。
 
+## Windows / Linux Gio 测试客户端
+
+Gio 客户端位于 `gio-client/`，与 Wails/WebView2 实现独立。它复用 `go-cli/pkg/client` 请求内核，不读取 `image-studio/frontend/dist`。
+
+Windows:
+
+```bash
+cd gio-client
+go test ./...
+go build -o ../dist/image-studio-gio.exe ./cmd/image-studio-gio
+```
+
+Linux:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y \
+  pkg-config \
+  libegl1-mesa-dev \
+  libvulkan-dev \
+  libwayland-dev \
+  libx11-dev \
+  libx11-xcb-dev \
+  libxcursor-dev \
+  libxfixes-dev \
+  libxkbcommon-dev \
+  libxkbcommon-x11-dev
+
+cd gio-client
+go test ./...
+go build -o ../dist/image-studio-gio ./cmd/image-studio-gio
+```
+
+Release workflow 会单独上传 `image-studio-gio-*` artifacts，不改变现有 `image-studio-*` Wails artifacts。
+
 ## Android APK
 
 ```bash
@@ -161,6 +198,9 @@ cd image-studio
 GOPATH="../.gopath" GOMODCACHE="../.gomodcache" GOCACHE="../.gocache" go test ./...
 
 cd ../go-cli
+GOPATH="../.gopath" GOMODCACHE="../.gomodcache" GOCACHE="../.gocache" go test ./...
+
+cd ../gio-client
 GOPATH="../.gopath" GOMODCACHE="../.gomodcache" GOCACHE="../.gocache" go test ./...
 ```
 

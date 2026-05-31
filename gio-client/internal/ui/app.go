@@ -15,7 +15,9 @@ import (
 	"sync"
 	"time"
 
+	gioCompat "image-studio/gio-client/internal/compat"
 	"image-studio/gio-client/internal/kernel"
+	sharedCompat "image-studio/shared/compat"
 
 	"gioui.org/app"
 	"gioui.org/font"
@@ -47,18 +49,26 @@ var (
 		{"Images", string(client.APIModeImages)},
 	}
 	sizeChoices = []choice{
-		{"Auto", "auto"},
-		{"1:1", "1024x1024"},
-		{"3:2", "1536x1024"},
-		{"2:3", "1024x1536"},
-		{"16:9", "2048x1152"},
-		{"9:16", "1152x2048"},
+		{"自适应 auto", "auto"},
+		{"方形 1024×1024", "1024x1024"},
+		{"横版 1536×1024", "1536x1024"},
+		{"竖版 1024×1536", "1024x1536"},
+		{"2K 方形 2048×2048", "2048x2048"},
+		{"2K 横版 2048×1360", "2048x1360"},
+		{"2K 竖版 1360×2048", "1360x2048"},
+		{"2K 横版 2048×1152", "2048x1152"},
+		{"2K 竖版 1152×2048", "1152x2048"},
+		{"4K 方形 2880×2880", "2880x2880"},
+		{"4K 横版 3456×2304", "3456x2304"},
+		{"4K 竖版 2304×3456", "2304x3456"},
+		{"4K 横版 3840×2160", "3840x2160"},
+		{"4K 竖版 2160×3840", "2160x3840"},
 	}
 	qualityChoices = []choice{
-		{"Auto", "auto"},
-		{"High", "high"},
-		{"Medium", "medium"},
-		{"Low", "low"},
+		{"自适应 auto", "auto"},
+		{"高质量 high", "high"},
+		{"中等 medium", "medium"},
+		{"快速草稿 low", "low"},
 	}
 	formatChoices = []choice{
 		{"PNG", "png"},
@@ -66,13 +76,13 @@ var (
 		{"WebP", "webp"},
 	}
 	policyChoices = []choice{
-		{"OpenAI", string(client.RequestPolicyOpenAI)},
-		{"Compat", string(client.RequestPolicyCompat)},
+		{"OpenAI 标准", string(client.RequestPolicyOpenAI)},
+		{"兼容中转扩展", string(client.RequestPolicyCompat)},
 	}
 	proxyChoices = []choice{
-		{"System", client.ProxyModeSystem},
-		{"None", client.ProxyModeNone},
-		{"Custom", client.ProxyModeCustom},
+		{"系统配置", client.ProxyModeSystem},
+		{"不使用", client.ProxyModeNone},
+		{"自定义", client.ProxyModeCustom},
 	}
 )
 
@@ -89,6 +99,7 @@ type snapshot struct {
 	Running bool
 	Status  string
 	Logs    []string
+	History []sharedCompat.HistoryItem
 	Result  resultState
 }
 
@@ -98,6 +109,7 @@ type App struct {
 
 	controlsList widget.List
 	logList      widget.List
+	historyList  widget.List
 
 	apiKeyInput         widget.Editor
 	baseURLInput        widget.Editor
@@ -135,6 +147,7 @@ type App struct {
 	cancel     context.CancelFunc
 	status     string
 	logs       []string
+	history    []sharedCompat.HistoryItem
 	result     resultState
 	imageOp    paint.ImageOp
 	imageOpRev int
@@ -144,6 +157,10 @@ type App struct {
 
 func New() *App {
 	cfg := kernel.DefaultConfig()
+	compatState, compatPath, compatErr := gioCompat.LoadState()
+	if compatErr == nil {
+		cfg = gioCompat.ConfigFromState(cfg, compatState)
+	}
 	th := material.NewTheme()
 	th.Shaper = text.NewShaper(text.WithCollection(gofont.Collection()))
 	th.Palette = material.Palette{
@@ -172,9 +189,17 @@ func New() *App {
 		proxyButtons:   make([]widget.Clickable, len(proxyChoices)),
 		status:         "Gio 原生客户端就绪",
 		logs:           []string{"独立 Gio 高性能测试客户端已启动。"},
+		history:        append([]sharedCompat.HistoryItem(nil), compatState.History...),
+	}
+	if compatPath != "" {
+		a.logs = append(a.logs, "兼容状态文件: "+compatPath)
+	}
+	if compatErr != nil {
+		a.logs = append(a.logs, "兼容状态读取失败: "+compatErr.Error())
 	}
 	a.controlsList.List.Axis = layout.Vertical
 	a.logList.List.Axis = layout.Vertical
+	a.historyList.List.Axis = layout.Vertical
 	a.configureEditors(cfg)
 	return a
 }
@@ -196,10 +221,13 @@ func (a *App) configureEditors(cfg kernel.Config) {
 	a.apiKeyInput.Mask = '*'
 	a.seedInput.Filter = "0123456789"
 	a.partialImagesInput.Filter = "0123456789"
+	a.apiKeyInput.SetText(cfg.APIKey)
+	a.baseURLInput.SetText(cfg.BaseURL)
 	a.textModelInput.SetText(cfg.TextModelID)
 	a.imageModelInput.SetText(cfg.ImageModelID)
 	a.outputDirInput.SetText(cfg.OutputDir)
 	a.partialImagesInput.SetText(strconv.Itoa(cfg.PartialImages))
+	a.proxyURLInput.SetText(cfg.ProxyURL)
 	a.promptInput.SetText("")
 }
 
@@ -209,6 +237,7 @@ func (a *App) Run(w *app.Window) error {
 	for {
 		switch e := w.Event().(type) {
 		case app.DestroyEvent:
+			a.saveCurrentConfig()
 			a.cancelRun()
 			return e.Err
 		case app.FrameEvent:
@@ -280,7 +309,7 @@ func (a *App) layoutBody(gtx layout.Context) layout.Dimensions {
 		}),
 		layout.Flexed(1, a.layoutCanvas),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return fixedWidth(gtx, rightWidth, a.layoutLogs)
+			return fixedWidth(gtx, rightWidth, a.layoutHistoryAndLogs)
 		}),
 	)
 }
@@ -306,7 +335,7 @@ func (a *App) layoutControls(gtx layout.Context) layout.Dimensions {
 						return a.segmentedWithTitle(gtx, "API 形态", apiChoices, a.api, a.apiButtons, func(value string) { a.api = value })
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return a.segmentedWithTitle(gtx, "尺寸", sizeChoices, a.size, a.sizeButtons, func(value string) { a.size = value })
+						return a.segmentedGridWithTitle(gtx, "尺寸", sizeChoices, a.size, a.sizeButtons, 2, func(value string) { a.size = value })
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return a.segmentedWithTitle(gtx, "质量", qualityChoices, a.quality, a.qualityButtons, func(value string) { a.quality = value })
@@ -451,48 +480,113 @@ func (a *App) resultSurface(gtx layout.Context, snap snapshot) layout.Dimensions
 	})
 }
 
-func (a *App) layoutLogs(gtx layout.Context) layout.Dimensions {
-	snap := a.readSnapshot()
+func (a *App) layoutHistoryAndLogs(gtx layout.Context) layout.Dimensions {
 	return a.surface(gtx, rgb(0x151a22), unit.Dp(8), func(gtx layout.Context) layout.Dimensions {
 		return layout.UniformInset(unit.Dp(14)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(12))}.Layout(gtx,
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
-						layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-							return a.sectionTitle(gtx, "运行日志")
-						}),
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return fixedWidth(gtx, unit.Dp(76), func(gtx layout.Context) layout.Dimensions {
-								return a.button(gtx, &a.clearLogButton, "清空", rgb(0x202938), rgb(0xdbe7f5))
-							})
-						}),
-					)
-				}),
+				layout.Flexed(0.58, a.layoutHistory),
+				layout.Flexed(0.42, a.layoutLogs),
+			)
+		})
+	})
+}
+
+func (a *App) layoutHistory(gtx layout.Context) layout.Dimensions {
+	snap := a.readSnapshot()
+	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(10))}.Layout(gtx,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-					return a.logList.Layout(gtx, len(snap.Logs), func(gtx layout.Context, i int) layout.Dimensions {
-						idx := len(snap.Logs) - 1 - i
-						line := snap.Logs[idx]
-						return layout.Inset{Bottom: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return a.surface(gtx, rgb(0x111720), unit.Dp(6), func(gtx layout.Context) layout.Dimensions {
-								return layout.UniformInset(unit.Dp(10)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-									return a.label(gtx, line, unit.Sp(12), rgb(0xb6c3d5), font.Normal)
-								})
-							})
-						})
-					})
+					return a.sectionTitle(gtx, "历史记录")
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					raw := strings.TrimSpace(snap.Result.RawPath)
-					if raw == "" {
-						raw = "Raw response: 暂无"
-					} else {
-						raw = "Raw response: " + raw
-					}
-					return a.label(gtx, raw, unit.Sp(12), rgb(0x76859a), font.Normal)
+					return a.badge(gtx, strconv.Itoa(len(snap.History)), rgb(0x202938), rgb(0xdbeafe))
+				}),
+			)
+		}),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			if len(snap.History) == 0 {
+				return a.surface(gtx, rgb(0x111720), unit.Dp(6), func(gtx layout.Context) layout.Dimensions {
+					gtx.Constraints.Min = gtx.Constraints.Max
+					return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return a.label(gtx, "暂无历史", unit.Sp(13), rgb(0x8fa0b6), font.Normal)
+					})
+				})
+			}
+			return a.historyList.Layout(gtx, len(snap.History), func(gtx layout.Context, i int) layout.Dimensions {
+				return layout.Inset{Bottom: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return a.historyRow(gtx, snap.History[i])
+				})
+			})
+		}),
+	)
+}
+
+func (a *App) historyRow(gtx layout.Context, item sharedCompat.HistoryItem) layout.Dimensions {
+	return a.surface(gtx, rgb(0x111720), unit.Dp(6), func(gtx layout.Context) layout.Dimensions {
+		return layout.UniformInset(unit.Dp(10)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			mode := "文生图"
+			if item.Mode == string(client.ModeEdit) {
+				mode = "图生图"
+			}
+			meta := strings.Join(compactNonEmpty([]string{mode, item.Size, item.Quality, item.OutputFormat}), " · ")
+			saved := item.SavedPath
+			if saved == "" {
+				saved = "未登记保存路径"
+			}
+			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(5))}.Layout(gtx,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return a.label(gtx, shortPrompt(item.Prompt), unit.Sp(13), rgb(0xe6edf7), font.Medium)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return a.label(gtx, meta, unit.Sp(11), rgb(0x93a4b8), font.Normal)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return a.label(gtx, saved, unit.Sp(10), rgb(0x6f7f92), font.Normal)
 				}),
 			)
 		})
 	})
+}
+
+func (a *App) layoutLogs(gtx layout.Context) layout.Dimensions {
+	snap := a.readSnapshot()
+	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(10))}.Layout(gtx,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+					return a.sectionTitle(gtx, "运行日志")
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return fixedWidth(gtx, unit.Dp(76), func(gtx layout.Context) layout.Dimensions {
+						return a.button(gtx, &a.clearLogButton, "清空", rgb(0x202938), rgb(0xdbe7f5))
+					})
+				}),
+			)
+		}),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			return a.logList.Layout(gtx, len(snap.Logs), func(gtx layout.Context, i int) layout.Dimensions {
+				idx := len(snap.Logs) - 1 - i
+				line := snap.Logs[idx]
+				return layout.Inset{Bottom: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return a.surface(gtx, rgb(0x111720), unit.Dp(6), func(gtx layout.Context) layout.Dimensions {
+						return layout.UniformInset(unit.Dp(10)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							return a.label(gtx, line, unit.Sp(12), rgb(0xb6c3d5), font.Normal)
+						})
+					})
+				})
+			})
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			raw := strings.TrimSpace(snap.Result.RawPath)
+			if raw == "" {
+				raw = "Raw response: 暂无"
+			} else {
+				raw = "Raw response: " + raw
+			}
+			return a.label(gtx, raw, unit.Sp(12), rgb(0x76859a), font.Normal)
+		}),
+	)
 }
 
 func (a *App) field(gtx layout.Context, title string, editor *widget.Editor, hint string, height unit.Dp) layout.Dimensions {
@@ -528,6 +622,17 @@ func (a *App) segmentedWithTitle(gtx layout.Context, title string, options []cho
 	)
 }
 
+func (a *App) segmentedGridWithTitle(gtx layout.Context, title string, options []choice, selected string, buttons []widget.Clickable, columns int, set func(string)) layout.Dimensions {
+	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return a.label(gtx, title, unit.Sp(12), rgb(0x8fa0b6), font.Medium)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return a.segmentedGrid(gtx, options, selected, buttons, columns, set)
+		}),
+	)
+}
+
 func (a *App) segmented(gtx layout.Context, options []choice, selected string, buttons []widget.Clickable, set func(string)) layout.Dimensions {
 	children := make([]layout.FlexChild, 0, len(options))
 	for i := range options {
@@ -546,6 +651,43 @@ func (a *App) segmented(gtx layout.Context, options []choice, selected string, b
 		}))
 	}
 	return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx, children...)
+}
+
+func (a *App) segmentedGrid(gtx layout.Context, options []choice, selected string, buttons []widget.Clickable, columns int, set func(string)) layout.Dimensions {
+	if columns <= 0 {
+		columns = 2
+	}
+	rows := (len(options) + columns - 1) / columns
+	children := make([]layout.FlexChild, 0, rows)
+	for row := 0; row < rows; row++ {
+		row := row
+		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			cellChildren := make([]layout.FlexChild, 0, columns)
+			for col := 0; col < columns; col++ {
+				idx := row*columns + col
+				if idx >= len(options) {
+					cellChildren = append(cellChildren, layout.Flexed(1, layout.Spacer{}.Layout))
+					continue
+				}
+				for buttons[idx].Clicked(gtx) {
+					set(options[idx].Value)
+				}
+				cellChildren = append(cellChildren, layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+					bg := rgb(0x111720)
+					fg := rgb(0x8fa0b6)
+					if options[idx].Value == selected {
+						bg = rgb(0x2563eb)
+						fg = rgb(0xffffff)
+					}
+					return a.button(gtx, &buttons[idx], options[idx].Label, bg, fg)
+				}))
+			}
+			return layout.Inset{Bottom: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx, cellChildren...)
+			})
+		}))
+	}
+	return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
 }
 
 func (a *App) sectionTitle(gtx layout.Context, text string) layout.Dimensions {
@@ -614,6 +756,9 @@ func (a *App) startRun() {
 		return
 	}
 	cfg := a.currentConfig()
+	if err := gioCompat.SaveConfig(cfg); err != nil {
+		a.appendLog("兼容配置保存失败: " + err.Error())
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	a.mu.Lock()
 	a.running = true
@@ -649,10 +794,15 @@ func (a *App) startRun() {
 			a.finishWithError(err, res.RawPath)
 			return
 		}
+		elapsedSec := time.Since(started).Seconds()
+		if err := gioCompat.SaveConfigAndHistory(cfg, res, elapsedSec); err != nil {
+			a.appendLog("兼容历史保存失败: " + err.Error())
+		}
+		compatState, _, _ := gioCompat.LoadState()
 		a.mu.Lock()
 		a.running = false
 		a.cancel = nil
-		a.status = fmt.Sprintf("完成 · %.1fs", time.Since(started).Seconds())
+		a.status = fmt.Sprintf("完成 · %.1fs", elapsedSec)
 		a.result = resultState{
 			Image:         img,
 			SavedPath:     res.SavedPath,
@@ -661,6 +811,7 @@ func (a *App) startRun() {
 			SourceEvent:   res.SourceEvent,
 			Rev:           a.result.Rev + 1,
 		}
+		a.history = append([]sharedCompat.HistoryItem(nil), compatState.History...)
 		a.logs = appendBounded(a.logs, "生成完成: "+res.SavedPath)
 		a.mu.Unlock()
 		a.invalidateNow()
@@ -689,6 +840,12 @@ func (a *App) currentConfig() kernel.Config {
 		Seed:           seed,
 		NegativePrompt: a.negativePromptInput.Text(),
 		PartialImages:  partial,
+	}
+}
+
+func (a *App) saveCurrentConfig() {
+	if err := gioCompat.SaveConfig(a.currentConfig()); err != nil {
+		a.appendLog("兼容配置保存失败: " + err.Error())
 	}
 }
 
@@ -759,10 +916,12 @@ func (a *App) readSnapshot() snapshot {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	logs := append([]string(nil), a.logs...)
+	history := append([]sharedCompat.HistoryItem(nil), a.history...)
 	return snapshot{
 		Running: a.running,
 		Status:  a.status,
 		Logs:    logs,
+		History: history,
 		Result:  a.result,
 	}
 }
@@ -808,6 +967,17 @@ func shortPrompt(prompt string) string {
 	}
 	runes := []rune(prompt)
 	return string(runes[:40]) + "..."
+}
+
+func compactNonEmpty(items []string) []string {
+	out := make([]string, 0, len(items))
+	for _, item := range items {
+		item = strings.TrimSpace(item)
+		if item != "" {
+			out = append(out, item)
+		}
+	}
+	return out
 }
 
 func rgb(v uint32) color.NRGBA {

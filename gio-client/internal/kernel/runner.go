@@ -68,7 +68,7 @@ func DefaultConfig() Config {
 func DefaultOutputDir() string {
 	home, err := os.UserHomeDir()
 	if err == nil && strings.TrimSpace(home) != "" {
-		return filepath.Join(home, "Pictures", "Image Studio Gio")
+		return filepath.Join(home, "Pictures", "Image Studio")
 	}
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -116,6 +116,14 @@ func (Runner) Run(ctx context.Context, cfg Config, cb Callbacks) (Result, error)
 	if err := os.MkdirAll(cfg.OutputDir, 0o700); err != nil {
 		return Result{}, fmt.Errorf("创建输出目录失败:%w", err)
 	}
+	imagesDir := filepath.Join(cfg.OutputDir, "images")
+	logDir := filepath.Join(cfg.OutputDir, "log")
+	if err := os.MkdirAll(imagesDir, 0o700); err != nil {
+		return Result{}, fmt.Errorf("创建图片目录失败:%w", err)
+	}
+	if err := os.MkdirAll(logDir, 0o700); err != nil {
+		return Result{}, fmt.Errorf("创建日志目录失败:%w", err)
+	}
 
 	proxy, err := client.NormalizeProxyConfig(cfg.ProxyMode, cfg.ProxyURL)
 	if err != nil {
@@ -154,18 +162,19 @@ func (Runner) Run(ctx context.Context, cfg Config, cb Callbacks) (Result, error)
 		ctx,
 		transport,
 		opts,
-		cfg.OutputDir,
+		logDir,
 		timestamp,
 		nonNilLog(cb.Log),
 		cb.Progress,
 		cb.Partial,
 	)
 	if err != nil {
-		return Result{RawPath: rawPath}, err
+		return Result{RawPath: absPathOrRaw(rawPath)}, err
 	}
+	rawPath = absPathOrRaw(rawPath)
 
 	imageName := buildImageName(cfg.Mode, cfg.Prompt, timestamp, cfg.OutputFormat)
-	savedPath, err := saveImage(result.ImageB64, filepath.Join(cfg.OutputDir, imageName))
+	savedPath, err := saveImage(result.ImageB64, filepath.Join(imagesDir, imageName))
 	if err != nil {
 		return Result{RawPath: rawPath, ImageB64: result.ImageB64}, err
 	}
@@ -176,6 +185,17 @@ func (Runner) Run(ctx context.Context, cfg Config, cb Callbacks) (Result, error)
 		RevisedPrompt: result.RevisedPrompt,
 		SourceEvent:   result.SourceEvent,
 	}, nil
+}
+
+func absPathOrRaw(path string) string {
+	if path == "" {
+		return ""
+	}
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return path
+	}
+	return abs
 }
 
 func normalizeConfig(cfg Config) Config {
@@ -273,7 +293,7 @@ func buildImageName(mode client.Mode, prompt, timestamp, outputFormat string) st
 	}
 	slug := client.Slugify(prompt, "image")
 	ext := client.FileExtForFormat(outputFormat)
-	return fmt.Sprintf("gptcodex-%s-%s-%s.%s", prefix, slug, timestamp, ext)
+	return fmt.Sprintf("image-%s-%s-%s.%s", prefix, slug, timestamp, ext)
 }
 
 func saveImage(imageB64, outputPath string) (string, error) {

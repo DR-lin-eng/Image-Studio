@@ -9,6 +9,7 @@ It does not embed the React frontend, Wails, WebView2, or WebKitGTK. The current
 ```text
 gio-client/
 ├── cmd/image-studio-gio/      # Gio app entrypoint
+├── internal/compat/           # WebView2-compatible state bridge
 ├── internal/ui/               # Gio immediate-mode frontend
 └── internal/kernel/           # adapter around go-cli/pkg/client
 ```
@@ -16,6 +17,18 @@ gio-client/
 The UI keeps the current desktop control-panel / canvas / log-rail structure, but its frontend architecture is native Gio instead of React/CSS. Request payload construction, retry behavior, SSE parsing, Images API support, proxy handling, and default model constants remain owned by `go-cli/pkg/client`.
 
 The GUI entrypoint is built only for Windows and Linux. Other platforms compile a small unsupported stub so accidental local launches do not imply macOS support for this test client.
+
+## WebView2 Compatibility
+
+Gio and the Wails/WebView2 client share a compatibility state file:
+
+```text
+<stable data root>/compat/state.json
+```
+
+It stores non-secret settings, upstream profiles, the active profile id, prompt presets, prompt history, trusted output roots, and generation history. API keys are not written to JSON; both clients use the same OS keyring service, `Image Studio`, with `api-key:profile:<profile-id>`.
+
+On Windows the stable data root is the same registry-backed root used by WebView2, `HKCU\Software\YuanHua\Image Studio\DataRoot`, defaulting to `Documents\Image Studio`. Linux uses the user config directory at `image-studio`.
 
 ## Local Build
 
@@ -42,4 +55,4 @@ sudo apt-get install -y \
   libxkbcommon-x11-dev
 ```
 
-Generated images default to `~/Pictures/Image Studio Gio`, unless the output directory field is changed.
+Generated images default to the shared Image Studio output root unless the output directory field is changed.

@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"gioui.org/font"
 	"gioui.org/layout"
@@ -58,7 +59,7 @@ func (a *App) layoutHeader(gtx layout.Context) layout.Dimensions {
 							return a.label(gtx, "Image Studio", unit.Sp(14), fluent.text, font.SemiBold)
 						}),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return a.label(gtx, "Gio - Windows / Linux 原生客户端", unit.Sp(11), fluent.textMuted, font.Normal)
+							return a.label(gtx, "Gio - Windows / Linux 原生客户端 · 对齐 Windows Fluent 工作流", unit.Sp(11), fluent.textMuted, font.Normal)
 						}),
 					)
 				}),
@@ -86,6 +87,7 @@ func (a *App) layoutFooter(gtx layout.Context) layout.Dimensions {
 		state = "运行中"
 		dot = fluent.accent
 	}
+	todayCount := todayHistoryCount(snap.History, time.Now())
 	return a.borderedSurface(gtx, fluent.toolbar, unit.Dp(0), fluent.border, func(gtx layout.Context) layout.Dimensions {
 		gtx.Constraints.Min = gtx.Constraints.Max
 		return layout.Inset{Top: 8, Bottom: 8, Left: 14, Right: 14}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -94,7 +96,7 @@ func (a *App) layoutFooter(gtx layout.Context) layout.Dimensions {
 					return a.label(gtx, "输出目录: "+strings.TrimSpace(a.outputDirInput.Text()), unit.Sp(11), fluent.textMuted, font.Normal)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return a.label(gtx, fmt.Sprintf("总生图: %d", len(snap.History)), unit.Sp(11), fluent.textMuted, font.Medium)
+					return a.label(gtx, fmt.Sprintf("今日已生图: %d · 总生图: %d", todayCount, len(snap.History)), unit.Sp(11), fluent.textMuted, font.Medium)
 				}),
 				layout.Rigid(layout.Spacer{Width: unit.Dp(14)}.Layout),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -119,7 +121,7 @@ func (a *App) layoutFooter(gtx layout.Context) layout.Dimensions {
 func (a *App) layoutBody(gtx layout.Context) layout.Dimensions {
 	width := gtx.Constraints.Max.X
 	rightWidth := unit.Dp(320)
-	leftWidth := unit.Dp(360)
+	leftWidth := unit.Dp(372)
 	if width < gtx.Dp(unit.Dp(1180)) {
 		rightWidth = unit.Dp(300)
 		leftWidth = unit.Dp(336)

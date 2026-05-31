@@ -114,11 +114,15 @@ func (a *App) readSnapshot() snapshot {
 	defer a.mu.Unlock()
 	logs := append([]string(nil), a.logs...)
 	history := append([]sharedCompat.HistoryItem(nil), a.history...)
+	profiles := append([]sharedCompat.UpstreamProfile(nil), a.profiles...)
 	return snapshot{
 		Running:           a.running,
 		Status:            a.status,
 		Logs:              logs,
 		History:           history,
+		Profiles:          profiles,
+		ActiveProfileID:   a.activeProfileID,
+		SelectedHistoryID: a.selectedHistoryID,
 		Result:            a.result,
 		SavePromptVisible: a.savePromptVisible,
 	}

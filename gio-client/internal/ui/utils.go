@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	sharedCompat "image-studio/shared/compat"
 	_ "image/jpeg"
 	_ "image/png"
 	"io"
@@ -25,6 +26,19 @@ func decodeImageB64(imageB64 string) (image.Image, error) {
 	img, _, err := image.Decode(bytes.NewReader(data))
 	if err != nil {
 		return nil, fmt.Errorf("decode image bytes: %w", err)
+	}
+	return img, nil
+}
+
+func decodeImageFile(path string) (image.Image, error) {
+	file, err := os.Open(strings.TrimSpace(path))
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	img, _, err := image.Decode(file)
+	if err != nil {
+		return nil, fmt.Errorf("decode image file: %w", err)
 	}
 	return img, nil
 }
@@ -57,6 +71,44 @@ func compactNonEmpty(items []string) []string {
 		}
 	}
 	return out
+}
+
+func localDayStart(now time.Time) time.Time {
+	year, month, day := now.Date()
+	return time.Date(year, month, day, 0, 0, 0, 0, now.Location())
+}
+
+func matchHistoryDate(createdAt int64, filter string, now time.Time) bool {
+	switch strings.TrimSpace(filter) {
+	case "", "all":
+		return true
+	case "today":
+		return createdAt >= localDayStart(now).UnixMilli()
+	case "week":
+		return createdAt >= now.AddDate(0, 0, -7).UnixMilli()
+	default:
+		return true
+	}
+}
+
+func matchHistoryQuery(item sharedCompat.HistoryItem, query string) bool {
+	query = strings.TrimSpace(strings.ToLower(query))
+	if query == "" {
+		return true
+	}
+	candidates := []string{
+		item.Prompt,
+		item.RevisedPrompt,
+		item.SavedPath,
+		item.Size,
+		item.Quality,
+	}
+	for _, candidate := range candidates {
+		if strings.Contains(strings.ToLower(candidate), query) {
+			return true
+		}
+	}
+	return false
 }
 
 func copyImageFile(src, dst string) (string, error) {

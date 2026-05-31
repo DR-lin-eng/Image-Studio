@@ -63,6 +63,15 @@ func (a *App) startRun() {
 			a.appendLog("兼容历史保存失败: " + err.Error())
 		}
 		compatState, _, _ := gioCompat.LoadState()
+		compatState = sharedCompat.Normalize(compatState)
+		selectedItem, hasSelected := historyItemBySavedPath(compatState.History, res.SavedPath)
+		if !hasSelected {
+			selectedItem, hasSelected = newestHistoryItem(compatState.History)
+		}
+		activeProfileID := ""
+		if profile, ok := gioCompat.ActiveProfile(compatState); ok {
+			activeProfileID = profile.ID
+		}
 		a.mu.Lock()
 		a.running = false
 		a.cancel = nil
@@ -73,9 +82,16 @@ func (a *App) startRun() {
 			RawPath:       res.RawPath,
 			RevisedPrompt: res.RevisedPrompt,
 			SourceEvent:   res.SourceEvent,
+			Item:          selectedItem,
+			HasItem:       hasSelected,
 			Rev:           a.result.Rev + 1,
 		}
 		a.history = append([]sharedCompat.HistoryItem(nil), compatState.History...)
+		a.profiles = append([]sharedCompat.UpstreamProfile(nil), compatState.Profiles...)
+		a.activeProfileID = activeProfileID
+		if hasSelected {
+			a.selectedHistoryID = selectedItem.ID
+		}
 		if !a.savePromptSuppressed && res.SavedPath != "" {
 			a.savePromptVisible = true
 			a.savePromptSourcePath = res.SavedPath

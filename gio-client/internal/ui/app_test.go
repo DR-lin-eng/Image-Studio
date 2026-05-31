@@ -4,6 +4,9 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
+
+	sharedCompat "image-studio/shared/compat"
 )
 
 func TestCopyImageFileCopiesToExplicitPath(t *testing.T) {
@@ -46,5 +49,35 @@ func TestCopyImageFileDirectoryTargetKeepsSourceName(t *testing.T) {
 	want := filepath.Join(targetDir, "source.webp")
 	if saved != want {
 		t.Fatalf("saved=%q want %q", saved, want)
+	}
+}
+
+func TestMatchHistoryQueryMatchesPromptAndPath(t *testing.T) {
+	item := sharedCompat.HistoryItem{
+		Prompt:        "生成一张雪山海报",
+		RevisedPrompt: "cinematic snow mountain poster",
+		SavedPath:     "/tmp/snow.png",
+		Size:          "1024x1024",
+		Quality:       "high",
+	}
+	if !matchHistoryQuery(item, "雪山") {
+		t.Fatalf("expected prompt match")
+	}
+	if !matchHistoryQuery(item, "snow.png") {
+		t.Fatalf("expected path match")
+	}
+	if matchHistoryQuery(item, "desert") {
+		t.Fatalf("unexpected query match")
+	}
+}
+
+func TestTodayHistoryCountUsesLocalDayBoundary(t *testing.T) {
+	now := time.Date(2026, time.May, 31, 15, 4, 0, 0, time.Local)
+	items := []sharedCompat.HistoryItem{
+		{ID: "a", CreatedAt: now.Add(-2 * time.Hour).UnixMilli()},
+		{ID: "b", CreatedAt: now.Add(-26 * time.Hour).UnixMilli()},
+	}
+	if got := todayHistoryCount(items, now); got != 1 {
+		t.Fatalf("todayHistoryCount=%d want 1", got)
 	}
 }

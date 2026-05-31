@@ -11,7 +11,7 @@ import (
 func (a *App) field(gtx layout.Context, title string, editor *widget.Editor, hint string, height unit.Dp) layout.Dimensions {
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return a.label(gtx, title, unit.Sp(12), fluent.textMuted, font.Medium)
+			return a.label(gtx, title, unit.Sp(11), fluent.textMuted, font.Medium)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return fixedHeight(gtx, height, func(gtx layout.Context) layout.Dimensions {
@@ -28,6 +28,21 @@ func (a *App) field(gtx layout.Context, title string, editor *widget.Editor, hin
 			})
 		}),
 	)
+}
+
+func (a *App) searchField(gtx layout.Context, editor *widget.Editor, hint string) layout.Dimensions {
+	return fixedHeight(gtx, unit.Dp(34), func(gtx layout.Context) layout.Dimensions {
+		return a.borderedSurface(gtx, fluent.surface, unit.Dp(4), fluent.border2, func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{Top: 8, Bottom: 8, Left: 10, Right: 10}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				style := material.Editor(a.th, editor, hint)
+				style.Color = fluent.text
+				style.HintColor = fluent.textDim
+				style.SelectionColor = rgba(0x005fb8, 0x3d)
+				style.TextSize = unit.Sp(12)
+				return style.Layout(gtx)
+			})
+		})
+	})
 }
 
 func (a *App) segmentedWithTitle(gtx layout.Context, title string, options []choice, selected string, buttons []widget.Clickable, set func(string)) layout.Dimensions {
@@ -60,13 +75,21 @@ func (a *App) segmented(gtx layout.Context, options []choice, selected string, b
 			set(options[i].Value)
 		}
 		children = append(children, layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			bg := fluent.surface
-			fg := fluent.textMuted
-			if options[i].Value == selected {
-				bg = fluent.accentSoft
-				fg = fluent.accent
-			}
-			return a.button(gtx, &buttons[i], options[i].Label, bg, fg)
+			active := options[i].Value == selected
+			return a.surfaceButton(
+				gtx,
+				&buttons[i],
+				chooseColor(active, fluent.accentSoft, fluent.surface),
+				chooseColor(active, rgba(0x005fb8, 0x28), fluent.surface2),
+				fluent.border,
+				unit.Dp(4),
+				layout.Inset{Top: 9, Bottom: 9, Left: 8, Right: 8},
+				func(gtx layout.Context) layout.Dimensions {
+					return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return a.label(gtx, options[i].Label, unit.Sp(11), chooseColor(active, fluent.accent, fluent.textMuted), font.Medium)
+					})
+				},
+			)
 		}))
 	}
 	return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx, children...)
@@ -92,13 +115,21 @@ func (a *App) segmentedGrid(gtx layout.Context, options []choice, selected strin
 					set(options[idx].Value)
 				}
 				cellChildren = append(cellChildren, layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-					bg := fluent.surface
-					fg := fluent.textMuted
-					if options[idx].Value == selected {
-						bg = fluent.accentSoft
-						fg = fluent.accent
-					}
-					return a.button(gtx, &buttons[idx], options[idx].Label, bg, fg)
+					active := options[idx].Value == selected
+					return a.surfaceButton(
+						gtx,
+						&buttons[idx],
+						chooseColor(active, fluent.accentSoft, fluent.surface),
+						chooseColor(active, rgba(0x005fb8, 0x28), fluent.surface2),
+						fluent.border,
+						unit.Dp(4),
+						layout.Inset{Top: 9, Bottom: 9, Left: 8, Right: 8},
+						func(gtx layout.Context) layout.Dimensions {
+							return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								return a.label(gtx, options[idx].Label, unit.Sp(11), chooseColor(active, fluent.accent, fluent.textMuted), font.Medium)
+							})
+						},
+					)
 				}))
 			}
 			return layout.Inset{Bottom: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {

@@ -33,6 +33,7 @@ Image Studio 面向 OpenAI 兼容图像上游，解决长时间图像推理在 C
 |---|---|
 | 功能清单、平台能力、快捷键 | [docs/features.md](./docs/features.md) |
 | 下载、源码构建、Android APK、验证脚本、CI 产物 | [docs/build.md](./docs/build.md) |
+| Gio 高性能测试客户端 | [docs/gio-client.md](./docs/gio-client.md) |
 | 首次配置、API 形态选择、参数策略 | [docs/usage.md](./docs/usage.md) |
 | 数据存储位置、524/504、模型权限、字段兼容问题 | [docs/troubleshooting.md](./docs/troubleshooting.md) |
 | 仓库结构、前端分层、内核/Worker/Android 关系 | [docs/project-structure.md](./docs/project-structure.md) |
@@ -51,8 +52,10 @@ Image Studio 面向 OpenAI 兼容图像上游，解决长时间图像推理在 C
 | 图像编辑器 | 多参考图、蒙版、标注、旋转、翻转、裁剪、历史对比、复制粘贴、撤销重做。 |
 | 多 workspace | 每个标签独立保存 prompt、参数、源图与当前画板状态。 |
 | 平台化 UI | macOS Apple 风格、Windows Fluent 风格、Linux 通用桌面风格、Android Material 3 phone/pad 自适应壳层。 |
+| Gio 测试客户端 | Windows / Linux 可单独构建 Gio 原生 GUI 测试版，不影响当前 Wails / WebView2 实现。 |
 | 本地数据 | API Key、历史、图片和日志默认都保存在本机；外部请求只发往你配置的上游 BASE_URL。 |
 | 原始提示词 | Responses API 请求默认要求文本模型把用户 prompt 原样交给图像工具。 |
+
 ## 安装
 
 稳定版本到 [Releases](https://github.com/RoseKhlifa/Image-Studio/releases) 下载。当前发布链路会产出:
@@ -62,6 +65,10 @@ Image Studio 面向 OpenAI 兼容图像上游，解决长时间图像推理在 C
 - `image-studio-macos-universal.zip`
 - `image-studio-linux-amd64.tar.gz`
 - `image-studio-linux-arm64.tar.gz`
+- `image-studio-gio-*-windows-amd64.exe`
+- `image-studio-gio-*-windows-arm64.exe`
+- `image-studio-gio-*-linux-amd64.tar.gz`
+- `image-studio-gio-*-linux-arm64.tar.gz`
 - `image-studio-android-release.apk`
 
 源码构建、平台依赖、Android APK、验证脚本见 [构建文档](./docs/build.md)。

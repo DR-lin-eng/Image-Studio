@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   Download, Folder, FolderEdit, Github, Info, KeyRound,
-  MessageSquare, Monitor, Moon, Network, RotateCw, Sun, Trash2, Upload,
+  MessageSquare, Monitor, Moon, Network, RotateCw, Save, Sun, Trash2, Upload,
 } from "lucide-react";
 import { useStudioStore } from "../../state/studioStore";
 import {
@@ -37,6 +37,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
     apiKey, baseURL, apiMode,
     profiles, activeProfileId, setActiveProfile,
     openUpstreamConfig, testAPIKey, isTestingKey,
+    savePromptSuppressed, setSavePromptSuppressed,
   } = useStudioStore();
 
   const [outputDir, setOutputDir] = useState("");
@@ -79,6 +80,12 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
     openExternalURLForPlatform(url, OpenExternalURL).catch(() => undefined);
   }
 
+  function updateSavePromptSuppressed(value: boolean) {
+    setSavePromptSuppressed(value);
+    scheduleCompatibilityExport(useStudioStore.getState());
+    pushToast(value ? "已关闭生成后保存提示" : "已开启生成后保存提示", "success");
+  }
+
   function closeSettings() {
     setAboutOpen(false);
     onClose();
@@ -111,6 +118,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
       onSetFontScale={setFontScale}
       onSetKernelRuntimeMode={(value) => setField("kernelRuntimeMode", value)}
       onSetProxyConfig={setProxyConfig}
+      onSetSavePromptSuppressed={updateSavePromptSuppressed}
       onSetTheme={setTheme}
       openOutputLocation={openOutputLocation}
       outputLabel={outputLabel}
@@ -118,6 +126,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
       proxyMode={proxyMode}
       proxyURL={proxyURL}
       pruneHistory={(days) => void pruneHistory(days)}
+      savePromptSuppressed={savePromptSuppressed}
       surface={isAndroidPad ? "pad" : "phone"}
       testAPIKey={() => void testAPIKey()}
       theme={theme}
@@ -236,6 +245,20 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
                 </button>
               </div>
             )}
+          </SettingsRow>
+
+          <SettingsRow label="生成后保存提示">
+            <div className={`platform-seg flex flex-wrap gap-1 bg-black/[0.04] p-0.5 ring-1 ring-black/[0.05] dark:bg-white/[0.06] dark:ring-white/[0.06] ${usesFluentUI ? "rounded-[10px]" : "rounded-[18px]"}`}>
+              <SettingsSegButton active={!savePromptSuppressed} onClick={() => updateSavePromptSuppressed(false)}>
+                <Save className="w-3 h-3" /> 提示
+              </SettingsSegButton>
+              <SettingsSegButton active={savePromptSuppressed} onClick={() => updateSavePromptSuppressed(true)}>
+                不提示
+              </SettingsSegButton>
+            </div>
+            <p className="mt-1 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-300">
+              生成完成后询问是否另存到指定位置。
+            </p>
           </SettingsRow>
 
           <SettingsRow label="主题">

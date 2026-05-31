@@ -1,0 +1,137 @@
+package ui
+
+import (
+	"strings"
+
+	gioCompat "image-studio/gio-client/internal/compat"
+	sharedCompat "image-studio/shared/compat"
+)
+
+func (a *App) saveCurrentConfig() {
+	if err := gioCompat.SaveConfig(a.currentConfig()); err != nil {
+		a.appendLog("兼容配置保存失败: " + err.Error())
+	}
+}
+
+func (a *App) cancelRun() {
+	a.mu.Lock()
+	cancel := a.cancel
+	if cancel != nil {
+		a.cancel = nil
+		a.running = false
+		a.status = "已取消"
+		a.logs = appendBounded(a.logs, "任务已取消")
+	}
+	a.mu.Unlock()
+	if cancel != nil {
+		cancel()
+		a.invalidateNow()
+	}
+}
+
+func (a *App) finishWithError(err error, rawPath string) {
+	a.mu.Lock()
+	a.running = false
+	a.cancel = nil
+	a.status = "失败"
+	if rawPath != "" {
+		a.result.RawPath = rawPath
+	}
+	a.logs = appendBounded(a.logs, "失败: "+err.Error())
+	a.mu.Unlock()
+	a.invalidateNow()
+}
+
+func (a *App) finishCancelled() {
+	a.mu.Lock()
+	a.running = false
+	a.cancel = nil
+	a.status = "已取消"
+	a.mu.Unlock()
+	a.invalidateNow()
+}
+
+func (a *App) appendLog(line string) {
+	line = strings.TrimSpace(line)
+	if line == "" {
+		return
+	}
+	a.mu.Lock()
+	a.logs = appendBounded(a.logs, line)
+	a.mu.Unlock()
+	a.invalidateNow()
+}
+
+func (a *App) setStatus(status string) {
+	a.mu.Lock()
+	a.status = status
+	a.mu.Unlock()
+	a.invalidateNow()
+}
+
+func (a *App) clearLogs() {
+	a.mu.Lock()
+	a.logs = nil
+	a.mu.Unlock()
+	a.invalidateNow()
+}
+
+func (a *App) closeSavePrompt() {
+	a.mu.Lock()
+	a.savePromptVisible = false
+	a.savePromptSourcePath = ""
+	a.mu.Unlock()
+	a.invalidateNow()
+}
+
+func (a *App) setSavePromptSuppressed(value bool) {
+	a.mu.Lock()
+	a.savePromptSuppressed = value
+	a.savePromptNeverAsk.Value = value
+	a.mu.Unlock()
+	if err := gioCompat.SetSavePromptSuppressed(value); err != nil {
+		a.appendLog("保存提示设置失败: " + err.Error())
+	}
+	a.invalidateNow()
+}
+
+func (a *App) savePromptCopy() {
+	a.mu.Lock()
+	src := a.savePromptSourcePath
+	dst := a.savePromptPathInput.Text()
+	a.mu.Unlock()
+	saved, err := copyImageFile(src, dst)
+	if err != nil {
+		a.appendLog("另存失败: " + err.Error())
+		return
+	}
+	a.appendLog("已另存图片: " + saved)
+	a.closeSavePrompt()
+}
+
+func (a *App) readSnapshot() snapshot {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	logs := append([]string(nil), a.logs...)
+	history := append([]sharedCompat.HistoryItem(nil), a.history...)
+	return snapshot{
+		Running:           a.running,
+		Status:            a.status,
+		Logs:              logs,
+		History:           history,
+		Result:            a.result,
+		SavePromptVisible: a.savePromptVisible,
+	}
+}
+
+func (a *App) isRunning() bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.running
+}
+
+func (a *App) invalidateNow() {
+	if a.invalidate != nil {
+		a.invalidate()
+	}
+}

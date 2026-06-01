@@ -13,6 +13,7 @@ import (
 
 	"gioui.org/font"
 	"gioui.org/layout"
+	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/unit"
@@ -170,8 +171,8 @@ func (a *App) canvasToolbar(gtx layout.Context, snap snapshot) layout.Dimensions
 					if !hasCanvasResult {
 						return layout.Dimensions{}
 					}
-					return layout.Inset{Left: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return a.staticPill(gtx, "浏览", false, true)
+					return layout.Inset{Left: unit.Dp(8), Right: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return a.toolbarSeparator(gtx)
 					})
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -218,26 +219,39 @@ func (a *App) canvasToolbar(gtx layout.Context, snap snapshot) layout.Dimensions
 					if len(children) == 0 {
 						return layout.Dimensions{}
 					}
-					return layout.Inset{Left: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return a.toolbarCluster(gtx, func(gtx layout.Context) layout.Dimensions {
-							return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(4))}.Layout(gtx, children...)
-						})
-					})
+					return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return layout.Inset{Left: unit.Dp(8), Right: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								return a.toolbarSeparator(gtx)
+							})
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return a.toolbarCluster(gtx, func(gtx layout.Context) layout.Dimensions {
+								return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(4))}.Layout(gtx, children...)
+							})
+						}),
+					)
 				}),
 				layout.Flexed(1, layout.Spacer{}.Layout),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					if !snap.Result.HasItem {
 						return layout.Dimensions{}
 					}
-					return a.toolbarCluster(gtx, func(gtx layout.Context) layout.Dimensions {
-						return a.metaBadgeRow(gtx, compactNonEmpty([]string{
-							chooseModeLabel(snap.Result.Item.Mode),
-							sizeDisplayLabel(snap.Result.Item.Size),
-							qualityDisplayLabel(snap.Result.Item.Quality),
-						}), true)
-					})
+					return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return a.metaBadgeRow(gtx, compactNonEmpty([]string{
+								chooseModeLabel(snap.Result.Item.Mode),
+								sizeDisplayLabel(snap.Result.Item.Size),
+								qualityDisplayLabel(snap.Result.Item.Quality),
+							}), true)
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return layout.Inset{Left: unit.Dp(8), Right: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								return a.toolbarSeparator(gtx)
+							})
+						}),
+					)
 				}),
-				layout.Rigid(layout.Spacer{Width: unit.Dp(8)}.Layout),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					children := []layout.FlexChild{}
 					children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -772,11 +786,6 @@ func (a *App) canvasStatusBar(gtx layout.Context, snap snapshot) layout.Dimensio
 									return a.label(gtx, chooseStatusText(snap.Status), unit.Sp(11), fluent.text, font.Medium)
 								})
 							}),
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return layout.Inset{Left: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-									return a.staticPill(gtx, time.Now().Format("15:04"), false, true)
-								})
-							}),
 							layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 								if strings.TrimSpace(lastLog) == "" {
 									return layout.Dimensions{}
@@ -789,9 +798,7 @@ func (a *App) canvasStatusBar(gtx layout.Context, snap snapshot) layout.Dimensio
 					}),
 					layout.Stacked(func(gtx layout.Context) layout.Dimensions {
 						return layout.S.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return fixedHeight(gtx, unit.Dp(2), func(gtx layout.Context) layout.Dimensions {
-								return a.surface(gtx, accentAlpha(0x58), 0, layout.Spacer{}.Layout)
-							})
+							return a.layoutRunningStatusProgressBar(gtx)
 						})
 					}),
 				)
@@ -855,6 +862,36 @@ func (a *App) canvasStatusBar(gtx layout.Context, snap snapshot) layout.Dimensio
 				}),
 			)
 		})
+	})
+}
+
+func (a *App) layoutRunningStatusProgressBar(gtx layout.Context) layout.Dimensions {
+	gtx.Execute(op.InvalidateCmd{At: gtx.Now.Add(50 * time.Millisecond)})
+	return fixedHeight(gtx, unit.Dp(2), func(gtx layout.Context) layout.Dimensions {
+		size := gtx.Constraints.Min
+		if size.X == 0 {
+			size.X = gtx.Constraints.Max.X
+		}
+		if size.Y == 0 {
+			size.Y = gtx.Dp(unit.Dp(2))
+		}
+		paint.FillShape(gtx.Ops, withAlpha(fluent.accent, 0x18), clip.Rect(image.Rect(0, 0, size.X, size.Y)).Op())
+
+		segmentWidth := max(size.X/3, gtx.Dp(unit.Dp(72)))
+		if segmentWidth > size.X {
+			segmentWidth = size.X
+		}
+		cycle := int64(1500)
+		phase := float32(gtx.Now.UnixMilli()%cycle) / float32(cycle)
+		travel := size.X + segmentWidth
+		startX := int(float32(travel)*phase) - segmentWidth
+		endX := startX + segmentWidth
+		startX = clampInt(startX, 0, size.X)
+		endX = clampInt(endX, 0, size.X)
+		if endX > startX {
+			paintLinearGradient(gtx, image.Rect(startX, 0, endX, size.Y), 0, fluent.accent, fluent.accent2)
+		}
+		return layout.Dimensions{Size: size}
 	})
 }
 

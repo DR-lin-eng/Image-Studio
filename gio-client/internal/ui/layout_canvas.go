@@ -694,20 +694,20 @@ func (a *App) layoutBatchGridTile(gtx layout.Context, item sharedCompat.HistoryI
 func (a *App) layoutCanvasEmptyState(gtx layout.Context) layout.Dimensions {
 	copy := "先在左侧写提示词，再开始生成第一张图。"
 	if a.mode == string(client.ModeEdit) {
-		copy = "图生图时可先添加参考图，或从历史结果里挑一张继续编辑。"
+		copy = "图生图时可直接导入一张本地图片，或从历史结果里挑一张继续编辑。"
 	}
-	return fixedWidth(gtx, unit.Dp(360), func(gtx layout.Context) layout.Dimensions {
-		return a.borderedSurface(gtx, fluent.surface, unit.Dp(8), fluent.border, func(gtx layout.Context) layout.Dimensions {
-			return layout.UniformInset(unit.Dp(22)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+	return fixedWidth(gtx, unit.Dp(380), func(gtx layout.Context) layout.Dimensions {
+		return a.elevatedBorderedSurface(gtx, fluent.surface, unit.Dp(16), fluent.border, image.Pt(0, 4), func(gtx layout.Context) layout.Dimensions {
+			return layout.UniformInset(unit.Dp(28)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return fixedWidth(gtx, unit.Dp(60), func(gtx layout.Context) layout.Dimensions {
-								return fixedHeight(gtx, unit.Dp(60), func(gtx layout.Context) layout.Dimensions {
-									return a.borderedSurface(gtx, fluent.accentSoft, unit.Dp(8), accentAlpha(0x22), func(gtx layout.Context) layout.Dimensions {
+							return fixedWidth(gtx, unit.Dp(64), func(gtx layout.Context) layout.Dimensions {
+								return fixedHeight(gtx, unit.Dp(64), func(gtx layout.Context) layout.Dimensions {
+									return a.borderedSurface(gtx, fluent.accentSoft, unit.Dp(14), accentAlpha(0x22), func(gtx layout.Context) layout.Dimensions {
 										return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-											return fixedWidth(gtx, unit.Dp(24), func(gtx layout.Context) layout.Dimensions {
-												return fixedHeight(gtx, unit.Dp(24), func(gtx layout.Context) layout.Dimensions {
+											return fixedWidth(gtx, unit.Dp(26), func(gtx layout.Context) layout.Dimensions {
+												return fixedHeight(gtx, unit.Dp(26), func(gtx layout.Context) layout.Dimensions {
 													return uiIconPhoto.Layout(gtx, fluent.accent)
 												})
 											})
@@ -717,26 +717,46 @@ func (a *App) layoutCanvasEmptyState(gtx layout.Context) layout.Dimensions {
 							})
 						})
 					}),
-					layout.Rigid(layout.Spacer{Height: unit.Dp(14)}.Layout),
+					layout.Rigid(layout.Spacer{Height: unit.Dp(16)}.Layout),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 							return a.label(gtx, "还没有图片", unit.Sp(18), fluent.text, font.SemiBold)
 						})
 					}),
-					layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
+					layout.Rigid(layout.Spacer{Height: unit.Dp(6)}.Layout),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return fixedWidth(gtx, unit.Dp(288), func(gtx layout.Context) layout.Dimensions {
+							return fixedWidth(gtx, unit.Dp(304), func(gtx layout.Context) layout.Dimensions {
 								return a.label(gtx, copy, unit.Sp(12), fluent.textMuted, font.Normal)
 							})
 						})
 					}),
-					layout.Rigid(layout.Spacer{Height: unit.Dp(16)}.Layout),
+					layout.Rigid(layout.Spacer{Height: unit.Dp(18)}.Layout),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return fixedWidth(gtx, unit.Dp(188), func(gtx layout.Context) layout.Dimensions {
-								return a.compactIconTextButton(gtx, &a.emptyStateImportButton, uiIconSource, "选择本地图片", false)
-							})
+							return a.surfaceButton(
+								gtx,
+								&a.emptyStateImportButton,
+								withAlpha(fluent.surface, 0xb8),
+								fluent.surface2,
+								fluent.border,
+								unit.Dp(10),
+								layout.Inset{Top: 10, Bottom: 10, Left: 14, Right: 14},
+								func(gtx layout.Context) layout.Dimensions {
+									return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx,
+										layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+											return fixedWidth(gtx, unit.Dp(14), func(gtx layout.Context) layout.Dimensions {
+												return fixedHeight(gtx, unit.Dp(14), func(gtx layout.Context) layout.Dimensions {
+													return uiIconSource.Layout(gtx, fluent.textMuted)
+												})
+											})
+										}),
+										layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+											return a.label(gtx, "选择本地图片", unit.Sp(12), fluent.textMuted, font.Medium)
+										}),
+									)
+								},
+							)
 						})
 					}),
 				)

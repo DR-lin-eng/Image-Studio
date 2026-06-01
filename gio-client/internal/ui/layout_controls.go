@@ -248,7 +248,7 @@ func (a *App) layoutPromptCard(gtx layout.Context) layout.Dimensions {
 							return a.sectionEyebrow(gtx, title)
 						}),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return a.staticPill(gtx, fmt.Sprintf("%d", promptLen), false, true)
+							return a.monoLabel(gtx, fmt.Sprintf("%d", promptLen), unit.Sp(11), fluent.textDim, font.Normal)
 						}),
 					)
 				}),
@@ -280,7 +280,7 @@ func (a *App) layoutPromptCard(gtx layout.Context) layout.Dimensions {
 						}),
 						layout.Flexed(1, layout.Spacer{}.Layout),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return a.staticPill(gtx, "Ctrl+Enter", false, true)
+							return a.monoLabel(gtx, "Ctrl+Enter", unit.Sp(11), fluent.textDim, font.Normal)
 						}),
 					)
 				}),
@@ -331,7 +331,7 @@ func (a *App) layoutPromptHelperPanel(gtx layout.Context, presets []sharedCompat
 			})
 		})
 	}
-	return fixedHeight(gtx, unit.Dp(264), func(gtx layout.Context) layout.Dimensions {
+	return fixedHeight(gtx, unit.Dp(300), func(gtx layout.Context) layout.Dimensions {
 		return a.promptHelperList.Layout(gtx, len(items), func(gtx layout.Context, index int) layout.Dimensions {
 			item := items[index]
 			return layout.Inset{Bottom: unit.Dp(6)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -357,14 +357,6 @@ func (a *App) layoutPromptHelperInline(gtx layout.Context, presets []sharedCompa
 				return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(8))}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return fixedWidth(gtx, unit.Dp(14), func(gtx layout.Context) layout.Dimensions {
-									return fixedHeight(gtx, unit.Dp(14), func(gtx layout.Context) layout.Dimensions {
-										return uiIconHistory.Layout(gtx, fluent.accent)
-									})
-								})
-							}),
-							layout.Rigid(layout.Spacer{Width: unit.Dp(6)}.Layout),
 							layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 								return a.layoutPromptHelperTabs(gtx, len(presets), len(suggestions))
 							}),
@@ -431,10 +423,6 @@ func (a *App) layoutPromptHelperTabs(gtx layout.Context, presetCount int, histor
 		return layout.UniformInset(unit.Dp(2)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(2))}.Layout(gtx,
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-					label := "模板"
-					if presetCount > 0 {
-						label = fmt.Sprintf("模板 %d", presetCount)
-					}
 					return a.surfaceButton(
 						gtx,
 						&a.promptHelperTemplatesButton,
@@ -445,13 +433,13 @@ func (a *App) layoutPromptHelperTabs(gtx layout.Context, presetCount int, histor
 						layout.Inset{Top: 8, Bottom: 8, Left: 10, Right: 10},
 						func(gtx layout.Context) layout.Dimensions {
 							return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-								return a.label(gtx, label, unit.Sp(11), chooseColor(a.promptHelperTab != "history", fluent.text, fluent.textMuted), chooseFontWeight(a.promptHelperTab != "history"))
+								return a.label(gtx, "模板", unit.Sp(11), chooseColor(a.promptHelperTab != "history", fluent.text, fluent.textMuted), chooseFontWeight(a.promptHelperTab != "history"))
 							})
 						},
 					)
 				}),
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-					label := fmt.Sprintf("历史 %d", historyCount)
+					label := fmt.Sprintf("历史 (%d)", historyCount)
 					return a.surfaceButton(
 						gtx,
 						&a.promptHelperHistoryButton,
@@ -481,7 +469,7 @@ func (a *App) layoutPromptHelperItem(gtx layout.Context, buttonID string, item p
 		fluent.accentSoft,
 		rgba(0xffffff, 0x00),
 		unit.Dp(10),
-		layout.Inset{Top: 10, Bottom: 10, Left: 10, Right: 10},
+		layout.Inset{Top: 12, Bottom: 12, Left: 10, Right: 10},
 		func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(4))}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {

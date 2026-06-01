@@ -246,6 +246,13 @@ func (a *App) layoutUpstreamCard(gtx layout.Context, snap snapshot) layout.Dimen
 						return a.singleLineLabel(gtx, apiModeLabel+" · "+strings.TrimSpace(a.baseURLInput.Text()), unit.Sp(11), fluent.textDim, font.Normal)
 					}),
 				)
+			} else {
+				children = append(children,
+					layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return a.singleLineLabel(gtx, apiModeLabel, unit.Sp(11), fluent.textDim, font.Normal)
+					}),
+				)
 			}
 			children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(10)}.Layout))
 			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -294,7 +301,7 @@ func (a *App) layoutUpstreamCard(gtx layout.Context, snap snapshot) layout.Dimen
 func (a *App) layoutProfilePickerOverlay(gtx layout.Context, snap snapshot) layout.Dimensions {
 	return a.borderedSurface(gtx, fluent.surface, fluentControlRadius, fluent.border, func(gtx layout.Context) layout.Dimensions {
 		return layout.UniformInset(unit.Dp(6)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			rows := make([]layout.FlexChild, 0, len(snap.Profiles))
+			rows := make([]layout.FlexChild, 0, len(snap.Profiles)+2)
 			for idx, profile := range snap.Profiles {
 				profile := profile
 				rows = append(rows, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -303,6 +310,14 @@ func (a *App) layoutProfilePickerOverlay(gtx layout.Context, snap snapshot) layo
 				if idx != len(snap.Profiles)-1 {
 					rows = append(rows, layout.Rigid(layout.Spacer{Height: unit.Dp(4)}.Layout))
 				}
+			}
+			if len(snap.Profiles) > 0 {
+				rows = append(rows,
+					layout.Rigid(layout.Spacer{Height: unit.Dp(6)}.Layout),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return a.compactIconTextButton(gtx, &a.upstreamConfigButton, uiIconSettings, "管理配置...", false)
+					}),
+				)
 			}
 			return layout.Flex{Axis: layout.Vertical}.Layout(gtx, rows...)
 		})
@@ -371,7 +386,11 @@ func (a *App) layoutHistorySummaryCard(
 						)
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return a.compactButton(gtx, &a.historyCollapseButton, chooseHistoryCollapseLabel(a.historyRailCollapsed), a.historyRailCollapsed)
+						icon := uiIconCollapse
+						if a.historyRailCollapsed {
+							icon = uiIconExpand
+						}
+						return a.compactIconTextButton(gtx, &a.historyCollapseButton, icon, chooseHistoryCollapseLabel(a.historyRailCollapsed), a.historyRailCollapsed)
 					}),
 				)
 			}),

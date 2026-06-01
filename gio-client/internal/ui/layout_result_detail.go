@@ -87,7 +87,18 @@ func (a *App) layoutResultDetailPreview(gtx layout.Context, item sharedCompat.Hi
 	return a.card(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(10))}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return a.imageThumb(gtx, img, unit.Dp(248), unit.Dp(248), unit.Dp(8))
+				return a.borderedSurface(gtx, fluent.surface, unit.Dp(10), fluent.border, func(gtx layout.Context) layout.Dimensions {
+					return layout.UniformInset(unit.Dp(8)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return a.imageThumb(gtx, img, unit.Dp(248), unit.Dp(248), unit.Dp(8))
+					})
+				})
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return a.metaBadgeRow(gtx, compactNonEmpty([]string{
+					chooseModeLabel(item.Mode),
+					item.Size,
+					item.Quality,
+				}), true)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				if strings.TrimSpace(item.SavedPath) == "" {
@@ -99,30 +110,30 @@ func (a *App) layoutResultDetailPreview(gtx layout.Context, item sharedCompat.Hi
 				if strings.TrimSpace(item.SavedPath) == "" {
 					return layout.Dimensions{}
 				}
-				return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx,
+				return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(8))}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx,
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return a.compactButton(gtx, &a.resultDetailUseSourceButton, "设为源图", true)
+								return a.compactIconTextButton(gtx, &a.resultDetailSaveAsButton, uiIconSave, "另存为", false)
 							}),
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return a.compactButton(gtx, &a.resultDetailSaveAsButton, "另存为", false)
+								return a.compactIconTextButton(gtx, &a.resultDetailOpenPathButton, uiIconFolder, "打开文件夹", false)
 							}),
 						)
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx,
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return a.compactButton(gtx, &a.resultDetailOpenPathButton, "打开文件夹", false)
+								return a.compactIconTextButton(gtx, &a.resultDetailUseSourceButton, uiIconSource, "设为源图", true)
 							}),
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return a.compactButton(gtx, &a.resultDetailCopyPathButton, "复制路径", false)
+								return a.compactIconTextButton(gtx, &a.resultDetailCopyPathButton, uiIconCopy, "复制路径", false)
 							}),
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 								if strings.TrimSpace(item.ID) == "" {
 									return layout.Dimensions{}
 								}
-								return a.compactButton(gtx, &a.resultDetailDeleteButton, "删除历史", false)
+								return a.compactIconTextButton(gtx, &a.resultDetailDeleteButton, uiIconDelete, "删除历史", false)
 							}),
 						)
 					}),
@@ -210,16 +221,29 @@ func (a *App) layoutResultDetailTextSection(gtx layout.Context, title string, te
 	copyBtn := &a.resultDetailCopyPromptButton
 	actionLabel := "用作下次提示词"
 	actionAccent := false
+	titleIcon := uiIconInfo
 	if strings.Contains(title, "优化后") {
 		actionBtn = &a.resultDetailUseRevisedButton
 		copyBtn = &a.resultDetailCopyRevisedButton
 		actionAccent = true
+		titleIcon = uiIconSpark
 	}
 	muted := strings.Contains(title, "负向")
 	return a.card(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(8))}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return a.sectionEyebrow(gtx, title)
+				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return fixedWidth(gtx, unit.Dp(14), func(gtx layout.Context) layout.Dimensions {
+							return fixedHeight(gtx, unit.Dp(14), func(gtx layout.Context) layout.Dimensions {
+								return titleIcon.Layout(gtx, chooseColor(actionAccent, fluent.accent, fluent.textMuted))
+							})
+						})
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return a.sectionEyebrow(gtx, title)
+					}),
+				)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				content := strings.TrimSpace(text)
@@ -232,14 +256,19 @@ func (a *App) layoutResultDetailTextSection(gtx layout.Context, title string, te
 				if strings.TrimSpace(text) == "" {
 					return layout.Dimensions{}
 				}
-				return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx,
+				children := []layout.FlexChild{
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return a.compactButton(gtx, copyBtn, "复制", false)
+						return a.compactIconTextButton(gtx, copyBtn, uiIconCopy, "复制", false)
 					}),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return a.compactButton(gtx, actionBtn, actionLabel, actionAccent)
-					}),
-				)
+				}
+				if !muted {
+					children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Inset{Left: unit.Dp(6)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							return a.compactIconTextButton(gtx, actionBtn, uiIconRefresh, actionLabel, actionAccent)
+						})
+					}))
+				}
+				return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(0))}.Layout(gtx, children...)
 			}),
 		)
 	})
@@ -261,10 +290,10 @@ func (a *App) layoutResultDetailFileSection(gtx layout.Context, item sharedCompa
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return a.compactButton(gtx, &a.resultDetailOpenPathButton, "打开文件夹", false)
+						return a.compactIconTextButton(gtx, &a.resultDetailOpenPathButton, uiIconFolder, "打开文件夹", false)
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return a.compactButton(gtx, &a.resultDetailCopyPathButton, "复制路径", false)
+						return a.compactIconTextButton(gtx, &a.resultDetailCopyPathButton, uiIconCopy, "复制路径", false)
 					}),
 				)
 			}),

@@ -687,6 +687,14 @@ func (a *App) clampedLabel(gtx layout.Context, text string, size unit.Sp, color 
 	return style.Layout(gtx)
 }
 
+func (a *App) monoLabel(gtx layout.Context, text string, size unit.Sp, color color.NRGBA, weight font.Weight) layout.Dimensions {
+	style := material.Label(a.th, size, text)
+	style.Color = color
+	style.Font.Weight = weight
+	style.Font.Typeface = font.Typeface("monospace")
+	return style.Layout(gtx)
+}
+
 func (a *App) card(gtx layout.Context, w layout.Widget) layout.Dimensions {
 	return a.elevatedBorderedSurface(
 		gtx,

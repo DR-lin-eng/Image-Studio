@@ -205,7 +205,7 @@ func (a *App) layoutPromptCard(gtx layout.Context) layout.Dimensions {
 							return a.sectionEyebrow(gtx, title)
 						}),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return a.metaBadge(gtx, fmt.Sprintf("%d", promptLen), false)
+							return a.monoLabel(gtx, fmt.Sprintf("%d", promptLen), unit.Sp(11), fluent.textDim, font.Normal)
 						}),
 					)
 				}),
@@ -237,7 +237,7 @@ func (a *App) layoutPromptCard(gtx layout.Context) layout.Dimensions {
 						}),
 						layout.Flexed(1, layout.Spacer{}.Layout),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return a.staticPill(gtx, "Ctrl+Enter", false, true)
+							return a.monoLabel(gtx, "Ctrl+Enter", unit.Sp(10), fluent.textDim, font.Normal)
 						}),
 					)
 				}),
@@ -1488,7 +1488,7 @@ func (a *App) layoutAdvancedCard(gtx layout.Context) layout.Dimensions {
 
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(8))}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return a.layoutDisclosureHeader(gtx, &a.advancedToggleButton, "高级参数", summary, a.advancedOpen)
+			return a.layoutAdvancedAccordionHeader(gtx, summary, a.advancedOpen)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			if !a.advancedOpen {
@@ -1792,6 +1792,52 @@ func (a *App) layoutComposeAccordionHeader(gtx layout.Context, summary string, o
 			}),
 		)
 	})
+}
+
+func (a *App) layoutAdvancedAccordionHeader(gtx layout.Context, summary string, open bool) layout.Dimensions {
+	stateText := "展开"
+	stateIcon := uiIconExpand
+	if open {
+		stateText = "收起"
+		stateIcon = uiIconCollapse
+	}
+	return a.surfaceButton(
+		gtx,
+		&a.advancedToggleButton,
+		chooseColor(open, fluent.surface2, fluent.surfaceElevated),
+		fluent.surface2,
+		fluent.border,
+		fluentCardRadius,
+		layout.Inset{Top: 12, Bottom: 12, Left: 12, Right: 12},
+		func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+					return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(4))}.Layout(gtx,
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return a.sectionEyebrow(gtx, "高级参数")
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return a.singleLineLabel(gtx, summary, unit.Sp(12), fluent.textMuted, font.Normal)
+						}),
+					)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Gap: gtx.Dp(unit.Dp(4))}.Layout(gtx,
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return fixedWidth(gtx, unit.Dp(12), func(gtx layout.Context) layout.Dimensions {
+								return fixedHeight(gtx, unit.Dp(12), func(gtx layout.Context) layout.Dimensions {
+									return stateIcon.Layout(gtx, fluent.textDim)
+								})
+							})
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return a.label(gtx, stateText, unit.Sp(12), fluent.textDim, font.Normal)
+						}),
+					)
+				}),
+			)
+		},
+	)
 }
 
 func (a *App) advancedSectionCard(gtx layout.Context, title string, hint string, body layout.Widget) layout.Dimensions {

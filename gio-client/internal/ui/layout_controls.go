@@ -26,6 +26,17 @@ type promptHelperItem struct {
 	Detail string
 }
 
+var promptTemplates = []promptHelperItem{
+	{ID: "photoreal", Title: "写实摄影", Detail: "photorealistic, professional photography, 35mm, natural lighting, sharp focus, high detail"},
+	{ID: "cinematic", Title: "电影感", Detail: "cinematic, dramatic lighting, shallow depth of field, film grain, anamorphic, 2.39:1"},
+	{ID: "anime", Title: "二次元", Detail: "anime style, vibrant colors, cel shading, detailed illustration"},
+	{ID: "oil", Title: "油画", Detail: "oil painting, thick brush strokes, classical art style, warm tones"},
+	{ID: "watercolor", Title: "水彩", Detail: "watercolor painting, soft edges, pastel colors, paper texture"},
+	{ID: "flat", Title: "扁平插画", Detail: "flat illustration, minimalist, geometric shapes, vector style"},
+	{ID: "render3d", Title: "3D 渲染", Detail: "3D render, octane render, ray tracing, glossy, studio lighting"},
+	{ID: "pixel", Title: "像素风", Detail: "pixel art, 16-bit, retro game style, limited palette"},
+}
+
 type settingsOptionChoice struct {
 	Title  string
 	Detail string
@@ -199,31 +210,27 @@ func (a *App) layoutModeCard(gtx layout.Context) layout.Dimensions {
 func (a *App) layoutPromptCard(gtx layout.Context) layout.Dimensions {
 	snap := a.readSnapshot()
 	promptSuggestions := buildPromptSuggestions(snap.PromptHistory, snap.History)
-	defaultPromptHelperTab := "templates"
-	if len(snap.Presets) == 0 && len(promptSuggestions) > 0 {
-		defaultPromptHelperTab = "history"
-	}
 	for a.promptHelperButton.Clicked(gtx) {
 		if !a.promptHelperOpen {
-			a.promptHelperTab = defaultPromptHelperTab
+			a.promptHelperTab = "templates"
 		}
 		a.promptHelperOpen = !a.promptHelperOpen
 	}
 	for a.optimizePromptButton.Clicked(gtx) {
 		a.startPromptOptimize()
 	}
+	for _, item := range promptTemplates {
+		btn := a.promptButton("prompt-template:" + item.ID)
+		item := item
+		for btn.Clicked(gtx) {
+			a.applyPromptSuggestion(item.Detail)
+		}
+	}
 	for idx := range promptSuggestions {
 		btn := a.promptButton(fmt.Sprintf("prompt-history:%d", idx))
 		text := promptSuggestions[idx]
 		for btn.Clicked(gtx) {
 			a.applyPromptSuggestion(text)
-		}
-	}
-	for _, preset := range snap.Presets {
-		btn := a.promptButton("preset:" + preset.ID)
-		preset := preset
-		for btn.Clicked(gtx) {
-			a.applyPreset(preset)
 		}
 	}
 
@@ -294,7 +301,7 @@ func (a *App) layoutPromptCard(gtx layout.Context) layout.Dimensions {
 			layout.Stacked(func(gtx layout.Context) layout.Dimensions {
 				macro := op.Record(gtx.Ops)
 				overlayDims := layout.Inset{Left: unit.Dp(8), Right: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return a.layoutPromptHelperInline(gtx, snap.Presets, promptSuggestions)
+					return a.layoutPromptHelperInline(gtx, promptSuggestions)
 				})
 				call := macro.Stop()
 				offsetY := gtx.Dp(unit.Dp(152))
@@ -313,10 +320,10 @@ func (a *App) layoutPromptCard(gtx layout.Context) layout.Dimensions {
 	})
 }
 
-func (a *App) layoutPromptHelperPanel(gtx layout.Context, presets []sharedCompat.Preset, suggestions []string) layout.Dimensions {
-	items := presetLabels(presets)
-	prefix := "preset:"
-	emptyText := "还没有可用的模板。"
+func (a *App) layoutPromptHelperPanel(gtx layout.Context, suggestions []string) layout.Dimensions {
+	items := promptTemplates
+	prefix := "prompt-template:"
+	emptyText := "还没有提交过 prompt"
 	if a.promptHelperTab == "history" {
 		items = promptLabels(suggestions)
 		prefix = "prompt-history:"
@@ -341,7 +348,7 @@ func (a *App) layoutPromptHelperPanel(gtx layout.Context, presets []sharedCompat
 	})
 }
 
-func (a *App) layoutPromptHelperInline(gtx layout.Context, presets []sharedCompat.Preset, suggestions []string) layout.Dimensions {
+func (a *App) layoutPromptHelperInline(gtx layout.Context, suggestions []string) layout.Dimensions {
 	for a.closePromptHelperButton.Clicked(gtx) {
 		a.promptHelperOpen = false
 	}
@@ -358,7 +365,7 @@ func (a *App) layoutPromptHelperInline(gtx layout.Context, presets []sharedCompa
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 							layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-								return a.layoutPromptHelperTabs(gtx, len(presets), len(suggestions))
+								return a.layoutPromptHelperTabs(gtx, len(promptTemplates), len(suggestions))
 							}),
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 								return a.ghostIconButton(gtx, &a.closePromptHelperButton, uiIconClose, false)
@@ -371,7 +378,7 @@ func (a *App) layoutPromptHelperInline(gtx layout.Context, presets []sharedCompa
 						})
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return a.layoutPromptHelperPanel(gtx, presets, suggestions)
+						return a.layoutPromptHelperPanel(gtx, suggestions)
 					}),
 				)
 			})
@@ -401,10 +408,10 @@ func (a *App) layoutPromptHelperModal(gtx layout.Context) layout.Dimensions {
 		func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(12))}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return a.layoutPromptHelperTabs(gtx, len(snap.Presets), len(suggestions))
+					return a.layoutPromptHelperTabs(gtx, len(promptTemplates), len(suggestions))
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return a.layoutPromptHelperPanel(gtx, snap.Presets, suggestions)
+					return a.layoutPromptHelperPanel(gtx, suggestions)
 				}),
 			)
 		},
@@ -418,7 +425,7 @@ func chooseFontWeight(active bool) font.Weight {
 	return font.Medium
 }
 
-func (a *App) layoutPromptHelperTabs(gtx layout.Context, presetCount int, historyCount int) layout.Dimensions {
+func (a *App) layoutPromptHelperTabs(gtx layout.Context, templateCount int, historyCount int) layout.Dimensions {
 	return a.borderedSurface(gtx, accentAlpha(0x06), unit.Dp(10), fluent.border, func(gtx layout.Context) layout.Dimensions {
 		return layout.UniformInset(unit.Dp(2)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(2))}.Layout(gtx,
@@ -433,7 +440,11 @@ func (a *App) layoutPromptHelperTabs(gtx layout.Context, presetCount int, histor
 						layout.Inset{Top: 8, Bottom: 8, Left: 10, Right: 10},
 						func(gtx layout.Context) layout.Dimensions {
 							return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-								return a.label(gtx, "模板", unit.Sp(11), chooseColor(a.promptHelperTab != "history", fluent.text, fluent.textMuted), chooseFontWeight(a.promptHelperTab != "history"))
+								label := "模板"
+								if templateCount > 0 {
+									label = fmt.Sprintf("模板 %d", templateCount)
+								}
+								return a.label(gtx, label, unit.Sp(11), chooseColor(a.promptHelperTab != "history", fluent.text, fluent.textMuted), chooseFontWeight(a.promptHelperTab != "history"))
 							})
 						},
 					)

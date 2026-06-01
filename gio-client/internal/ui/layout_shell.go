@@ -386,28 +386,34 @@ func (a *App) layoutWorkspaceBar(gtx layout.Context) layout.Dimensions {
 			for _, ws := range a.workspaces {
 				ws := ws
 				children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Inset{Right: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return layout.Inset{Right: unit.Dp(2)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 						return a.layoutWorkspaceTab(gtx, ws, ws.ID == a.activeWorkspaceID)
 					})
 				}))
 			}
 			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return a.surfaceButton(
-					gtx,
-					&a.addWorkspaceButton,
-					rgba(0xffffff, 0x00),
-					fluent.panel,
-					rgba(0xffffff, 0x00),
-					unit.Dp(4),
-					layout.Inset{Top: 4, Bottom: 4, Left: 10, Right: 10},
-					func(gtx layout.Context) layout.Dimensions {
-						return fixedWidth(gtx, unit.Dp(14), func(gtx layout.Context) layout.Dimensions {
-							return fixedHeight(gtx, unit.Dp(14), func(gtx layout.Context) layout.Dimensions {
-								return uiIconAdd.Layout(gtx, fluent.textMuted)
-							})
-						})
-					},
-				)
+				return fixedWidth(gtx, unit.Dp(32), func(gtx layout.Context) layout.Dimensions {
+					return fixedHeight(gtx, unit.Dp(30), func(gtx layout.Context) layout.Dimensions {
+						return a.surfaceButton(
+							gtx,
+							&a.addWorkspaceButton,
+							rgba(0xffffff, 0x00),
+							fluent.panel,
+							rgba(0xffffff, 0x00),
+							unit.Dp(4),
+							layout.Inset{},
+							func(gtx layout.Context) layout.Dimensions {
+								return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+									return fixedWidth(gtx, unit.Dp(14), func(gtx layout.Context) layout.Dimensions {
+										return fixedHeight(gtx, unit.Dp(14), func(gtx layout.Context) layout.Dimensions {
+											return uiIconAdd.Layout(gtx, fluent.textMuted)
+										})
+									})
+								})
+							},
+						)
+					})
+				})
 			}))
 			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.End}.Layout(gtx, children...)
 		})
@@ -432,7 +438,7 @@ func (a *App) layoutWorkspaceTab(gtx layout.Context, ws workspaceState, active b
 				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 						if editing {
-							return fixedWidth(gtx, unit.Dp(120), func(gtx layout.Context) layout.Dimensions {
+							return fixedWidth(gtx, unit.Dp(100), func(gtx layout.Context) layout.Dimensions {
 								border := fluent.border2
 								if gtx.Focused(&a.workspaceNameInput) {
 									border = accentAlpha(0xb8)
@@ -446,7 +452,7 @@ func (a *App) layoutWorkspaceTab(gtx layout.Context, ws workspaceState, active b
 						}
 						return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Gap: gtx.Dp(unit.Dp(8))}.Layout(gtx,
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return fixedWidth(gtx, unit.Dp(144), func(gtx layout.Context) layout.Dimensions {
+								return fixedWidth(gtx, unit.Dp(128), func(gtx layout.Context) layout.Dimensions {
 									weight := font.Medium
 									if active {
 										weight = font.SemiBold

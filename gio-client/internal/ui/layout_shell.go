@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"image"
+	"image/color"
 	"time"
 
 	"gioui.org/font"
@@ -169,9 +170,6 @@ func (a *App) layoutHeaderBrand(gtx layout.Context) layout.Dimensions {
 	quoteText := "图像工作台"
 	if quote.Text != "" {
 		quoteText = quote.Text
-		if quote.From != "" {
-			quoteText += " - " + quote.From
-		}
 	}
 	return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Gap: gtx.Dp(unit.Dp(10))}.Layout(gtx,
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
@@ -237,6 +235,7 @@ func (a *App) layoutFooter(gtx layout.Context) layout.Dimensions {
 		dot = fluent.accent
 	}
 	todayCount := todayHistoryCount(snap.History, time.Now())
+	totalCount := len(snap.History)
 	return a.borderedSurface(gtx, fluent.bg2, unit.Dp(0), fluent.border, func(gtx layout.Context) layout.Dimensions {
 		gtx.Constraints.Min = gtx.Constraints.Max
 		return layout.Inset{Top: 9, Bottom: 9, Left: 18, Right: 18}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -257,26 +256,26 @@ func (a *App) layoutFooter(gtx layout.Context) layout.Dimensions {
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					children := []layout.FlexChild{
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return a.label(gtx, fmt.Sprintf("今日已生图: %d", todayCount), unit.Sp(11), fluent.textMuted, font.Medium)
+							return a.footerMetric(gtx, "今日已生图:", fmt.Sprintf("%d", todayCount), fluent.text)
 						}),
-						layout.Rigid(layout.Spacer{Width: unit.Dp(10)}.Layout),
+						layout.Rigid(layout.Spacer{Width: unit.Dp(12)}.Layout),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return a.label(gtx, "·", unit.Sp(11), fluent.textDim, font.Normal)
+							return a.label(gtx, "·", unit.Sp(11), withAlpha(fluent.textDim, 0x88), font.Normal)
 						}),
-						layout.Rigid(layout.Spacer{Width: unit.Dp(10)}.Layout),
+						layout.Rigid(layout.Spacer{Width: unit.Dp(12)}.Layout),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return a.label(gtx, fmt.Sprintf("总生图: %d", len(snap.History)), unit.Sp(11), fluent.textMuted, font.Medium)
+							return a.footerMetric(gtx, "总生图:", fmt.Sprintf("%d", totalCount), fluent.text)
 						}),
 					}
 					if snap.Running {
 						children = append(children,
-							layout.Rigid(layout.Spacer{Width: unit.Dp(10)}.Layout),
+							layout.Rigid(layout.Spacer{Width: unit.Dp(12)}.Layout),
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return a.label(gtx, "·", unit.Sp(11), fluent.textDim, font.Normal)
+								return a.label(gtx, "·", unit.Sp(11), withAlpha(fluent.textDim, 0x88), font.Normal)
 							}),
-							layout.Rigid(layout.Spacer{Width: unit.Dp(10)}.Layout),
+							layout.Rigid(layout.Spacer{Width: unit.Dp(12)}.Layout),
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return a.label(gtx, "当前标签: 1", unit.Sp(11), fluent.accent, font.Medium)
+								return a.footerMetric(gtx, "当前标签:", "1", fluent.accent)
 							}),
 						)
 					}
@@ -381,7 +380,7 @@ func (a *App) layoutWorkspaceBar(gtx layout.Context) layout.Dimensions {
 					gtx,
 					&a.addWorkspaceButton,
 					rgba(0xffffff, 0x00),
-					fluent.surface2,
+					fluent.toolHoverBg,
 					rgba(0xffffff, 0x00),
 					unit.Dp(4),
 					layout.Inset{Top: 7, Bottom: 7, Left: 9, Right: 9},
@@ -455,7 +454,7 @@ func (a *App) layoutWorkspaceTab(gtx layout.Context, ws workspaceState, active b
 						if len(a.workspaces) <= 1 || editing {
 							return layout.Dimensions{}
 						}
-						if !active && !btn.Hovered() {
+						if !btn.Hovered() {
 							return layout.Inset{Left: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 								return fixedWidth(gtx, unit.Dp(14), func(gtx layout.Context) layout.Dimensions {
 									return layout.Dimensions{Size: image.Pt(gtx.Constraints.Min.X, 0)}
@@ -510,5 +509,17 @@ func (a *App) footerIconTextButton(gtx layout.Context, btn *widget.Clickable, ic
 				}),
 			)
 		},
+	)
+}
+
+func (a *App) footerMetric(gtx layout.Context, label string, value string, valueColor color.NRGBA) layout.Dimensions {
+	return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Baseline}.Layout(gtx,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return a.label(gtx, label, unit.Sp(11), withAlpha(fluent.textMuted, 0xb4), font.Normal)
+		}),
+		layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return a.monoLabel(gtx, value, unit.Sp(11), valueColor, font.Medium)
+		}),
 	)
 }

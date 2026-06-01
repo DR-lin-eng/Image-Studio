@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -54,16 +55,35 @@ func (a *App) layoutHistoryTimelineModal(gtx layout.Context) layout.Dimensions {
 			if entry.Kind == "group" {
 				summaryBtn := a.historyButton("timeline-group:" + entry.Group.Key)
 				for summaryBtn.Clicked(gtx) {
+					a.expandedPromptGroups[entry.Group.Key] = !a.expandedPromptGroups[entry.Group.Key]
+				}
+				latestBtn := a.historyActionButton("timeline-group-latest:" + entry.Group.Key)
+				for latestBtn.Clicked(gtx) {
 					if err := a.loadHistoryPreview(entry.Group.Representative, true); err != nil && !isMissingPreview(err) {
 						a.appendLog("载入历史结果失败: " + err.Error())
 					} else {
 						a.closeHistoryTimeline()
 					}
 				}
-				openBtn := a.historyActionButton("timeline-group-open:" + entry.Group.Key)
-				for openBtn.Clicked(gtx) {
+				expandBtn := a.historyActionButton("timeline-group-expand:" + entry.Group.Key)
+				for expandBtn.Clicked(gtx) {
+					a.expandedPromptGroups[entry.Group.Key] = !a.expandedPromptGroups[entry.Group.Key]
+				}
+				moreBtn := a.historyActionButton("timeline-group-more:" + entry.Group.Key)
+				for moreBtn.Clicked(gtx) {
 					a.openPromptGroup(entry.Group)
 					a.closeHistoryTimeline()
+				}
+				for _, item := range entry.Group.Items {
+					item := item
+					thumbBtn := a.historyButton("timeline-group-thumb:" + item.ID)
+					for thumbBtn.Clicked(gtx) {
+						if err := a.loadHistoryPreview(item, true); err != nil && !isMissingPreview(err) {
+							a.appendLog("载入历史结果失败: " + err.Error())
+						} else {
+							a.closeHistoryTimeline()
+						}
+					}
 				}
 				continue
 			}
@@ -318,7 +338,7 @@ func (a *App) layoutHistoryTimelineDayGroup(gtx layout.Context, dayGroup history
 func (a *App) layoutHistoryTimelineEntry(gtx layout.Context, entry historyPromptEntry, selectedHistoryID string) layout.Dimensions {
 	if entry.Kind == "group" {
 		return a.layoutTimelineTrackRow(gtx, func(gtx layout.Context) layout.Dimensions {
-			return a.layoutHistoryTimelineGroupRow(gtx, entry.Group, selectedHistoryID)
+			return a.layoutHistoryTimelineGroupRow(gtx, entry.Group, selectedHistoryID, a.expandedPromptGroups[entry.Group.Key])
 		})
 	}
 	return a.layoutTimelineTrackRow(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -326,10 +346,12 @@ func (a *App) layoutHistoryTimelineEntry(gtx layout.Context, entry historyPrompt
 	})
 }
 
-func (a *App) layoutHistoryTimelineGroupRow(gtx layout.Context, group historyPromptGroup, selectedHistoryID string) layout.Dimensions {
+func (a *App) layoutHistoryTimelineGroupRow(gtx layout.Context, group historyPromptGroup, selectedHistoryID string, expanded bool) layout.Dimensions {
 	active := historyPromptGroupContains(group, selectedHistoryID)
 	summaryBtn := a.historyButton("timeline-group:" + group.Key)
-	openBtn := a.historyActionButton("timeline-group-open:" + group.Key)
+	latestBtn := a.historyActionButton("timeline-group-latest:" + group.Key)
+	expandBtn := a.historyActionButton("timeline-group-expand:" + group.Key)
+	moreBtn := a.historyActionButton("timeline-group-more:" + group.Key)
 	prompt := group.Prompt
 	if prompt == "" {
 		prompt = "(无 prompt)"
@@ -338,48 +360,68 @@ func (a *App) layoutHistoryTimelineGroupRow(gtx layout.Context, group historyPro
 
 	return a.borderedSurface(gtx, chooseColor(active, fluent.surface2, fluent.surface), unit.Dp(6), chooseColor(active, accentAlpha(0x48), fluent.border), func(gtx layout.Context) layout.Dimensions {
 		return layout.UniformInset(unit.Dp(10)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Gap: gtx.Dp(unit.Dp(10))}.Layout(gtx,
+			children := []layout.FlexChild{
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return summaryBtn.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return a.layoutHistoryGroupPile(gtx, group)
-					})
-				}),
-				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-					return summaryBtn.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx,
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx,
+					return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Gap: gtx.Dp(unit.Dp(10))}.Layout(gtx,
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return summaryBtn.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								return a.layoutHistoryGroupPile(gtx, group)
+							})
+						}),
+						layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+							return summaryBtn.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx,
 									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-										return fixedWidth(gtx, unit.Dp(14), func(gtx layout.Context) layout.Dimensions {
-											return fixedHeight(gtx, unit.Dp(14), func(gtx layout.Context) layout.Dimensions {
-												return uiIconGrid.Layout(gtx, fluent.accent)
-											})
-										})
+										return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx,
+											layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+												return fixedWidth(gtx, unit.Dp(14), func(gtx layout.Context) layout.Dimensions {
+													return fixedHeight(gtx, unit.Dp(14), func(gtx layout.Context) layout.Dimensions {
+														return uiIconGrid.Layout(gtx, fluent.accent)
+													})
+												})
+											}),
+											layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+												return a.sectionEyebrow(gtx, "同提示词")
+											}),
+											layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+												return a.metaBadge(gtx, strconv.Itoa(len(group.Items))+" 张", true)
+											}),
+										)
 									}),
 									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-										return a.sectionEyebrow(gtx, "同提示词")
+										return a.clampedLabel(gtx, shortPrompt(prompt), unit.Sp(12), fluent.text, font.Medium, 2)
 									}),
 									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-										return a.metaBadge(gtx, strconv.Itoa(len(group.Items))+" 张", true)
+										return a.singleLineLabel(gtx, meta, unit.Sp(10), fluent.textMuted, font.Normal)
 									}),
 								)
-							}),
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return a.clampedLabel(gtx, shortPrompt(prompt), unit.Sp(12), fluent.text, font.Medium, 2)
-							}),
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return a.singleLineLabel(gtx, meta, unit.Sp(10), fluent.textMuted, font.Normal)
-							}),
-						)
-					})
+							})
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return a.compactButton(gtx, latestBtn, "查看最新", active)
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							icon := uiIconExpand
+							if expanded {
+								icon = uiIconCollapse
+							}
+							return a.compactIconButton(gtx, expandBtn, icon, expanded)
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return a.compactIconButton(gtx, moreBtn, uiIconMoreHoriz, false)
+						}),
+					)
 				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return a.compactButton(gtx, summaryBtn, "查看最新", active)
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return a.compactIconButton(gtx, openBtn, uiIconGrid, false)
-				}),
-			)
+			}
+			if expanded {
+				children = append(children,
+					layout.Rigid(layout.Spacer{Height: unit.Dp(10)}.Layout),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return a.layoutTimelinePromptThumbGrid(gtx, group.Items, selectedHistoryID)
+					}),
+				)
+			}
+			return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
 		})
 	})
 }
@@ -407,6 +449,76 @@ func (a *App) layoutTimelineTrackRow(gtx layout.Context, body layout.Widget) lay
 			})
 		}),
 		layout.Flexed(1, body),
+	)
+}
+
+func (a *App) layoutTimelinePromptThumbGrid(gtx layout.Context, items []sharedCompat.HistoryItem, selectedHistoryID string) layout.Dimensions {
+	const columns = 4
+	rows := (len(items) + columns - 1) / columns
+	children := make([]layout.FlexChild, 0, rows)
+	for row := 0; row < rows; row++ {
+		row := row
+		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			cells := make([]layout.FlexChild, 0, columns)
+			for col := 0; col < columns; col++ {
+				idx := row*columns + col
+				if idx >= len(items) {
+					cells = append(cells, layout.Flexed(1, layout.Spacer{}.Layout))
+					continue
+				}
+				item := items[idx]
+				cells = append(cells, layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+					return layout.Inset{Right: chooseBatchGridInset(col, columns), Bottom: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return a.layoutTimelinePromptThumb(gtx, item, idx, selectedHistoryID == item.ID)
+					})
+				}))
+			}
+			return layout.Flex{Axis: layout.Horizontal}.Layout(gtx, cells...)
+		}))
+	}
+	return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
+}
+
+func (a *App) layoutTimelinePromptThumb(gtx layout.Context, item sharedCompat.HistoryItem, index int, active bool) layout.Dimensions {
+	btn := a.historyButton("timeline-group-thumb:" + item.ID)
+	img, _ := a.imageForHistoryItem(item)
+	return a.surfaceButton(
+		gtx,
+		btn,
+		chooseColor(active, fluent.surface2, fluent.surface),
+		fluent.surface2,
+		chooseColor(active, accentAlpha(0x48), fluent.border),
+		unit.Dp(8),
+		layout.Inset{Top: 6, Bottom: 6, Left: 6, Right: 6},
+		func(gtx layout.Context) layout.Dimensions {
+			displayIndex := index + 1
+			if item.BatchIndex >= 0 {
+				displayIndex = item.BatchIndex + 1
+			}
+			return layout.Stack{}.Layout(gtx,
+				layout.Stacked(func(gtx layout.Context) layout.Dimensions {
+					return a.imageThumbCover(gtx, img, unit.Dp(132), unit.Dp(96), unit.Dp(6))
+				}),
+				layout.Stacked(func(gtx layout.Context) layout.Dimensions {
+					return layout.NW.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return layout.Inset{Left: unit.Dp(6), Top: unit.Dp(6)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							return a.historyModeBadge(gtx, item.Mode)
+						})
+					})
+				}),
+				layout.Stacked(func(gtx layout.Context) layout.Dimensions {
+					return layout.SW.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return layout.Inset{Left: unit.Dp(6), Bottom: unit.Dp(6)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							return a.surface(gtx, rgba(0x111111, 0xba), unit.Dp(4), func(gtx layout.Context) layout.Dimensions {
+								return layout.Inset{Top: 2, Bottom: 2, Left: 6, Right: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+									return a.label(gtx, fmt.Sprintf("#%d", displayIndex), unit.Sp(9), fluent.white, font.Medium)
+								})
+							})
+						})
+					})
+				}),
+			)
+		},
 	)
 }
 

@@ -84,11 +84,11 @@ func (a *App) layoutResultDetailModal(gtx layout.Context) layout.Dimensions {
 
 func (a *App) layoutResultDetailPreview(gtx layout.Context, item sharedCompat.HistoryItem) layout.Dimensions {
 	img, _ := a.imageForHistoryItem(item)
-	return a.borderedSurface(gtx, fluent.surfaceElevated, fluentCardRadius, fluent.border, func(gtx layout.Context) layout.Dimensions {
+	return a.borderedSurface(gtx, fluent.surface, fluentCardRadius, fluent.border, func(gtx layout.Context) layout.Dimensions {
 		return layout.UniformInset(unit.Dp(12)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(10))}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return a.borderedSurface(gtx, fluent.surface, fluentCardRadius, fluent.border, func(gtx layout.Context) layout.Dimensions {
+					return a.borderedSurface(gtx, fluent.surface2, fluentCardRadius, fluent.border, func(gtx layout.Context) layout.Dimensions {
 						return layout.UniformInset(unit.Dp(8)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 							return a.imageThumb(gtx, img, unit.Dp(248), unit.Dp(248), unit.Dp(8))
 						})
@@ -140,7 +140,7 @@ func (a *App) layoutResultDetailSections(gtx layout.Context, item sharedCompat.H
 }
 
 func (a *App) layoutResultDetailMeta(gtx layout.Context, item sharedCompat.HistoryItem) layout.Dimensions {
-	return a.borderedSurface(gtx, fluent.surfaceElevated, fluentCardRadius, fluent.border, func(gtx layout.Context) layout.Dimensions {
+	return a.borderedSurface(gtx, fluent.surface, fluentCardRadius, fluent.border, func(gtx layout.Context) layout.Dimensions {
 		return layout.UniformInset(unit.Dp(12)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			rows := []layout.Widget{
 				func(gtx layout.Context) layout.Dimensions {
@@ -198,11 +198,11 @@ func (a *App) layoutResultDetailTextSection(gtx layout.Context, title string, te
 		actionAccent = true
 	}
 	muted := strings.Contains(title, "负向")
-	return a.borderedSurface(gtx, fluent.surfaceElevated, fluentCardRadius, fluent.border, func(gtx layout.Context) layout.Dimensions {
+	return a.borderedSurface(gtx, fluent.surface, fluentCardRadius, fluent.border, func(gtx layout.Context) layout.Dimensions {
 		return layout.UniformInset(unit.Dp(12)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(8))}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return a.label(gtx, title, unit.Sp(11), chooseColor(actionAccent, fluent.accent, fluent.textMuted), font.SemiBold)
+					return a.label(gtx, title, unit.Sp(11), fluent.textMuted, font.SemiBold)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					content := strings.TrimSpace(text)
@@ -235,7 +235,7 @@ func (a *App) layoutResultDetailTextSection(gtx layout.Context, title string, te
 }
 
 func (a *App) layoutResultDetailFileSection(gtx layout.Context, item sharedCompat.HistoryItem) layout.Dimensions {
-	return a.borderedSurface(gtx, fluent.surfaceElevated, fluentCardRadius, fluent.border, func(gtx layout.Context) layout.Dimensions {
+	return a.borderedSurface(gtx, fluent.surface, fluentCardRadius, fluent.border, func(gtx layout.Context) layout.Dimensions {
 		return layout.UniformInset(unit.Dp(12)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(8))}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -291,23 +291,21 @@ func (a *App) detailKVRow(gtx layout.Context, label string, value string, mono b
 		return layout.Dimensions{}
 	}
 	return layout.Inset{Bottom: chooseInset(last)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		return a.borderedSurface(gtx, rgba(0xffffff, 0x00), 0, rgba(0xffffff, 0x00), func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{Bottom: unit.Dp(6)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return fixedWidth(gtx, unit.Dp(72), func(gtx layout.Context) layout.Dimensions {
-							return a.label(gtx, label, unit.Sp(10), fluent.textDim, font.Normal)
-						})
-					}),
-					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-						weight := font.Medium
-						if mono {
-							weight = font.SemiBold
-						}
-						return a.label(gtx, value, unit.Sp(11), fluent.text, weight)
-					}),
-				)
-			})
+		return layout.Inset{Bottom: unit.Dp(6)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return fixedWidth(gtx, unit.Dp(72), func(gtx layout.Context) layout.Dimensions {
+						return a.label(gtx, label, unit.Sp(10), fluent.textDim, font.Normal)
+					})
+				}),
+				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+					weight := font.Medium
+					if mono {
+						weight = font.SemiBold
+					}
+					return a.label(gtx, value, unit.Sp(11), fluent.text, weight)
+				}),
+			)
 		})
 	})
 }
@@ -320,7 +318,7 @@ func chooseInset(last bool) unit.Dp {
 }
 
 func (a *App) resultDetailPromptBlock(gtx layout.Context, text string, muted bool, highlight bool) layout.Dimensions {
-	bg := fluent.surface
+	bg := fluent.surface2
 	fg := fluent.textMuted
 	border := fluent.border
 	if muted {

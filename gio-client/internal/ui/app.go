@@ -13,6 +13,7 @@ import (
 	sharedCompat "image-studio/shared/compat"
 
 	"gioui.org/app"
+	"gioui.org/gesture"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/op/paint"
@@ -269,6 +270,7 @@ type App struct {
 	batchResultIDs        []string
 	resultGridOpen        bool
 	compareSplitSlider    widget.Float
+	compareSplitDrag      gesture.Drag
 
 	savePromptVisible             bool
 	savePromptSuppressed          bool

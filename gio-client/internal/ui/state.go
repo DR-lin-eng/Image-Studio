@@ -97,6 +97,8 @@ func (a *App) openHistoryTimeline() {
 	a.historyTimelineOpen = true
 	a.historyTimelineModeFilter = a.historyModeFilter
 	a.historyTimelineDateFilter = a.historyDateFilter
+	a.historyTimelineModePickerOpen = false
+	a.historyTimelineDatePickerOpen = false
 	a.historyTimelineQueryInput.SetText(a.historyQueryInput.Text())
 	a.expandedPromptGroups = map[string]bool{}
 	a.mu.Unlock()
@@ -106,6 +108,8 @@ func (a *App) openHistoryTimeline() {
 func (a *App) closeHistoryTimeline() {
 	a.mu.Lock()
 	a.historyTimelineOpen = false
+	a.historyTimelineModePickerOpen = false
+	a.historyTimelineDatePickerOpen = false
 	a.expandedPromptGroups = map[string]bool{}
 	a.mu.Unlock()
 	a.invalidateNow()

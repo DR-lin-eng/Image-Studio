@@ -1675,9 +1675,7 @@ func (a *App) layoutActions(gtx layout.Context) layout.Dimensions {
 		if raw == "" {
 			continue
 		}
-		if err := openPath(raw); err != nil {
-			a.appendLog("打开 Raw response 失败: " + err.Error())
-		}
+		a.openRawResponseModal(raw)
 	}
 	for a.dismissErrorButton.Clicked(gtx) {
 		a.dismissFailureState()

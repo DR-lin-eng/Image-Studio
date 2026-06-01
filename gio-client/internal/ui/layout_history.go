@@ -915,9 +915,7 @@ func (a *App) layoutLogsCard(gtx layout.Context, snap snapshot) layout.Dimension
 		if raw == "" {
 			continue
 		}
-		if err := openPath(raw); err != nil {
-			a.appendLog("打开 Raw response 失败: " + err.Error())
-		}
+		a.openRawResponseModal(raw)
 	}
 	return a.card(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(8))}.Layout(gtx,

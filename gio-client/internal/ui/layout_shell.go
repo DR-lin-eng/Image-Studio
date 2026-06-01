@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"strings"
 	"time"
 
 	"gioui.org/font"
@@ -69,6 +70,9 @@ func (a *App) layout(gtx layout.Context) layout.Dimensions {
 	}
 	if snap.ActiveResultDetail.ID != "" || snap.ActiveResultDetail.SavedPath != "" {
 		a.layoutResultDetailModal(gtx)
+	}
+	if strings.TrimSpace(snap.RawResponseModalPath) != "" || strings.TrimSpace(snap.RawResponseModalError) != "" || strings.TrimSpace(snap.RawResponseModalText) != "" {
+		a.layoutRawResponseModal(gtx)
 	}
 	if snap.ActivePromptGroup.Key != "" {
 		a.layoutPromptGroupModal(gtx)

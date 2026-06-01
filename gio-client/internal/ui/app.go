@@ -35,26 +35,29 @@ type resultState struct {
 }
 
 type snapshot struct {
-	Running             bool
-	Status              string
-	Logs                []string
-	History             []sharedCompat.HistoryItem
-	Profiles            []sharedCompat.UpstreamProfile
-	ActiveProfileID     string
-	SelectedHistoryID   string
-	PromptHistory       []string
-	Presets             []sharedCompat.Preset
-	OptimizingPrompt    bool
-	TestingUpstream     bool
-	LastProbeSummary    string
-	ActivePromptGroup   historyPromptGroup
-	ActiveResultDetail  sharedCompat.HistoryItem
-	HistoryTimelineOpen bool
-	Fullscreen          bool
-	LastErrorMessage    string
-	LastRunAvailable    bool
-	Result              resultState
-	SavePromptVisible   bool
+	Running               bool
+	Status                string
+	Logs                  []string
+	History               []sharedCompat.HistoryItem
+	Profiles              []sharedCompat.UpstreamProfile
+	ActiveProfileID       string
+	SelectedHistoryID     string
+	PromptHistory         []string
+	Presets               []sharedCompat.Preset
+	OptimizingPrompt      bool
+	TestingUpstream       bool
+	LastProbeSummary      string
+	ActivePromptGroup     historyPromptGroup
+	ActiveResultDetail    sharedCompat.HistoryItem
+	HistoryTimelineOpen   bool
+	Fullscreen            bool
+	LastErrorMessage      string
+	LastRunAvailable      bool
+	RawResponseModalPath  string
+	RawResponseModalText  string
+	RawResponseModalError string
+	Result                resultState
+	SavePromptVisible     bool
 }
 
 type cachedImage struct {
@@ -112,6 +115,7 @@ type App struct {
 	partialImagesInput        widget.Editor
 	proxyURLInput             widget.Editor
 	savePromptPathInput       widget.Editor
+	rawResponseViewerInput    widget.Editor
 	historyQueryInput         widget.Editor
 	historyTimelineQueryInput widget.Editor
 	workspaceNameInput        widget.Editor
@@ -149,6 +153,8 @@ type App struct {
 	openRawResponseButton           widget.Clickable
 	openLogsRawResponseButton       widget.Clickable
 	dismissErrorButton              widget.Clickable
+	closeRawResponseButton          widget.Clickable
+	copyRawResponseButton           widget.Clickable
 	clearLogButton                  widget.Clickable
 	saveAsButton                    widget.Clickable
 	latestResultButton              widget.Clickable
@@ -218,30 +224,33 @@ type App struct {
 	savePromptSkipButton            widget.Clickable
 	savePromptNeverAsk              widget.Bool
 
-	mu                 sync.Mutex
-	running            bool
-	cancel             context.CancelFunc
-	status             string
-	logs               []string
-	history            []sharedCompat.HistoryItem
-	profiles           []sharedCompat.UpstreamProfile
-	promptHistory      []string
-	presets            []sharedCompat.Preset
-	activeProfileID    string
-	selectedHistoryID  string
-	optimizingPrompt   bool
-	testingUpstream    bool
-	lastProbeSummary   string
-	fullscreen         bool
-	activeResultDetail sharedCompat.HistoryItem
-	result             resultState
-	imageOp            paint.ImageOp
-	imageOpRev         int
-	imageCache         map[string]cachedImage
-	lastRunConfig      kernel.Config
-	lastRunBatchCount  int
-	lastRunValid       bool
-	lastErrorMessage   string
+	mu                    sync.Mutex
+	running               bool
+	cancel                context.CancelFunc
+	status                string
+	logs                  []string
+	history               []sharedCompat.HistoryItem
+	profiles              []sharedCompat.UpstreamProfile
+	promptHistory         []string
+	presets               []sharedCompat.Preset
+	activeProfileID       string
+	selectedHistoryID     string
+	optimizingPrompt      bool
+	testingUpstream       bool
+	lastProbeSummary      string
+	fullscreen            bool
+	activeResultDetail    sharedCompat.HistoryItem
+	result                resultState
+	imageOp               paint.ImageOp
+	imageOpRev            int
+	imageCache            map[string]cachedImage
+	lastRunConfig         kernel.Config
+	lastRunBatchCount     int
+	lastRunValid          bool
+	lastErrorMessage      string
+	rawResponseModalPath  string
+	rawResponseModalText  string
+	rawResponseModalError string
 
 	savePromptVisible             bool
 	savePromptSuppressed          bool
@@ -422,6 +431,7 @@ func (a *App) configureEditors(cfg kernel.Config) {
 	}
 	a.apiKeyInput.Mask = '*'
 	a.workspaceNameInput.Submit = true
+	a.rawResponseViewerInput.ReadOnly = true
 	a.seedInput.Filter = "0123456789"
 	a.partialImagesInput.Filter = "0123456789"
 	a.concurrencyLimitInput.Filter = "0123456789"

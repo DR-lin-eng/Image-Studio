@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"os"
 	"strings"
 
 	gioCompat "image-studio/gio-client/internal/compat"
@@ -150,6 +151,42 @@ func (a *App) savePromptCopy() {
 	a.closeSavePrompt()
 }
 
+func (a *App) openRawResponseModal(path string) {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return
+	}
+	content, err := os.ReadFile(path)
+	text := ""
+	readErr := ""
+	if err != nil {
+		readErr = err.Error()
+	} else {
+		text = string(content)
+		const maxPreview = 200_000
+		if len(text) > maxPreview {
+			text = text[:maxPreview] + "\n\n... [截断,完整内容请查看文件]"
+		}
+	}
+	a.mu.Lock()
+	a.rawResponseModalPath = path
+	a.rawResponseModalError = readErr
+	a.rawResponseModalText = text
+	a.rawResponseViewerInput.SetText(text)
+	a.mu.Unlock()
+	a.invalidateNow()
+}
+
+func (a *App) closeRawResponseModal() {
+	a.mu.Lock()
+	a.rawResponseModalPath = ""
+	a.rawResponseModalError = ""
+	a.rawResponseModalText = ""
+	a.rawResponseViewerInput.SetText("")
+	a.mu.Unlock()
+	a.invalidateNow()
+}
+
 func (a *App) readSnapshot() snapshot {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -159,26 +196,29 @@ func (a *App) readSnapshot() snapshot {
 	promptHistory := append([]string(nil), a.promptHistory...)
 	presets := append([]sharedCompat.Preset(nil), a.presets...)
 	return snapshot{
-		Running:             a.running,
-		Status:              a.status,
-		Logs:                logs,
-		History:             history,
-		Profiles:            profiles,
-		ActiveProfileID:     a.activeProfileID,
-		SelectedHistoryID:   a.selectedHistoryID,
-		PromptHistory:       promptHistory,
-		Presets:             presets,
-		OptimizingPrompt:    a.optimizingPrompt,
-		TestingUpstream:     a.testingUpstream,
-		LastProbeSummary:    a.lastProbeSummary,
-		ActivePromptGroup:   a.activePromptGroup,
-		ActiveResultDetail:  a.activeResultDetail,
-		HistoryTimelineOpen: a.historyTimelineOpen,
-		Fullscreen:          a.fullscreen,
-		LastErrorMessage:    a.lastErrorMessage,
-		LastRunAvailable:    a.lastRunValid,
-		Result:              a.result,
-		SavePromptVisible:   a.savePromptVisible,
+		Running:               a.running,
+		Status:                a.status,
+		Logs:                  logs,
+		History:               history,
+		Profiles:              profiles,
+		ActiveProfileID:       a.activeProfileID,
+		SelectedHistoryID:     a.selectedHistoryID,
+		PromptHistory:         promptHistory,
+		Presets:               presets,
+		OptimizingPrompt:      a.optimizingPrompt,
+		TestingUpstream:       a.testingUpstream,
+		LastProbeSummary:      a.lastProbeSummary,
+		ActivePromptGroup:     a.activePromptGroup,
+		ActiveResultDetail:    a.activeResultDetail,
+		HistoryTimelineOpen:   a.historyTimelineOpen,
+		Fullscreen:            a.fullscreen,
+		LastErrorMessage:      a.lastErrorMessage,
+		LastRunAvailable:      a.lastRunValid,
+		RawResponseModalPath:  a.rawResponseModalPath,
+		RawResponseModalText:  a.rawResponseModalText,
+		RawResponseModalError: a.rawResponseModalError,
+		Result:                a.result,
+		SavePromptVisible:     a.savePromptVisible,
 	}
 }
 

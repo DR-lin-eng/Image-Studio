@@ -314,50 +314,16 @@ func (a *App) layoutPromptHelperInline(gtx layout.Context, presets []sharedCompa
 				return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(8))}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
-							layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-								return a.borderedSurface(gtx, accentAlpha(0x06), unit.Dp(10), fluent.border, func(gtx layout.Context) layout.Dimensions {
-									return layout.UniformInset(unit.Dp(2)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-										return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(2))}.Layout(gtx,
-											layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-												label := "模板"
-												if len(presets) > 0 {
-													label = fmt.Sprintf("模板 %d", len(presets))
-												}
-												return a.surfaceButton(
-													gtx,
-													&a.promptHelperTemplatesButton,
-													chooseColor(a.promptHelperTab != "history", fluent.surface, rgba(0xffffff, 0x00)),
-													fluent.surface2,
-													rgba(0xffffff, 0x00),
-													fluentControlRadius,
-													layout.Inset{Top: 8, Bottom: 8, Left: 10, Right: 10},
-													func(gtx layout.Context) layout.Dimensions {
-														return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-															return a.label(gtx, label, unit.Sp(11), chooseColor(a.promptHelperTab != "history", fluent.text, fluent.textMuted), chooseFontWeight(a.promptHelperTab != "history"))
-														})
-													},
-												)
-											}),
-											layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-												label := fmt.Sprintf("历史 %d", len(suggestions))
-												return a.surfaceButton(
-													gtx,
-													&a.promptHelperHistoryButton,
-													chooseColor(a.promptHelperTab == "history", fluent.surface, rgba(0xffffff, 0x00)),
-													fluent.surface2,
-													rgba(0xffffff, 0x00),
-													fluentControlRadius,
-													layout.Inset{Top: 8, Bottom: 8, Left: 10, Right: 10},
-													func(gtx layout.Context) layout.Dimensions {
-														return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-															return a.label(gtx, label, unit.Sp(11), chooseColor(a.promptHelperTab == "history", fluent.text, fluent.textMuted), chooseFontWeight(a.promptHelperTab == "history"))
-														})
-													},
-												)
-											}),
-										)
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								return fixedWidth(gtx, unit.Dp(14), func(gtx layout.Context) layout.Dimensions {
+									return fixedHeight(gtx, unit.Dp(14), func(gtx layout.Context) layout.Dimensions {
+										return uiIconHistory.Layout(gtx, fluent.accent)
 									})
 								})
+							}),
+							layout.Rigid(layout.Spacer{Width: unit.Dp(6)}.Layout),
+							layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+								return a.layoutPromptHelperTabs(gtx, len(presets), len(suggestions))
 							}),
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 								return a.ghostIconButton(gtx, &a.closePromptHelperButton, uiIconClose, false)
@@ -400,49 +366,7 @@ func (a *App) layoutPromptHelperModal(gtx layout.Context) layout.Dimensions {
 		func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(12))}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return a.borderedSurface(gtx, accentAlpha(0x06), unit.Dp(10), fluent.border, func(gtx layout.Context) layout.Dimensions {
-						return layout.UniformInset(unit.Dp(2)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(2))}.Layout(gtx,
-								layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-									label := "模板"
-									if len(snap.Presets) > 0 {
-										label = fmt.Sprintf("模板 %d", len(snap.Presets))
-									}
-									return a.surfaceButton(
-										gtx,
-										&a.promptHelperTemplatesButton,
-										chooseColor(a.promptHelperTab != "history", fluent.surface, rgba(0xffffff, 0x00)),
-										fluent.surface2,
-										rgba(0xffffff, 0x00),
-										fluentControlRadius,
-										layout.Inset{Top: 8, Bottom: 8, Left: 10, Right: 10},
-										func(gtx layout.Context) layout.Dimensions {
-											return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-												return a.label(gtx, label, unit.Sp(11), chooseColor(a.promptHelperTab != "history", fluent.text, fluent.textMuted), chooseFontWeight(a.promptHelperTab != "history"))
-											})
-										},
-									)
-								}),
-								layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-									label := fmt.Sprintf("历史 %d", len(suggestions))
-									return a.surfaceButton(
-										gtx,
-										&a.promptHelperHistoryButton,
-										chooseColor(a.promptHelperTab == "history", fluent.surface, rgba(0xffffff, 0x00)),
-										fluent.surface2,
-										rgba(0xffffff, 0x00),
-										fluentControlRadius,
-										layout.Inset{Top: 8, Bottom: 8, Left: 10, Right: 10},
-										func(gtx layout.Context) layout.Dimensions {
-											return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-												return a.label(gtx, label, unit.Sp(11), chooseColor(a.promptHelperTab == "history", fluent.text, fluent.textMuted), chooseFontWeight(a.promptHelperTab == "history"))
-											})
-										},
-									)
-								}),
-							)
-						})
-					})
+					return a.layoutPromptHelperTabs(gtx, len(snap.Presets), len(suggestions))
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return a.layoutPromptHelperPanel(gtx, snap.Presets, suggestions)
@@ -457,6 +381,52 @@ func chooseFontWeight(active bool) font.Weight {
 		return font.SemiBold
 	}
 	return font.Medium
+}
+
+func (a *App) layoutPromptHelperTabs(gtx layout.Context, presetCount int, historyCount int) layout.Dimensions {
+	return a.borderedSurface(gtx, accentAlpha(0x06), unit.Dp(10), fluent.border, func(gtx layout.Context) layout.Dimensions {
+		return layout.UniformInset(unit.Dp(2)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(2))}.Layout(gtx,
+				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+					label := "模板"
+					if presetCount > 0 {
+						label = fmt.Sprintf("模板 %d", presetCount)
+					}
+					return a.surfaceButton(
+						gtx,
+						&a.promptHelperTemplatesButton,
+						chooseColor(a.promptHelperTab != "history", fluent.surface, rgba(0xffffff, 0x00)),
+						fluent.surface2,
+						rgba(0xffffff, 0x00),
+						fluentControlRadius,
+						layout.Inset{Top: 8, Bottom: 8, Left: 10, Right: 10},
+						func(gtx layout.Context) layout.Dimensions {
+							return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								return a.label(gtx, label, unit.Sp(11), chooseColor(a.promptHelperTab != "history", fluent.text, fluent.textMuted), chooseFontWeight(a.promptHelperTab != "history"))
+							})
+						},
+					)
+				}),
+				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+					label := fmt.Sprintf("历史 %d", historyCount)
+					return a.surfaceButton(
+						gtx,
+						&a.promptHelperHistoryButton,
+						chooseColor(a.promptHelperTab == "history", fluent.surface, rgba(0xffffff, 0x00)),
+						fluent.surface2,
+						rgba(0xffffff, 0x00),
+						fluentControlRadius,
+						layout.Inset{Top: 8, Bottom: 8, Left: 10, Right: 10},
+						func(gtx layout.Context) layout.Dimensions {
+							return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								return a.label(gtx, label, unit.Sp(11), chooseColor(a.promptHelperTab == "history", fluent.text, fluent.textMuted), chooseFontWeight(a.promptHelperTab == "history"))
+							})
+						},
+					)
+				}),
+			)
+		})
+	})
 }
 
 func (a *App) layoutPromptHelperItem(gtx layout.Context, buttonID string, item promptHelperItem) layout.Dimensions {

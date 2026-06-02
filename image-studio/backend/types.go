@@ -38,9 +38,9 @@ type GenerateOptions struct {
 	RequestPolicy  string `json:"requestPolicy"`  // "openai" (default) | "compat"
 	// ImagesNewAPICompat 开启后仅影响 Images API 请求:
 	// 强制使用 b64_json,并关闭 stream/partial_images,用于兼容部分 NewAPI 中转。
-	ImagesNewAPICompat bool `json:"imagesNewAPICompat,omitempty"`
-	ProxyMode      string `json:"proxyMode"`      // "none" | "system" (default) | "custom"
-	ProxyURL       string `json:"proxyURL"`       // http(s) proxy URL when ProxyMode == "custom"
+	ImagesNewAPICompat bool   `json:"imagesNewAPICompat,omitempty"`
+	ProxyMode          string `json:"proxyMode"` // "none" | "system" (default) | "custom"
+	ProxyURL           string `json:"proxyURL"`  // http(s) proxy URL when ProxyMode == "custom"
 	// NoPromptRevision is kept for backward compatibility; Responses API
 	// requests now always ask the text model to keep the prompt verbatim.
 	NoPromptRevision bool `json:"noPromptRevision"`
@@ -78,6 +78,15 @@ type ProbeUpstreamOptions struct {
 
 type ProbeUpstreamResult struct {
 	ModelCount int `json:"modelCount"`
+}
+
+// CodexAPIConfig is loaded from the local Codex desktop config/auth files so
+// the frontend can import the same upstream into Image Studio.
+type CodexAPIConfig struct {
+	Provider string `json:"provider"`
+	BaseURL  string `json:"baseURL"`
+	APIKey   string `json:"apiKey"`
+	WireAPI  string `json:"wireAPI"`
 }
 
 func (o PromptOptimizeOptions) collectPaths() []string {

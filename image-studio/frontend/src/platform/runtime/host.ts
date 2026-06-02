@@ -40,6 +40,7 @@ import {
   invokeService,
 } from "./hostBindings.ts";
 import type {
+  CodexAPIConfigLike,
   GenerateOptionsLike,
   HostCapabilities,
   HostKind,
@@ -360,6 +361,17 @@ export function GetOutputDir(): Promise<string> {
     return invokeAndroid<string>(unsupportedMessage, "GetOutputDir");
   }
   return Promise.resolve("");
+}
+
+export function canLoadCodexAPIConfig(): boolean {
+  return detectHostKind() === "wails-desktop" && hasServiceMethod("LoadCodexAPIConfig");
+}
+
+export function LoadCodexAPIConfig(): Promise<CodexAPIConfigLike> {
+  if (hasServiceMethod("LoadCodexAPIConfig")) {
+    return invokeService<CodexAPIConfigLike>(unsupportedMessage, "LoadCodexAPIConfig");
+  }
+  return Promise.reject(new Error(unsupportedMessage("LoadCodexAPIConfig")));
 }
 
 export function DeleteStoredAPIKey(user: string): Promise<void> {

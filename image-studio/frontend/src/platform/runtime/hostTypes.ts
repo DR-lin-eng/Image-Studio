@@ -55,6 +55,13 @@ export type ProbeUpstreamResultLike = {
   modelCount: number;
 };
 
+export type CodexAPIConfigLike = {
+  provider: string;
+  baseURL: string;
+  apiKey: string;
+  wireAPI: string;
+};
+
 export type JobStartedLike = { jobId: string };
 export type ImportedImageLike = {
   path: string;

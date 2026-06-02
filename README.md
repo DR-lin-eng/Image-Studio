@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./docs/picture/image-edit-1137ff20.png" alt="Image Studio" width="720" />
+  <img src="./docs/picture/image-edit-1137ff20.png" alt="Image Studio" width="180" />
 </p>
 
 # Image Studio

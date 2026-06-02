@@ -28,30 +28,54 @@ function ToggleSwitch({
   checked,
   onChange,
   roundedClassName,
+  ariaLabel,
+  showStateLabel = true,
 }: {
   checked: boolean;
   onChange: (next: boolean) => void;
   roundedClassName: string;
+  ariaLabel: string;
+  showStateLabel?: boolean;
 }) {
+  const stateLabel = checked ? "已开启" : "已关闭";
+
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={(event) => {
-        event.stopPropagation();
-        onChange(!checked);
-      }}
-      className={`relative inline-flex h-6 w-11 items-center border transition-colors ${
-        checked
-          ? "border-[color:var(--accent)]/30 bg-[var(--accent)]"
-          : "border-black/[0.08] bg-zinc-300/70 dark:border-white/[0.08] dark:bg-zinc-700/90"
-      } ${roundedClassName}`}
-    >
-      <span
-        className={`inline-block h-5 w-5 transform bg-white shadow-sm transition-transform ${checked ? "translate-x-5" : "translate-x-0.5"} ${roundedClassName}`}
-      />
-    </button>
+    <div className="inline-flex items-center gap-2.5">
+      {showStateLabel ? (
+        <span
+          className={`inline-flex min-h-[26px] min-w-[58px] items-center justify-center border px-2.5 text-[11px] font-semibold tracking-[0.04em] transition-colors ${
+            checked
+              ? "border-[color:var(--accent)]/20 bg-[var(--accent-soft)] text-[var(--accent)] shadow-[0_0_0_1px_rgb(0_122_255_/_0.08)]"
+              : "border-black/[0.08] bg-black/[0.04] text-zinc-500 dark:border-white/[0.08] dark:bg-white/[0.05] dark:text-zinc-300"
+          } ${roundedClassName}`}
+        >
+          {stateLabel}
+        </span>
+      ) : null}
+      <button
+        type="button"
+        role="switch"
+        aria-label={ariaLabel}
+        aria-checked={checked}
+        onClick={(event) => {
+          event.stopPropagation();
+          onChange(!checked);
+        }}
+        className={`relative inline-flex h-7 w-[52px] shrink-0 items-center border shadow-[inset_0_1px_2px_rgb(255_255_255_/_0.08)] transition-all duration-200 ${
+          checked
+            ? "border-[color:var(--accent)]/35 bg-[var(--accent)] shadow-[0_10px_24px_-14px_rgb(0_122_255_/_0.9)]"
+            : "border-black/[0.12] bg-zinc-300 shadow-[inset_0_1px_3px_rgb(255_255_255_/_0.24)] dark:border-white/[0.1] dark:bg-zinc-700/95"
+        } ${roundedClassName}`}
+      >
+        <span
+          className={`inline-block h-5.5 w-5.5 border shadow-[0_2px_8px_rgb(15_23_42_/_0.18)] transition-all duration-200 ${
+            checked
+              ? "translate-x-[26px] border-white/70 bg-white"
+              : "translate-x-0.5 border-black/5 bg-white dark:border-white/10 dark:bg-zinc-100"
+          } ${roundedClassName}`}
+        />
+      </button>
+    </div>
   );
 }
 
@@ -119,7 +143,15 @@ export function LoopGenerationSection({
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-3">
-            <span className="text-[12px] text-zinc-500 dark:text-zinc-400">配置</span>
+            <span
+              className={`inline-flex min-h-[28px] items-center border px-2.5 text-[11px] font-semibold tracking-[0.04em] ${
+                value.enabled
+                  ? "border-[color:var(--accent)]/20 bg-[var(--accent-soft)] text-[var(--accent)] shadow-[0_0_0_1px_rgb(0_122_255_/_0.08)]"
+                  : "border-black/[0.08] bg-black/[0.04] text-zinc-500 dark:border-white/[0.08] dark:bg-white/[0.05] dark:text-zinc-300"
+              } ${roundedClassName}`}
+            >
+              {value.enabled ? "开启中" : "已关闭"}
+            </span>
             <ToggleSwitch
               checked={value.enabled}
               onChange={(next) => {
@@ -127,6 +159,8 @@ export function LoopGenerationSection({
                 if (next) setOpen(true);
               }}
               roundedClassName={roundedClassName}
+              ariaLabel="切换循环出图"
+              showStateLabel={false}
             />
           </div>
         </div>
@@ -146,6 +180,7 @@ export function LoopGenerationSection({
                 checked={value.enabled}
                 onChange={(next) => patchConfig({ enabled: next })}
                 roundedClassName={roundedClassName}
+                ariaLabel="启用循环出图"
               />
             </div>
           </section>
@@ -197,6 +232,7 @@ export function LoopGenerationSection({
                   autoSaveDir: next && !value.autoSaveDir.trim() ? currentOutputDir : value.autoSaveDir,
                 })}
                 roundedClassName={roundedClassName}
+                ariaLabel="切换自动另存为"
               />
             </div>
 
@@ -248,6 +284,7 @@ export function LoopGenerationSection({
                 checked={value.livePreview}
                 onChange={(next) => patchConfig({ livePreview: next })}
                 roundedClassName={roundedClassName}
+                ariaLabel="切换实时预览"
               />
             </div>
           </section>

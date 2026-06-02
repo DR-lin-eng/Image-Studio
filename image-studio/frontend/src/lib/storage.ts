@@ -191,6 +191,14 @@ function stripHistoryRecord(record: HistoryRecord): HistoryItem {
   const { searchText, searchTokens, ...item } = record;
   void searchText;
   void searchTokens;
+  if (item.savedPath && !item.savedPath.startsWith("memory://") && !item.imageB64) {
+    return {
+      ...item,
+      imageId: undefined,
+      previewUrl: undefined,
+      fullUrl: undefined,
+    };
+  }
   return item;
 }
 

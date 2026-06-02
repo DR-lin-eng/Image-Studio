@@ -102,10 +102,7 @@ export async function ensureFullHistoryItem(
   },
 ): Promise<HistoryItem | null> {
   if (!item) return null;
-  if ((item.fullUrl || item.imageId) && !item.imageB64 && !item.imageBlob) {
-    return { ...item, fullUrl: item.fullUrl || fullUrlFromImageID(item.imageId), previewOnly: false };
-  }
-  if (item.savedPath && !item.savedPath.startsWith("memory://") && !item.imageB64 && !item.imageBlob && item.previewOnly) {
+  if (item.savedPath && !item.savedPath.startsWith("memory://") && !item.imageB64 && !item.imageBlob) {
     try {
       const ref = item.thumbPath
         ? await RegisterMediaAsset(item.savedPath, item.thumbPath)
@@ -119,8 +116,11 @@ export async function ensureFullHistoryItem(
         return { ...withMediaAssetRef(item, ref), imageB64: fullB64, imageBlob: base64ToBlob(fullB64), previewOnly: false };
       }
     } catch {
-      // Fall through to legacy full-image materialization.
+      // Fall through to legacy full-image materialization / stale URLs.
     }
+  }
+  if ((item.fullUrl || item.imageId) && !item.imageB64 && !item.imageBlob) {
+    return { ...item, fullUrl: item.fullUrl || fullUrlFromImageID(item.imageId), previewOnly: false };
   }
   if (item.savedPath && item.thumbPath && !item.imageB64 && !item.imageBlob) {
     try {

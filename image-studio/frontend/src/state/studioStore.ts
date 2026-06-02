@@ -256,7 +256,10 @@ async function writeBase64ToTempFile(b64: string, _name: string): Promise<string
 }
 
 function needsHistoryPreviewHydration(item: HistoryItem): boolean {
-  return !!item.savedPath && !item.previewUrl && !item.previewBlob && !item.imageB64;
+  return !!item.savedPath
+    && !item.savedPath.startsWith("memory://")
+    && !item.previewBlob
+    && !item.imageB64;
 }
 
 async function mapWithConcurrency<T, R>(

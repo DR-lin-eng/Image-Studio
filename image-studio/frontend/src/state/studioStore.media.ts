@@ -309,9 +309,11 @@ export function createMediaActions(store: StateAdapter) {
           const hasRenderableImage = !!(item.previewUrl || item.previewBlob || item.imageB64 || (item.savedPath && item.thumbPath));
           if (!hasRenderableImage) continue;
           let safeItem = sanitizeImportedHistoryItem(item);
-          if (safeItem.savedPath && safeItem.thumbPath && !safeItem.previewUrl) {
+          if (safeItem.savedPath && !safeItem.savedPath.startsWith("memory://") && !safeItem.imageB64 && !safeItem.previewBlob) {
             try {
-              const ref = await RegisterMediaAsset(safeItem.savedPath, safeItem.thumbPath);
+              const ref = safeItem.thumbPath
+                ? await RegisterMediaAsset(safeItem.savedPath, safeItem.thumbPath)
+                : await RegisterImportedImageAsset(safeItem.savedPath);
               safeItem = withMediaAssetRef(safeItem, ref);
             } catch {
               // Keep the metadata/legacy preview if the file is unavailable in this environment.

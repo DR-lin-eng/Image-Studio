@@ -688,6 +688,30 @@ func (a *App) toolbarTextButton(
 	})
 }
 
+func (a *App) toolbarStaticTextButton(
+	gtx layout.Context,
+	text string,
+	accent bool,
+) layout.Dimensions {
+	bg := rgba(0xffffff, 0x00)
+	border := rgba(0xffffff, 0x00)
+	fg := fluent.textMuted
+	if accent {
+		bg = fluent.accentSoft
+		border = accentAlpha(0x24)
+		fg = fluent.accent
+	}
+	return fixedHeight(gtx, unit.Dp(30), func(gtx layout.Context) layout.Dimensions {
+		return a.borderedSurface(gtx, bg, fluentControlRadius, border, func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{Left: 8, Right: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return a.label(gtx, text, unit.Sp(11), fg, font.Medium)
+				})
+			})
+		})
+	})
+}
+
 func (a *App) compactIconButton(
 	gtx layout.Context,
 	btn *widget.Clickable,

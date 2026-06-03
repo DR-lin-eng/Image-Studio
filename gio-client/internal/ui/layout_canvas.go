@@ -36,7 +36,7 @@ func (a *App) layoutCanvas(gtx layout.Context) layout.Dimensions {
 	}
 	if showSourceStrip {
 		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return fixedHeight(gtx, unit.Dp(72), func(gtx layout.Context) layout.Dimensions {
+			return fixedHeight(gtx, unit.Dp(64), func(gtx layout.Context) layout.Dimensions {
 				return a.sourceStrip(gtx, sourcePaths)
 			})
 		}))
@@ -182,6 +182,14 @@ func (a *App) canvasToolbar(gtx layout.Context, snap snapshot) layout.Dimensions
 							})
 						}),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return a.toolbarStaticTextButton(gtx, "重置视图", false)
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return layout.Inset{Left: unit.Dp(6), Right: unit.Dp(6)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								return a.toolbarSeparator(gtx)
+							})
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							return a.toolbarCluster(gtx, func(gtx layout.Context) layout.Dimensions {
 								return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx,
 									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -293,7 +301,7 @@ func (a *App) sourceStrip(gtx layout.Context, sourcePaths []string) layout.Dimen
 		return layout.Inset{Top: 8, Bottom: 8, Left: 12, Right: 12}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return fixedWidth(gtx, unit.Dp(88), func(gtx layout.Context) layout.Dimensions {
+					return fixedWidth(gtx, unit.Dp(80), func(gtx layout.Context) layout.Dimensions {
 						return a.label(gtx, label, unit.Sp(11), fluent.textMuted, font.SemiBold)
 					})
 				}),
@@ -321,7 +329,7 @@ func (a *App) layoutSourceStripTile(gtx layout.Context, path string) layout.Dime
 	img, _ := a.imageForPath(path)
 	return layout.Stack{}.Layout(gtx,
 		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
-			return a.imageThumbCover(gtx, img, unit.Dp(56), unit.Dp(56), unit.Dp(6))
+			return a.imageThumbCover(gtx, img, unit.Dp(48), unit.Dp(48), unit.Dp(6))
 		}),
 		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
 			return layout.NW.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -370,8 +378,8 @@ func (a *App) layoutSourceStripAddTile(gtx layout.Context) layout.Dimensions {
 			unit.Dp(6),
 			layout.Inset{},
 			func(gtx layout.Context) layout.Dimensions {
-				return fixedWidth(gtx, unit.Dp(56), func(gtx layout.Context) layout.Dimensions {
-					return fixedHeight(gtx, unit.Dp(56), func(gtx layout.Context) layout.Dimensions {
+				return fixedWidth(gtx, unit.Dp(48), func(gtx layout.Context) layout.Dimensions {
+					return fixedHeight(gtx, unit.Dp(48), func(gtx layout.Context) layout.Dimensions {
 						return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 							return fixedWidth(gtx, unit.Dp(18), func(gtx layout.Context) layout.Dimensions {
 								return fixedHeight(gtx, unit.Dp(18), func(gtx layout.Context) layout.Dimensions {

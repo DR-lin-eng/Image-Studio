@@ -184,6 +184,7 @@ func (a *App) currentConfig() kernel.Config {
 		Background:         a.background,
 		OutputCompression:  outputCompression,
 		InputFidelity:      a.inputFidelity,
+		ImageStyle:         a.imageStyle,
 		Moderation:         a.moderation,
 		UserIdentifier:     a.userIdentifierInput.Text(),
 		ProxyMode:          a.proxy,

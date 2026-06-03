@@ -142,6 +142,7 @@ type App struct {
 	proxy              string
 	background         string
 	inputFidelity      string
+	imageStyle         string
 	moderation         string
 	styleTag           string
 	themeMode          string
@@ -165,6 +166,7 @@ type App struct {
 	proxyButtons                     []widget.Clickable
 	backgroundButtons                []widget.Clickable
 	inputFidelityButtons             []widget.Clickable
+	imageStyleButtons                []widget.Clickable
 	moderationButtons                []widget.Clickable
 	partialPreviewButtons            []widget.Clickable
 	historyModeButtons               []widget.Clickable
@@ -394,6 +396,7 @@ func New() *App {
 		proxy:                      cfg.ProxyMode,
 		background:                 cfg.Background,
 		inputFidelity:              cfg.InputFidelity,
+		imageStyle:                 cfg.ImageStyle,
 		moderation:                 cfg.Moderation,
 		styleTag:                   "",
 		themeMode:                  themeMode,
@@ -422,6 +425,7 @@ func New() *App {
 		proxyButtons:               make([]widget.Clickable, len(proxyChoices)),
 		backgroundButtons:          make([]widget.Clickable, len(backgroundChoices)),
 		inputFidelityButtons:       make([]widget.Clickable, len(inputFidelityChoices)),
+		imageStyleButtons:          make([]widget.Clickable, len(imageStyleChoices)),
 		moderationButtons:          make([]widget.Clickable, len(moderationChoices)),
 		partialPreviewButtons:      make([]widget.Clickable, len(partialPreviewChoices)),
 		historyModeButtons:         make([]widget.Clickable, 3),
@@ -545,6 +549,7 @@ func (a *App) applyRuntimeConfig(cfg kernel.Config) {
 	a.proxy = cfg.ProxyMode
 	a.background = cfg.Background
 	a.inputFidelity = cfg.InputFidelity
+	a.imageStyle = cfg.ImageStyle
 	a.moderation = cfg.Moderation
 	a.proxyURLInput.SetText(cfg.ProxyURL)
 	a.outputDirInput.SetText(cfg.OutputDir)

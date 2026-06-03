@@ -420,6 +420,10 @@ func (a *App) applySettingsProfileDraft(state sharedCompat.State, profile shared
 	if a.inputFidelity == "" {
 		a.inputFidelity = client.DefaultInputFidelity
 	}
+	a.imageStyle = strings.TrimSpace(state.Settings.ImageStyle)
+	if a.imageStyle == "" {
+		a.imageStyle = client.DefaultImageStyle
+	}
 	a.moderation = strings.TrimSpace(state.Settings.Moderation)
 	if a.moderation == "" {
 		a.moderation = client.DefaultModeration
@@ -473,6 +477,11 @@ func (a *App) loadSettingsProfileDraft(profileID string) error {
 			inputFidelity = client.DefaultInputFidelity
 		}
 		a.inputFidelity = inputFidelity
+		imageStyle := strings.TrimSpace(state.Settings.ImageStyle)
+		if imageStyle == "" {
+			imageStyle = client.DefaultImageStyle
+		}
+		a.imageStyle = imageStyle
 		moderation := strings.TrimSpace(state.Settings.Moderation)
 		if moderation == "" {
 			moderation = client.DefaultModeration
@@ -598,6 +607,7 @@ func (a *App) saveSettingsSelection() error {
 	}
 	state.Settings.OutputCompression = &outputCompression
 	state.Settings.InputFidelity = strings.TrimSpace(a.inputFidelity)
+	state.Settings.ImageStyle = strings.TrimSpace(a.imageStyle)
 	state.Settings.Moderation = strings.TrimSpace(a.moderation)
 	state.Settings.UserIdentifier = strings.TrimSpace(a.userIdentifierInput.Text())
 	partialImages := client.DefaultPartialImages

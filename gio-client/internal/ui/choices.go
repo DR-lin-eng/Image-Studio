@@ -90,6 +90,11 @@ var (
 		{"低", "low"},
 		{"高", "high"},
 	}
+	imageStyleChoices = []choice{
+		{"默认", "default"},
+		{"鲜明", "vivid"},
+		{"自然", "natural"},
+	}
 	moderationChoices = []choice{
 		{"低", "low"},
 		{"自动", "auto"},
@@ -238,6 +243,10 @@ func backgroundChoiceLabel(value string) string {
 
 func inputFidelityChoiceLabel(value string) string {
 	return choiceLabel(inputFidelityChoices, value)
+}
+
+func imageStyleChoiceLabel(value string) string {
+	return choiceLabel(imageStyleChoices, value)
 }
 
 func moderationChoiceLabel(value string) string {

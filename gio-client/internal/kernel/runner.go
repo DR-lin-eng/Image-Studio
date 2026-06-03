@@ -28,6 +28,7 @@ type Config struct {
 	Background         string
 	OutputCompression  int
 	InputFidelity      string
+	ImageStyle         string
 	Moderation         string
 	UserIdentifier     string
 	ProxyMode          string
@@ -70,6 +71,7 @@ func DefaultConfig() Config {
 		Background:        client.DefaultBackground,
 		OutputCompression: client.DefaultOutputCompression,
 		InputFidelity:     client.DefaultInputFidelity,
+		ImageStyle:        client.DefaultImageStyle,
 		Moderation:        client.DefaultModeration,
 		ProxyMode:         client.ProxyModeSystem,
 		OutputDir:         DefaultOutputDir(),
@@ -162,6 +164,7 @@ func (Runner) Run(ctx context.Context, cfg Config, cb Callbacks) (Result, error)
 		Background:         cfg.Background,
 		OutputCompression:  cfg.OutputCompression,
 		InputFidelity:      cfg.InputFidelity,
+		ImageStyle:         cfg.ImageStyle,
 		Moderation:         cfg.Moderation,
 		UserIdentifier:     cfg.UserIdentifier,
 		Proxy:              proxy,
@@ -231,6 +234,7 @@ func normalizeConfig(cfg Config) Config {
 	cfg.OutputDir = strings.TrimSpace(cfg.OutputDir)
 	cfg.NegativePrompt = strings.TrimSpace(cfg.NegativePrompt)
 	cfg.InputFidelity = strings.TrimSpace(cfg.InputFidelity)
+	cfg.ImageStyle = strings.TrimSpace(cfg.ImageStyle)
 	cfg.Moderation = strings.TrimSpace(cfg.Moderation)
 	cfg.UserIdentifier = strings.TrimSpace(cfg.UserIdentifier)
 	if cfg.TextModelID == "" {
@@ -265,6 +269,9 @@ func normalizeConfig(cfg Config) Config {
 	}
 	if cfg.InputFidelity == "" {
 		cfg.InputFidelity = client.DefaultInputFidelity
+	}
+	if cfg.ImageStyle == "" {
+		cfg.ImageStyle = client.DefaultImageStyle
 	}
 	if cfg.Moderation == "" {
 		cfg.Moderation = client.DefaultModeration

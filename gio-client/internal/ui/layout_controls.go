@@ -2310,6 +2310,7 @@ func (a *App) layoutAdvancedCard(gtx layout.Context) layout.Dimensions {
 		"背景 " + backgroundChoiceLabel(a.background),
 		chooseOptionalCompressionSummary(a.outputCompressionInput.Text(), a.format),
 		chooseOptionalFidelitySummary(a.inputFidelity),
+		chooseOptionalImageStyleSummary(a.imageStyle),
 		"审核 " + moderationChoiceLabel(a.moderation),
 		"预览 " + partialPreview + " 帧",
 		chooseOptionalUserIdentifierSummary(a.userIdentifierInput.Text()),
@@ -2370,6 +2371,19 @@ func (a *App) layoutAdvancedCard(gtx layout.Context) layout.Dimensions {
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return a.advancedSectionCard(gtx, "输入保真", "", func(gtx layout.Context) layout.Dimensions {
 							return a.segmented(gtx, inputFidelityChoices, a.inputFidelity, a.inputFidelityButtons, func(value string) { a.inputFidelity = value })
+						})
+					}),
+					layout.Rigid(layout.Spacer{Height: unit.Dp(12)}.Layout),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return a.advancedSectionCard(gtx, "图像风格", "", func(gtx layout.Context) layout.Dimensions {
+							return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx,
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									return a.segmented(gtx, imageStyleChoices, a.imageStyle, a.imageStyleButtons, func(value string) { a.imageStyle = value })
+								}),
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									return a.label(gtx, "仅 dall-e-3 文生图支持；默认值会省略该字段。", unit.Sp(10), fluent.textDim, font.Normal)
+								}),
+							)
 						})
 					}),
 					layout.Rigid(layout.Spacer{Height: unit.Dp(12)}.Layout),
@@ -2756,6 +2770,14 @@ func chooseOptionalFidelitySummary(value string) string {
 		return ""
 	}
 	return "保真 " + inputFidelityChoiceLabel(value)
+}
+
+func chooseOptionalImageStyleSummary(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" || value == client.DefaultImageStyle {
+		return ""
+	}
+	return "图风 " + imageStyleChoiceLabel(value)
 }
 
 func chooseOptionalUserIdentifierSummary(value string) string {

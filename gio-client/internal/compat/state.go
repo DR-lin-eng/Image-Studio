@@ -72,6 +72,9 @@ func ConfigFromState(cfg kernel.Config, state shared.State) kernel.Config {
 	if strings.TrimSpace(state.Settings.InputFidelity) != "" {
 		cfg.InputFidelity = state.Settings.InputFidelity
 	}
+	if strings.TrimSpace(state.Settings.ImageStyle) != "" {
+		cfg.ImageStyle = state.Settings.ImageStyle
+	}
 	if strings.TrimSpace(state.Settings.Moderation) != "" {
 		cfg.Moderation = state.Settings.Moderation
 	}
@@ -183,6 +186,7 @@ func UpsertConfig(state shared.State, cfg kernel.Config) shared.State {
 	state.Settings.OutputDir = strings.TrimSpace(cfg.OutputDir)
 	state.Settings.Background = strings.TrimSpace(cfg.Background)
 	state.Settings.InputFidelity = strings.TrimSpace(cfg.InputFidelity)
+	state.Settings.ImageStyle = strings.TrimSpace(cfg.ImageStyle)
 	state.Settings.Moderation = strings.TrimSpace(cfg.Moderation)
 	state.Settings.UserIdentifier = strings.TrimSpace(cfg.UserIdentifier)
 	outputCompression := cfg.OutputCompression
@@ -215,6 +219,7 @@ func HistoryItemFromRun(cfg kernel.Config, result kernel.Result, elapsedSec floa
 		NegativePrompt: cfg.NegativePrompt,
 		Background:     cfg.Background,
 		InputFidelity:  cfg.InputFidelity,
+		ImageStyle:     cfg.ImageStyle,
 		Moderation:     cfg.Moderation,
 		StyleTag:       cfg.StyleTag,
 		BatchIndex:     cfg.BatchIndex,

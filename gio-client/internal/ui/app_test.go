@@ -323,6 +323,18 @@ func TestLoadHistoryPreviewUsesThumbImageButKeepsSavedPath(t *testing.T) {
 	assertImagePixelColor(t, app.result.Image, color.NRGBA{R: 0x44, G: 0x88, B: 0xff, A: 0xff})
 }
 
+func TestContainNoUpscaleSize(t *testing.T) {
+	if got := containNoUpscaleSize(512, 512, 1200, 900); got != (image.Pt(512, 512)) {
+		t.Fatalf("containNoUpscaleSize upscale=%v want 512x512", got)
+	}
+	if got := containNoUpscaleSize(2048, 1024, 800, 600); got != (image.Pt(800, 400)) {
+		t.Fatalf("containNoUpscaleSize downscale=%v want 800x400", got)
+	}
+	if got := containNoUpscaleSize(1024, 2048, 800, 600); got != (image.Pt(300, 600)) {
+		t.Fatalf("containNoUpscaleSize portrait=%v want 300x600", got)
+	}
+}
+
 func TestResolveThemeMode(t *testing.T) {
 	prev := systemThemeResolver
 	systemThemeResolver = func() string { return "dark" }

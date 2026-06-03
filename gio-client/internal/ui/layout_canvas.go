@@ -433,19 +433,57 @@ func (a *App) resultSurface(gtx layout.Context, snap snapshot) layout.Dimensions
 		}
 		return layout.UniformInset(unit.Dp(28)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return a.layoutCanvasImageContain(gtx, a.imageOp)
+				return a.layoutCanvasImageContain(gtx, snap.Result.Image, a.imageOp)
 			})
 		})
 	})
 }
 
-func (a *App) layoutCanvasImageContain(gtx layout.Context, op paint.ImageOp) layout.Dimensions {
-	img := widget.Image{
+func (a *App) layoutCanvasImageContain(gtx layout.Context, src image.Image, op paint.ImageOp) layout.Dimensions {
+	if src == nil {
+		return layout.Dimensions{}
+	}
+	size := containNoUpscaleSize(src.Bounds().Dx(), src.Bounds().Dy(), gtx.Constraints.Max.X, gtx.Constraints.Max.Y)
+	if size.X <= 0 || size.Y <= 0 {
+		return layout.Dimensions{}
+	}
+	view := widget.Image{
 		Src:      op,
 		Fit:      widget.Contain,
 		Position: layout.Center,
 	}
-	return img.Layout(gtx)
+	return fixedPixelWidth(gtx, size.X, func(gtx layout.Context) layout.Dimensions {
+		return fixedPixelHeight(gtx, size.Y, view.Layout)
+	})
+}
+
+func containNoUpscaleSize(srcW int, srcH int, maxW int, maxH int) image.Point {
+	if srcW <= 0 || srcH <= 0 || maxW <= 0 || maxH <= 0 {
+		return image.Point{}
+	}
+	scaleX := float32(maxW) / float32(srcW)
+	scaleY := float32(maxH) / float32(srcH)
+	scale := minFloat32(scaleX, scaleY)
+	if scale > 1 {
+		scale = 1
+	}
+	return image.Pt(
+		max(1, int(float32(srcW)*scale)),
+		max(1, int(float32(srcH)*scale)),
+	)
+}
+
+func minFloat32(values ...float32) float32 {
+	if len(values) == 0 {
+		return 0
+	}
+	minimum := values[0]
+	for _, value := range values[1:] {
+		if value < minimum {
+			minimum = value
+		}
+	}
+	return minimum
 }
 
 func (a *App) layoutCompareSurface(gtx layout.Context, snap snapshot) layout.Dimensions {
@@ -460,7 +498,7 @@ func (a *App) layoutCompareSurface(gtx layout.Context, snap snapshot) layout.Dim
 	gtx.Constraints.Min = gtx.Constraints.Max
 	return layout.Stack{}.Layout(gtx,
 		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
-			return a.layoutCompareViewport(gtx, a.imageOp, compareOp, split)
+			return a.layoutCompareViewport(gtx, snap.Result.Image, a.imageOp, snap.Compare.Image, compareOp, split)
 		}),
 		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
 			return layout.NW.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -479,7 +517,7 @@ func (a *App) layoutCompareSurface(gtx layout.Context, snap snapshot) layout.Dim
 	)
 }
 
-func (a *App) layoutCompareViewport(gtx layout.Context, currentOp paint.ImageOp, compareOp paint.ImageOp, split float32) layout.Dimensions {
+func (a *App) layoutCompareViewport(gtx layout.Context, currentImg image.Image, currentOp paint.ImageOp, compareImg image.Image, compareOp paint.ImageOp, split float32) layout.Dimensions {
 	max := gtx.Constraints.Max
 	gtx.Constraints.Min = max
 	for {
@@ -506,14 +544,14 @@ func (a *App) layoutCompareViewport(gtx layout.Context, currentOp paint.ImageOp,
 			stack := clip.Rect(image.Rect(0, 0, splitPx, max.Y)).Push(gtx.Ops)
 			defer stack.Pop()
 			return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return a.layoutCanvasImageContain(gtx, currentOp)
+				return a.layoutCanvasImageContain(gtx, currentImg, currentOp)
 			})
 		}),
 		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
 			stack := clip.Rect(image.Rect(splitPx, 0, max.X, max.Y)).Push(gtx.Ops)
 			defer stack.Pop()
 			return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return a.layoutCanvasImageContain(gtx, compareOp)
+				return a.layoutCanvasImageContain(gtx, compareImg, compareOp)
 			})
 		}),
 		layout.Stacked(func(gtx layout.Context) layout.Dimensions {

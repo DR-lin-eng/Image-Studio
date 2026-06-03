@@ -907,9 +907,7 @@ func (a *App) imageThumb(gtx layout.Context, img image.Image, width unit.Dp, hei
 			return a.borderedSurface(gtx, fluent.panel2, radius, fluent.border, func(gtx layout.Context) layout.Dimensions {
 				gtx.Constraints.Min = gtx.Constraints.Max
 				if img == nil {
-					return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return a.label(gtx, "预览", unit.Sp(10), fluent.textDim, font.Medium)
-					})
+					return a.previewFallbackGraphic(gtx, radius)
 				}
 				return layout.UniformInset(unit.Dp(3)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					gtx.Constraints.Min = gtx.Constraints.Max
@@ -933,9 +931,7 @@ func (a *App) imageThumbCover(gtx layout.Context, img image.Image, width unit.Dp
 			return a.borderedSurface(gtx, fluent.panel2, radius, fluent.border, func(gtx layout.Context) layout.Dimensions {
 				gtx.Constraints.Min = gtx.Constraints.Max
 				if img == nil {
-					return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return a.label(gtx, "预览", unit.Sp(10), fluent.textDim, font.Medium)
-					})
+					return a.previewFallbackGraphic(gtx, radius)
 				}
 				view := widget.Image{
 					Src:      paint.NewImageOp(img),
@@ -946,6 +942,26 @@ func (a *App) imageThumbCover(gtx layout.Context, img image.Image, width unit.Dp
 			})
 		})
 	})
+}
+
+func (a *App) previewFallbackGraphic(gtx layout.Context, radius unit.Dp) layout.Dimensions {
+	size := gtx.Constraints.Max
+	if size.X <= 0 || size.Y <= 0 {
+		return layout.Dimensions{Size: size}
+	}
+	gtx.Constraints.Min = size
+	paintLinearGradient(gtx, image.Rect(0, 0, size.X, size.Y), radius, rgb(0x49b2e8), rgb(0x4b27d2))
+	paint.FillShape(gtx.Ops, rgba(0xffffff, 0x2d), clip.Ellipse(image.Rect(int(float32(size.X)*0.6), int(float32(size.Y)*0.05), int(float32(size.X)*1.02), int(float32(size.Y)*0.48))).Op(gtx.Ops))
+	paint.FillShape(gtx.Ops, rgba(0x0c145a, 0x45), clip.Ellipse(image.Rect(int(float32(size.X)*-0.08), int(float32(size.Y)*0.48), int(float32(size.X)*0.52), int(float32(size.Y)*1.08))).Op(gtx.Ops))
+	barRect := image.Rect(int(float32(size.X)*0.18), int(float32(size.Y)*0.67), int(float32(size.X)*0.82), int(float32(size.Y)*0.83))
+	paint.FillShape(gtx.Ops, rgba(0x1a0a44, 0x94), clip.RRect{
+		Rect: barRect,
+		NW:   gtx.Dp(unit.Dp(10)),
+		NE:   gtx.Dp(unit.Dp(10)),
+		SW:   gtx.Dp(unit.Dp(10)),
+		SE:   gtx.Dp(unit.Dp(10)),
+	}.Op(gtx.Ops))
+	return layout.Dimensions{Size: size}
 }
 
 func (a *App) label(gtx layout.Context, text string, size unit.Sp, color color.NRGBA, weight font.Weight) layout.Dimensions {

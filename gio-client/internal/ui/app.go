@@ -308,6 +308,7 @@ type App struct {
 	compare               resultState
 	imageOp               paint.ImageOp
 	imageOpRev            int
+	canvasDisplayScale    float32
 	imageCache            map[string]cachedImage
 	lastRunConfig         kernel.Config
 	lastRunBatchCount     int

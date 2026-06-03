@@ -1621,9 +1621,9 @@ func (a *App) layoutSettingsProfileRail(gtx layout.Context, snap snapshot) layou
 
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(8))}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return fixedHeight(gtx, unit.Dp(372), func(gtx layout.Context) layout.Dimensions {
-				return a.elevatedBorderedSurface(gtx, fluent.surfaceElevated, unit.Dp(8), fluent.border, image.Pt(0, 1), func(gtx layout.Context) layout.Dimensions {
-					return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return fixedHeight(gtx, unit.Dp(460), func(gtx layout.Context) layout.Dimensions {
+				return a.borderedSurface(gtx, fluent.surface, unit.Dp(10), fluent.border, func(gtx layout.Context) layout.Dimensions {
+					return layout.UniformInset(unit.Dp(6)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 						if len(snap.Profiles) == 0 {
 							return layout.UniformInset(unit.Dp(6)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 								return a.label(gtx, "还没有配置,点下方新建开始。", unit.Sp(10), fluent.textDim, font.Normal)
@@ -1639,8 +1639,8 @@ func (a *App) layoutSettingsProfileRail(gtx layout.Context, snap snapshot) layou
 									gtx,
 									btn,
 									chooseColor(selected, fluent.accentSoft, rgba(0xffffff, 0x00)),
-									chooseColor(selected, accentAlpha(0x18), fluent.surface2),
-									chooseColor(selected, accentAlpha(0x24), rgba(0xffffff, 0x00)),
+									chooseColor(selected, accentAlpha(0x18), fluent.toolHoverBg),
+									chooseColor(selected, accentAlpha(0x38), rgba(0xffffff, 0x00)),
 									unit.Dp(8),
 									layout.Inset{Top: 5, Bottom: 5, Left: 8, Right: 8},
 									func(gtx layout.Context) layout.Dimensions {

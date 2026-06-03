@@ -419,9 +419,11 @@ func (a *App) resultSurface(gtx layout.Context, snap snapshot) layout.Dimensions
 		gtx.Constraints.Min = gtx.Constraints.Max
 		paintCheckerboard(gtx, clip.Rect{Max: gtx.Constraints.Max}.Op(), gtx.Dp(unit.Dp(22)), fluent.canvasBg, fluent.canvasTile)
 		if snap.ResultGridOpen && (len(snap.BatchResults) > 1 || (snap.Running && snap.BatchTotal > 1)) {
+			a.canvasDisplayScale = 0
 			return a.layoutBatchResultGrid(gtx, snap)
 		}
 		if snap.Result.Image == nil {
+			a.canvasDisplayScale = 0
 			return layout.Center.Layout(gtx, a.layoutCanvasEmptyState)
 		}
 		if snap.Result.Rev != a.imageOpRev {
@@ -441,12 +443,15 @@ func (a *App) resultSurface(gtx layout.Context, snap snapshot) layout.Dimensions
 
 func (a *App) layoutCanvasImageContain(gtx layout.Context, src image.Image, op paint.ImageOp) layout.Dimensions {
 	if src == nil {
+		a.canvasDisplayScale = 0
 		return layout.Dimensions{}
 	}
 	size := containNoUpscaleSize(src.Bounds().Dx(), src.Bounds().Dy(), gtx.Constraints.Max.X, gtx.Constraints.Max.Y)
 	if size.X <= 0 || size.Y <= 0 {
+		a.canvasDisplayScale = 0
 		return layout.Dimensions{}
 	}
+	a.canvasDisplayScale = float32(size.X) / float32(src.Bounds().Dx())
 	view := widget.Image{
 		Src:      op,
 		Fit:      widget.Contain,
@@ -471,6 +476,13 @@ func containNoUpscaleSize(srcW int, srcH int, maxW int, maxH int) image.Point {
 		max(1, int(float32(srcW)*scale)),
 		max(1, int(float32(srcH)*scale)),
 	)
+}
+
+func formatCanvasScaleLabel(scale float32) string {
+	if scale <= 0 {
+		return ""
+	}
+	return strconv.Itoa(int(scale*100+0.5)) + "%"
 }
 
 func minFloat32(values ...float32) float32 {
@@ -881,6 +893,7 @@ func (a *App) canvasStatusBar(gtx layout.Context, snap snapshot) layout.Dimensio
 	if len(snap.Logs) > 0 {
 		lastLog = snap.Logs[len(snap.Logs)-1]
 	}
+	zoomLabel := formatCanvasScaleLabel(a.canvasDisplayScale)
 
 	return a.borderedSurface(gtx, fluent.panel2, unit.Dp(0), fluent.border, func(gtx layout.Context) layout.Dimensions {
 		return layout.Inset{Top: 9, Bottom: 9, Left: 14, Right: 14}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -952,12 +965,35 @@ func (a *App) canvasStatusBar(gtx layout.Context, snap snapshot) layout.Dimensio
 					}),
 					func() layout.FlexChild {
 						if strings.TrimSpace(snap.Result.RevisedPrompt) == "" {
-							return layout.Flexed(1, layout.Spacer{}.Layout)
+							return layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+								if zoomLabel == "" {
+									return layout.Spacer{}.Layout(gtx)
+								}
+								return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+									layout.Flexed(1, layout.Spacer{}.Layout),
+									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+										return a.singleLineLabel(gtx, zoomLabel, unit.Sp(11), fluent.textDim, font.Normal)
+									}),
+								)
+							})
 						}
 						return layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-							return layout.Inset{Left: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-								return a.singleLineLabel(gtx, "✨ "+snap.Result.RevisedPrompt, unit.Sp(11), fluent.textDim, font.Normal)
-							})
+							children := []layout.FlexChild{
+								layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+									return layout.Inset{Left: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+										return a.singleLineLabel(gtx, "✨ "+snap.Result.RevisedPrompt, unit.Sp(11), fluent.textDim, font.Normal)
+									})
+								}),
+							}
+							if zoomLabel != "" {
+								children = append(children,
+									layout.Rigid(layout.Spacer{Width: unit.Dp(10)}.Layout),
+									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+										return a.singleLineLabel(gtx, zoomLabel, unit.Sp(11), fluent.textDim, font.Normal)
+									}),
+								)
+							}
+							return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx, children...)
 						})
 					}(),
 				)

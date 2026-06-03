@@ -18,10 +18,11 @@ import (
 )
 
 const (
-	fluentControlRadius = unit.Dp(8)
-	fluentCardRadius    = unit.Dp(12)
+	fluentControlRadius = unit.Dp(4)
+	fluentCardRadius    = unit.Dp(8)
 	fluentBadgeRadius   = unit.Dp(4)
-	fluentModalRadius   = unit.Dp(12)
+	fluentModalRadius   = unit.Dp(8)
+	fluentInputRadius   = unit.Dp(10)
 )
 
 func (a *App) sectionTitle(gtx layout.Context, text string) layout.Dimensions {
@@ -152,18 +153,22 @@ func (a *App) compactButton(gtx layout.Context, btn *widget.Clickable, text stri
 		hoverBg = accentAlpha(0x28)
 		fg = fluent.accent
 	}
-	return a.surfaceButton(
-		gtx,
-		btn,
-		bg,
-		hoverBg,
-		border,
-		fluentControlRadius,
-		layout.Inset{Top: 6, Bottom: 6, Left: 9, Right: 9},
-		func(gtx layout.Context) layout.Dimensions {
-			return a.label(gtx, text, unit.Sp(11), fg, font.Medium)
-		},
-	)
+	return fixedHeight(gtx, unit.Dp(30), func(gtx layout.Context) layout.Dimensions {
+		return a.surfaceButton(
+			gtx,
+			btn,
+			bg,
+			hoverBg,
+			border,
+			fluentControlRadius,
+			layout.Inset{Left: 9, Right: 9},
+			func(gtx layout.Context) layout.Dimensions {
+				return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return a.label(gtx, text, unit.Sp(11), fg, font.Medium)
+				})
+			},
+		)
+	})
 }
 
 func (a *App) textActionButton(gtx layout.Context, btn *widget.Clickable, text string, accent bool) layout.Dimensions {
@@ -275,29 +280,33 @@ func (a *App) compactIconTextButton(
 		hoverBg = accentAlpha(0x28)
 		fg = fluent.accent
 	}
-	return a.surfaceButton(
-		gtx,
-		btn,
-		bg,
-		hoverBg,
-		border,
-		fluentControlRadius,
-		layout.Inset{Top: 6, Bottom: 6, Left: 9, Right: 9},
-		func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx,
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return fixedWidth(gtx, unit.Dp(14), func(gtx layout.Context) layout.Dimensions {
-						return fixedHeight(gtx, unit.Dp(14), func(gtx layout.Context) layout.Dimensions {
-							return icon.Layout(gtx, fg)
-						})
-					})
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return a.label(gtx, text, unit.Sp(11), fg, font.Medium)
-				}),
-			)
-		},
-	)
+	return fixedHeight(gtx, unit.Dp(30), func(gtx layout.Context) layout.Dimensions {
+		return a.surfaceButton(
+			gtx,
+			btn,
+			bg,
+			hoverBg,
+			border,
+			fluentControlRadius,
+			layout.Inset{Left: 9, Right: 9},
+			func(gtx layout.Context) layout.Dimensions {
+				return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx,
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return fixedWidth(gtx, unit.Dp(14), func(gtx layout.Context) layout.Dimensions {
+								return fixedHeight(gtx, unit.Dp(14), func(gtx layout.Context) layout.Dimensions {
+									return icon.Layout(gtx, fg)
+								})
+							})
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return a.label(gtx, text, unit.Sp(11), fg, font.Medium)
+						}),
+					)
+				})
+			},
+		)
+	})
 }
 
 func (a *App) ghostIconTextButton(
@@ -400,7 +409,7 @@ func (a *App) toolbarIconButton(
 		border = accentAlpha(0x24)
 	}
 	return fixedWidth(gtx, unit.Dp(32), func(gtx layout.Context) layout.Dimensions {
-		return fixedHeight(gtx, unit.Dp(32), func(gtx layout.Context) layout.Dimensions {
+		return fixedHeight(gtx, unit.Dp(30), func(gtx layout.Context) layout.Dimensions {
 			return a.surfaceButton(
 				gtx,
 				btn,
@@ -441,7 +450,7 @@ func (a *App) toolbarStaticIcon(
 		fg = fluent.accent
 	}
 	return fixedWidth(gtx, unit.Dp(32), func(gtx layout.Context) layout.Dimensions {
-		return fixedHeight(gtx, unit.Dp(32), func(gtx layout.Context) layout.Dimensions {
+		return fixedHeight(gtx, unit.Dp(30), func(gtx layout.Context) layout.Dimensions {
 			return a.borderedSurface(gtx, bg, fluentControlRadius, border, func(gtx layout.Context) layout.Dimensions {
 				return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return fixedWidth(gtx, unit.Dp(14), func(gtx layout.Context) layout.Dimensions {
@@ -471,22 +480,122 @@ func (a *App) historyMiniIconButton(
 		fg = fluent.accent
 		border = accentAlpha(0x38)
 	}
-	return a.surfaceButton(
-		gtx,
-		btn,
-		bg,
-		hoverBg,
-		border,
-		unit.Dp(4),
-		layout.Inset{Top: 6, Bottom: 6, Left: 6, Right: 6},
-		func(gtx layout.Context) layout.Dimensions {
-			return fixedWidth(gtx, unit.Dp(14), func(gtx layout.Context) layout.Dimensions {
-				return fixedHeight(gtx, unit.Dp(14), func(gtx layout.Context) layout.Dimensions {
-					return icon.Layout(gtx, fg)
+	return fixedWidth(gtx, unit.Dp(30), func(gtx layout.Context) layout.Dimensions {
+		return fixedHeight(gtx, unit.Dp(30), func(gtx layout.Context) layout.Dimensions {
+			return a.surfaceButton(
+				gtx,
+				btn,
+				bg,
+				hoverBg,
+				border,
+				unit.Dp(4),
+				layout.Inset{},
+				func(gtx layout.Context) layout.Dimensions {
+					return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return fixedWidth(gtx, unit.Dp(14), func(gtx layout.Context) layout.Dimensions {
+							return fixedHeight(gtx, unit.Dp(14), func(gtx layout.Context) layout.Dimensions {
+								return icon.Layout(gtx, fg)
+							})
+						})
+					})
+				},
+			)
+		})
+	})
+}
+
+func (a *App) historyRailIconButton(
+	gtx layout.Context,
+	btn *widget.Clickable,
+	icon *widget.Icon,
+	active bool,
+) layout.Dimensions {
+	bg := fluent.surface
+	hoverBg := fluent.surface2
+	fg := fluent.textMuted
+	border := fluent.border
+	if active {
+		bg = fluent.accentSoft
+		hoverBg = accentAlpha(0x28)
+		fg = fluent.accent
+		border = accentAlpha(0x38)
+	}
+	return fixedWidth(gtx, unit.Dp(28), func(gtx layout.Context) layout.Dimensions {
+		return fixedHeight(gtx, unit.Dp(28), func(gtx layout.Context) layout.Dimensions {
+			return a.surfaceButton(
+				gtx,
+				btn,
+				bg,
+				hoverBg,
+				border,
+				unit.Dp(4),
+				layout.Inset{},
+				func(gtx layout.Context) layout.Dimensions {
+					return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return fixedWidth(gtx, unit.Dp(14), func(gtx layout.Context) layout.Dimensions {
+							return fixedHeight(gtx, unit.Dp(14), func(gtx layout.Context) layout.Dimensions {
+								return icon.Layout(gtx, fg)
+							})
+						})
+					})
+				},
+			)
+		})
+	})
+}
+
+func (a *App) timelineActionButton(gtx layout.Context, btn *widget.Clickable, text string, active bool) layout.Dimensions {
+	bg := fluent.surface
+	hoverBg := fluent.surface2
+	border := fluent.border
+	fg := fluent.textMuted
+	if active {
+		bg = fluent.accentSoft
+		hoverBg = accentAlpha(0x28)
+		fg = fluent.accent
+		border = accentAlpha(0x38)
+	}
+	return fixedHeight(gtx, unit.Dp(34), func(gtx layout.Context) layout.Dimensions {
+		return a.surfaceButton(
+			gtx,
+			btn,
+			bg,
+			hoverBg,
+			border,
+			fluentControlRadius,
+			layout.Inset{Left: 12, Right: 12},
+			func(gtx layout.Context) layout.Dimensions {
+				return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return a.label(gtx, text, unit.Sp(11), fg, font.SemiBold)
 				})
-			})
-		},
-	)
+			},
+		)
+	})
+}
+
+func (a *App) timelineActionIconButton(gtx layout.Context, btn *widget.Clickable, icon *widget.Icon) layout.Dimensions {
+	return fixedWidth(gtx, unit.Dp(34), func(gtx layout.Context) layout.Dimensions {
+		return fixedHeight(gtx, unit.Dp(34), func(gtx layout.Context) layout.Dimensions {
+			return a.surfaceButton(
+				gtx,
+				btn,
+				fluent.surface,
+				fluent.surface2,
+				fluent.border,
+				fluentControlRadius,
+				layout.Inset{},
+				func(gtx layout.Context) layout.Dimensions {
+					return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return fixedWidth(gtx, unit.Dp(14), func(gtx layout.Context) layout.Dimensions {
+							return fixedHeight(gtx, unit.Dp(14), func(gtx layout.Context) layout.Dimensions {
+								return icon.Layout(gtx, fluent.textMuted)
+							})
+						})
+					})
+				},
+			)
+		})
+	})
 }
 
 func (a *App) pillIconTextButton(
@@ -541,6 +650,9 @@ func (a *App) toolbarTextButton(
 	hoverBg := fluent.toolHoverBg
 	border := rgba(0xffffff, 0x00)
 	fg := fluent.textMuted
+	if btn.Hovered() {
+		fg = fluent.toolHoverText
+	}
 	if selected {
 		bg = fluent.accentSoft
 		hoverBg = accentAlpha(0x28)
@@ -856,6 +968,12 @@ func (a *App) card(gtx layout.Context, w layout.Widget) layout.Dimensions {
 	})
 }
 
+func (a *App) controlCard(gtx layout.Context, w layout.Widget) layout.Dimensions {
+	return a.elevatedBorderedSurface(gtx, withAlpha(fluent.white, 0xb3), unit.Dp(12), fluent.border, image.Pt(0, 1), func(gtx layout.Context) layout.Dimensions {
+		return layout.UniformInset(unit.Dp(12)).Layout(gtx, w)
+	})
+}
+
 func (a *App) layoutStandardModal(
 	gtx layout.Context,
 	width unit.Dp,
@@ -875,7 +993,7 @@ func (a *App) layoutStandardModal(
 					return layout.UniformInset(unit.Dp(0)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 						children := []layout.FlexChild{
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return layout.Inset{Top: unit.Dp(14), Bottom: unit.Dp(12), Left: unit.Dp(20), Right: unit.Dp(20)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								return layout.Inset{Top: unit.Dp(14), Bottom: unit.Dp(12), Left: unit.Dp(16), Right: unit.Dp(16)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 									return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 										layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 											return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(3))}.Layout(gtx,
@@ -905,7 +1023,7 @@ func (a *App) layoutStandardModal(
 								})
 							}),
 							layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-								return layout.Inset{Top: unit.Dp(20), Bottom: unit.Dp(20), Left: unit.Dp(20), Right: unit.Dp(20)}.Layout(gtx, body)
+								return layout.Inset{Top: unit.Dp(16), Bottom: unit.Dp(16), Left: unit.Dp(16), Right: unit.Dp(16)}.Layout(gtx, body)
 							}),
 						}
 						return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
@@ -1037,9 +1155,12 @@ func (a *App) surfaceCorners(
 		NE:   gtx.Dp(ne),
 		SW:   gtx.Dp(sw),
 		SE:   gtx.Dp(se),
-	}.Op(gtx.Ops)
-	paint.FillShape(gtx.Ops, bg, shape)
+	}
+	shapeOp := shape.Op(gtx.Ops)
+	paint.FillShape(gtx.Ops, bg, shapeOp)
+	stack := shape.Push(gtx.Ops)
 	call.Add(gtx.Ops)
+	stack.Pop()
 	return dims
 }
 

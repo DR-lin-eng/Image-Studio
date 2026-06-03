@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"gioui.org/f32"
 	"gioui.org/font"
 	"gioui.org/layout"
 	"gioui.org/op/clip"
@@ -34,26 +33,16 @@ func (a *App) layout(gtx layout.Context) layout.Dimensions {
 
 	paint.FillShape(gtx.Ops, fluent.bg, clip.Rect{Max: gtx.Constraints.Max}.Op())
 	if gtx.Constraints.Max.X > 0 && gtx.Constraints.Max.Y > 0 {
-		diagStart := withAlpha(fluent.white, 0xb8)
-		diagEnd := withAlpha(fluent.bg2, 0xee)
+		bodyStart := withAlpha(fluent.white, 0x08)
+		bodyEnd := withAlpha(fluent.bg2, 0x18)
+		topGlow := withAlpha(fluent.white, 0x70)
 		if resolveThemeMode(a.themeMode) == "dark" {
-			diagStart = withAlpha(fluent.white, 0x09)
-			diagEnd = withAlpha(fluent.bg2, 0xf4)
+			bodyStart = rgba(0xffffff, 0x00)
+			bodyEnd = withAlpha(fluent.bg2, 0x22)
+			topGlow = withAlpha(fluent.white, 0x09)
 		}
-		paint.LinearGradientOp{
-			Stop1:  f32.Pt(0, 0),
-			Color1: diagStart,
-			Stop2:  f32.Pt(float32(gtx.Constraints.Max.X), float32(gtx.Constraints.Max.Y)),
-			Color2: diagEnd,
-		}.Add(gtx.Ops)
-		bgStack := clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops)
-		paint.PaintOp{}.Add(gtx.Ops)
-		bgStack.Pop()
+		paintLinearGradient(gtx, image.Rect(0, 0, gtx.Constraints.Max.X, gtx.Constraints.Max.Y), 0, bodyStart, bodyEnd)
 
-		topGlow := withAlpha(fluent.white, 0x22)
-		if resolveThemeMode(a.themeMode) == "dark" {
-			topGlow = withAlpha(fluent.white, 0x03)
-		}
 		glowHeight := min(gtx.Dp(unit.Dp(190)), gtx.Constraints.Max.Y)
 		if glowHeight > 0 {
 			paintLinearGradient(gtx, image.Rect(0, 0, gtx.Constraints.Max.X, glowHeight), 0, topGlow, rgba(0xffffff, 0x00))
@@ -81,6 +70,9 @@ func (a *App) layout(gtx layout.Context) layout.Dimensions {
 	dims := layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
 	if snap.SavePromptVisible {
 		a.layoutSavePrompt(gtx)
+	}
+	if a.generalSettingsOpen {
+		a.layoutGeneralSettingsModal(gtx)
 	}
 	if a.settingsModalOpen {
 		a.layoutSettingsModal(gtx)
@@ -126,7 +118,7 @@ func (a *App) layoutHeader(gtx layout.Context) layout.Dimensions {
 		}
 	}
 	for a.settingsButton.Clicked(gtx) {
-		a.openSettingsModal()
+		a.openGeneralSettingsModal()
 	}
 
 	return a.borderedSurface(gtx, fluent.toolbar, unit.Dp(0), fluent.border, func(gtx layout.Context) layout.Dimensions {
@@ -182,7 +174,7 @@ func (a *App) layoutHeader(gtx layout.Context) layout.Dimensions {
 				}),
 				layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return a.headerIconButtonIcon(gtx, &a.settingsButton, uiIconSettings, a.settingsModalOpen)
+					return a.headerIconButtonIcon(gtx, &a.settingsButton, uiIconSettings, a.generalSettingsOpen)
 				}),
 			)
 		})

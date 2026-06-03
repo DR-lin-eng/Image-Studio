@@ -322,9 +322,9 @@ func (a *App) layoutHistoryTimelineDayGroup(gtx layout.Context, dayGroup history
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Gap: gtx.Dp(unit.Dp(8))}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return fixedWidth(gtx, unit.Dp(10), func(gtx layout.Context) layout.Dimensions {
-						return fixedHeight(gtx, unit.Dp(10), func(gtx layout.Context) layout.Dimensions {
-							return a.surface(gtx, fluent.accent, unit.Dp(4), layout.Spacer{}.Layout)
+					return fixedWidth(gtx, unit.Dp(14), func(gtx layout.Context) layout.Dimensions {
+						return fixedHeight(gtx, unit.Dp(14), func(gtx layout.Context) layout.Dimensions {
+							return uiIconCalendar.Layout(gtx, fluent.accent)
 						})
 					})
 				}),
@@ -428,29 +428,23 @@ func (a *App) layoutHistoryTimelineGroupRow(gtx layout.Context, group historyPro
 												layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 													return a.metaBadgeRow(gtx, items, true)
 												}),
-												layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-													if !compareActive {
-														return layout.Dimensions{}
-													}
-													return a.historyCompareBadge(gtx)
-												}),
 											)
 										}),
 									)
 								})
 							}),
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return a.compactButton(gtx, latestBtn, "查看最新", false)
+								return a.timelineActionButton(gtx, latestBtn, "查看最新", false)
 							}),
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 								icon := uiIconExpand
 								if expanded {
 									icon = uiIconCollapse
 								}
-								return a.compactIconButton(gtx, expandBtn, icon, false)
+								return a.timelineActionIconButton(gtx, expandBtn, icon)
 							}),
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return a.compactIconButton(gtx, moreBtn, uiIconMoreHoriz, false)
+								return a.timelineActionIconButton(gtx, moreBtn, uiIconMoreHoriz)
 							}),
 						)
 					}),
@@ -820,10 +814,10 @@ func (a *App) layoutHistoryTimelineRow(gtx layout.Context, item sharedCompat.His
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx,
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-									return a.compactButton(gtx, detailBtn, "查看", false)
+									return a.timelineActionButton(gtx, detailBtn, "查看", false)
 								}),
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-									return a.compactButton(gtx, reuseBtn, "设为源图", false)
+									return a.timelineActionButton(gtx, reuseBtn, "设为源图", false)
 								}),
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 									return a.compactButton(gtx, compareBtn, "对比", compareActive)

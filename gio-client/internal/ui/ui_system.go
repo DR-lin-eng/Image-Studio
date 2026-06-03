@@ -45,6 +45,53 @@ func chooseImageFiles() ([]string, error) {
 	}
 }
 
+func chooseDirectory() (string, error) {
+	switch runtime.GOOS {
+	case "windows":
+		cmd := exec.Command(
+			"powershell",
+			"-NoProfile",
+			"-Command",
+			`Add-Type -AssemblyName System.Windows.Forms; `+
+				`$dlg = New-Object System.Windows.Forms.FolderBrowserDialog; `+
+				`if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { [Console]::OutputEncoding = [System.Text.UTF8Encoding]::UTF8; $dlg.SelectedPath }`,
+		)
+		out, err := cmd.Output()
+		if err != nil {
+			return "", err
+		}
+		paths := parseDialogPaths(string(out))
+		if len(paths) == 0 {
+			return "", nil
+		}
+		return paths[0], nil
+	default:
+		if path, err := exec.LookPath("zenity"); err == nil {
+			out, err := exec.Command(path, "--file-selection", "--directory").Output()
+			if err != nil {
+				return "", err
+			}
+			paths := parseDialogPaths(string(out))
+			if len(paths) == 0 {
+				return "", nil
+			}
+			return paths[0], nil
+		}
+		if path, err := exec.LookPath("kdialog"); err == nil {
+			out, err := exec.Command(path, "--getexistingdirectory", ".").Output()
+			if err != nil {
+				return "", err
+			}
+			paths := parseDialogPaths(string(out))
+			if len(paths) == 0 {
+				return "", nil
+			}
+			return paths[0], nil
+		}
+		return "", fmt.Errorf("当前系统没有可用的目录选择器")
+	}
+}
+
 func parseDialogPaths(raw string) []string {
 	lines := strings.FieldsFunc(raw, func(r rune) bool {
 		return r == '\n' || r == '\r'

@@ -16,7 +16,15 @@ import (
 )
 
 func (a *App) startRun() {
-	a.startRunWithConfig(a.currentConfig(), normalizeBatchCount(a.batchCount))
+	cfg := a.currentConfig()
+	if strings.TrimSpace(cfg.APIKey) == "" || strings.TrimSpace(cfg.BaseURL) == "" {
+		return
+	}
+	if strings.TrimSpace(cfg.Prompt) == "" {
+		a.appendLog("请先填写提示词，再开始生成。")
+		return
+	}
+	a.startRunWithConfig(cfg, normalizeBatchCount(a.batchCount))
 }
 
 func (a *App) retryLastRun() {

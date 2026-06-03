@@ -70,6 +70,7 @@ func (a *App) canvasToolbar(gtx layout.Context, snap snapshot) layout.Dimensions
 			}
 		}
 	}
+	latestItem, hasLatest := newestHistoryItem(snap.History)
 	currentGroup, hasCurrentGroup := findPromptGroupForItem(snap.History, snap.SelectedHistoryID)
 	batchGridCount := len(snap.BatchResults)
 	if snap.Running && snap.BatchTotal > batchGridCount {
@@ -156,33 +157,33 @@ func (a *App) canvasToolbar(gtx layout.Context, snap snapshot) layout.Dimensions
 					return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							return a.toolbarCluster(gtx, func(gtx layout.Context) layout.Dimensions {
-								return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Gap: gtx.Dp(unit.Dp(2))}.Layout(gtx,
+								return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx,
 									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 										return a.toolbarStaticIcon(gtx, uiIconPanTool, true, false)
 									}),
 									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-										return a.toolbarStaticIcon(gtx, uiIconBrush, false, true)
+										return a.toolbarStaticIcon(gtx, uiIconBrush, false, false)
 									}),
 									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-										return a.toolbarStaticIcon(gtx, uiIconAnnotate, false, true)
+										return a.toolbarStaticIcon(gtx, uiIconAnnotate, false, false)
 									}),
 									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-										return a.toolbarStaticIcon(gtx, uiIconUndo, false, true)
+										return a.toolbarStaticIcon(gtx, uiIconUndo, false, false)
 									}),
 									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-										return a.toolbarStaticIcon(gtx, uiIconRedo, false, true)
+										return a.toolbarStaticIcon(gtx, uiIconRedo, false, false)
 									}),
 								)
 							})
 						}),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return layout.Inset{Left: unit.Dp(8), Right: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							return layout.Inset{Left: unit.Dp(6), Right: unit.Dp(6)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 								return a.toolbarSeparator(gtx)
 							})
 						}),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							return a.toolbarCluster(gtx, func(gtx layout.Context) layout.Dimensions {
-								return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(2))}.Layout(gtx,
+								return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx,
 									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 										return a.toolbarIconButton(gtx, &a.rotateLeftButton, uiIconRotateLeft, false)
 									}),
@@ -203,7 +204,8 @@ func (a *App) canvasToolbar(gtx layout.Context, snap snapshot) layout.Dimensions
 				layout.Flexed(1, layout.Spacer{}.Layout),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					rightChildren := make([]layout.FlexChild, 0, 8)
-					if snap.Result.HasItem {
+					showLatestJump := hasLatest && latestItem.ID != "" && latestItem.ID != snap.SelectedHistoryID
+					if showLatestJump {
 						rightChildren = append(rightChildren, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							return a.toolbarTextButton(gtx, &a.latestResultButton, uiIconHistory, "最近结果", false)
 						}))
@@ -255,7 +257,7 @@ func (a *App) canvasToolbar(gtx layout.Context, snap snapshot) layout.Dimensions
 						}))
 					}
 					return a.toolbarCluster(gtx, func(gtx layout.Context) layout.Dimensions {
-						return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx, rightChildren...)
+						return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Gap: gtx.Dp(unit.Dp(4))}.Layout(gtx, rightChildren...)
 					})
 				}),
 			)
@@ -755,18 +757,18 @@ func (a *App) layoutCanvasEmptyState(gtx layout.Context) layout.Dimensions {
 	if a.mode == string(client.ModeEdit) {
 		copy = "图生图时可直接导入一张本地图片，或从历史结果里挑一张继续编辑。"
 	}
-	return fixedWidth(gtx, unit.Dp(360), func(gtx layout.Context) layout.Dimensions {
-		return a.borderedSurface(gtx, withAlpha(fluent.surface, 0xf0), unit.Dp(16), fluent.border, func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{Top: 24, Bottom: 24, Left: 24, Right: 24}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+	return fixedWidth(gtx, unit.Dp(384), func(gtx layout.Context) layout.Dimensions {
+		return a.elevatedBorderedSurface(gtx, withAlpha(fluent.white, 0xb8), unit.Dp(16), fluent.border, image.Pt(0, 1), func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{Top: 32, Bottom: 32, Left: 28, Right: 28}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return fixedWidth(gtx, unit.Dp(56), func(gtx layout.Context) layout.Dimensions {
-								return fixedHeight(gtx, unit.Dp(56), func(gtx layout.Context) layout.Dimensions {
+							return fixedWidth(gtx, unit.Dp(64), func(gtx layout.Context) layout.Dimensions {
+								return fixedHeight(gtx, unit.Dp(64), func(gtx layout.Context) layout.Dimensions {
 									return a.borderedSurface(gtx, fluent.accentSoft, unit.Dp(14), accentAlpha(0x22), func(gtx layout.Context) layout.Dimensions {
 										return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-											return fixedWidth(gtx, unit.Dp(22), func(gtx layout.Context) layout.Dimensions {
-												return fixedHeight(gtx, unit.Dp(22), func(gtx layout.Context) layout.Dimensions {
+											return fixedWidth(gtx, unit.Dp(24), func(gtx layout.Context) layout.Dimensions {
+												return fixedHeight(gtx, unit.Dp(24), func(gtx layout.Context) layout.Dimensions {
 													return uiIconPhoto.Layout(gtx, fluent.accent)
 												})
 											})
@@ -796,22 +798,22 @@ func (a *App) layoutCanvasEmptyState(gtx layout.Context) layout.Dimensions {
 							return a.surfaceButton(
 								gtx,
 								&a.emptyStateImportButton,
-								withAlpha(fluent.surface, 0xc8),
+								withAlpha(fluent.white, 0xb3),
 								fluent.surface2,
 								fluent.border,
 								unit.Dp(10),
-								layout.Inset{Top: 10, Bottom: 10, Left: 14, Right: 14},
+								layout.Inset{Top: 10, Bottom: 10, Left: 16, Right: 16},
 								func(gtx layout.Context) layout.Dimensions {
 									return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx,
 										layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 											return fixedWidth(gtx, unit.Dp(14), func(gtx layout.Context) layout.Dimensions {
 												return fixedHeight(gtx, unit.Dp(14), func(gtx layout.Context) layout.Dimensions {
-													return uiIconSource.Layout(gtx, fluent.textMuted)
+													return uiIconSource.Layout(gtx, fluent.text)
 												})
 											})
 										}),
 										layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-											return a.label(gtx, "选择本地图片", unit.Sp(12), fluent.textMuted, font.Medium)
+											return a.label(gtx, "选择本地图片", unit.Sp(12), fluent.text, font.Medium)
 										}),
 									)
 								},
@@ -1009,7 +1011,7 @@ func (a *App) layoutSavePrompt(gtx layout.Context) layout.Dimensions {
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(12))}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return a.borderedSurface(gtx, fluent.surface, unit.Dp(10), fluent.border, func(gtx layout.Context) layout.Dimensions {
+							return a.borderedSurface(gtx, fluent.surface, fluentCardRadius, fluent.border, func(gtx layout.Context) layout.Dimensions {
 								return layout.UniformInset(unit.Dp(8)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 									return a.imageThumb(gtx, img, unit.Dp(116), unit.Dp(116), unit.Dp(8))
 								})

@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"image"
 	"io"
 	"strings"
 
@@ -51,13 +52,13 @@ func (a *App) layoutRawResponseModal(gtx layout.Context) layout.Dimensions {
 				}),
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 					if strings.TrimSpace(snap.RawResponseModalError) != "" {
-						return a.borderedSurface(gtx, dangerAlpha(0x12), unit.Dp(10), dangerAlpha(0x2f), func(gtx layout.Context) layout.Dimensions {
+						return a.elevatedBorderedSurface(gtx, dangerAlpha(0x12), fluentCardRadius, dangerAlpha(0x2f), image.Pt(0, 1), func(gtx layout.Context) layout.Dimensions {
 							return layout.UniformInset(unit.Dp(12)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 								return a.label(gtx, snap.RawResponseModalError, unit.Sp(11), fluent.danger, font.Normal)
 							})
 						})
 					}
-					return a.borderedSurface(gtx, fluent.surface, unit.Dp(10), fluent.border, func(gtx layout.Context) layout.Dimensions {
+					return a.elevatedBorderedSurface(gtx, fluent.surfaceElevated, fluentCardRadius, fluent.border, image.Pt(0, 1), func(gtx layout.Context) layout.Dimensions {
 						return layout.UniformInset(unit.Dp(12)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 							style := material.Editor(a.th, &a.rawResponseViewerInput, "")
 							style.Color = fluent.textMuted

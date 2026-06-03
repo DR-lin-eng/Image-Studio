@@ -30,7 +30,7 @@ func (a *App) fieldWithStyle(gtx layout.Context, title string, editor *widget.Ed
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return fixedHeight(gtx, height, func(gtx layout.Context) layout.Dimensions {
-				return a.borderedSurface(gtx, fluent.surface, fluentControlRadius, border, func(gtx layout.Context) layout.Dimensions {
+				return a.borderedSurface(gtx, fluent.surface, fluentInputRadius, border, func(gtx layout.Context) layout.Dimensions {
 					return layout.Inset{Top: 9, Bottom: 9, Left: 12, Right: 12}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 						style := material.Editor(a.th, editor, hint)
 						style.Color = fluent.text
@@ -57,7 +57,7 @@ func (a *App) searchField(gtx layout.Context, editor *widget.Editor, hint string
 		iconColor = fluent.accent
 	}
 	return fixedHeight(gtx, unit.Dp(34), func(gtx layout.Context) layout.Dimensions {
-		return a.borderedSurface(gtx, fluent.surface, fluentControlRadius, border, func(gtx layout.Context) layout.Dimensions {
+		return a.borderedSurface(gtx, fluent.surface, fluentInputRadius, border, func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Top: 8, Bottom: 8, Left: 12, Right: 12}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Gap: gtx.Dp(unit.Dp(8))}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {

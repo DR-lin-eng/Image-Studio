@@ -49,6 +49,7 @@ type snapshot struct {
 	Presets                   []sharedCompat.Preset
 	OptimizingPrompt          bool
 	TestingUpstream           bool
+	SyncingCodexConfig        bool
 	LastProbeSummary          string
 	ActivePromptGroup         historyPromptGroup
 	ActiveResultDetail        sharedCompat.HistoryItem
@@ -189,6 +190,7 @@ type App struct {
 	optimizePromptButton            widget.Clickable
 	testUpstreamButton              widget.Clickable
 	settingsTestUpstreamButton      widget.Clickable
+	syncCodexConfigButton           widget.Clickable
 	historyTimelineModePickerButton widget.Clickable
 	historyTimelineDatePickerButton widget.Clickable
 	toggleAPIKeyMaskButton          widget.Clickable
@@ -196,7 +198,18 @@ type App struct {
 	settingsHelpButton              widget.Clickable
 	closeSettingsHelpButton         widget.Clickable
 	saveSettingsButton              widget.Clickable
+	closeGeneralSettingsButton      widget.Clickable
+	openGeneralUpstreamButton       widget.Clickable
+	openGeneralOutputButton         widget.Clickable
+	chooseGeneralOutputButton       widget.Clickable
+	resetGeneralOutputButton        widget.Clickable
+	openGeneralRepoButton           widget.Clickable
+	openGeneralFeedbackButton       widget.Clickable
 	themeButtons                    []widget.Clickable
+	generalThemeButtons             []widget.Clickable
+	generalSavePromptButtons        []widget.Clickable
+	generalProxyButtons             []widget.Clickable
+	generalKeepLogsButtons          []widget.Clickable
 	headerAddWorkspaceButton        widget.Clickable
 	headerQuoteButton               widget.Clickable
 	githubButton                    widget.Clickable
@@ -252,6 +265,7 @@ type App struct {
 	selectedHistoryID     string
 	optimizingPrompt      bool
 	testingUpstream       bool
+	syncingCodexConfig    bool
 	lastProbeSummary      string
 	fullscreen            bool
 	activeResultDetail    sharedCompat.HistoryItem
@@ -274,6 +288,7 @@ type App struct {
 
 	savePromptVisible             bool
 	savePromptSuppressed          bool
+	keepLogs                      bool
 	savePromptSourcePath          string
 	composeOpen                   bool
 	advancedOpen                  bool
@@ -296,6 +311,7 @@ type App struct {
 	promptHelperOpen              bool
 	promptHelperTab               string
 	activePromptGroup             historyPromptGroup
+	generalSettingsOpen           bool
 	settingsModalOpen             bool
 	settingsHelpOpen              bool
 	settingsSelectedProfileID     string
@@ -350,6 +366,10 @@ func New() *App {
 		themeMode:                  themeMode,
 		batchCount:                 1,
 		themeButtons:               make([]widget.Clickable, 3),
+		generalThemeButtons:        make([]widget.Clickable, 3),
+		generalSavePromptButtons:   make([]widget.Clickable, 2),
+		generalProxyButtons:        make([]widget.Clickable, len(proxyChoices)),
+		generalKeepLogsButtons:     make([]widget.Clickable, 2),
 		modeButtons:                make([]widget.Clickable, len(modeChoices)),
 		apiButtons:                 make([]widget.Clickable, len(apiChoices)),
 		sizeButtons:                make([]widget.Clickable, len(sizeChoices)),
@@ -372,6 +392,7 @@ func New() *App {
 		promptHistory:              append([]string(nil), compatState.Settings.PromptHistory...),
 		presets:                    append([]sharedCompat.Preset(nil), compatState.Settings.Presets...),
 		savePromptSuppressed:       gioCompat.SavePromptSuppressed(compatState),
+		keepLogs:                   compatState.Settings.KeepLogs,
 		imageCache:                 map[string]cachedImage{},
 		composeOpen:                false,
 		advancedOpen:               false,

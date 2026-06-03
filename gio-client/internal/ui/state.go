@@ -3,6 +3,7 @@ package ui
 import (
 	"os"
 	"strings"
+	"time"
 
 	gioCompat "image-studio/gio-client/internal/compat"
 	sharedCompat "image-studio/shared/compat"
@@ -252,6 +253,7 @@ func (a *App) readSnapshot() snapshot {
 		Presets:                   presets,
 		OptimizingPrompt:          a.optimizingPrompt,
 		TestingUpstream:           a.testingUpstream,
+		SyncingCodexConfig:        a.syncingCodexConfig,
 		LastProbeSummary:          a.lastProbeSummary,
 		ActivePromptGroup:         a.activePromptGroup,
 		ActiveResultDetail:        a.activeResultDetail,
@@ -268,6 +270,43 @@ func (a *App) readSnapshot() snapshot {
 		Result:                    a.result,
 		SavePromptVisible:         a.savePromptVisible,
 	}
+}
+
+func (a *App) openGeneralSettingsModal() {
+	a.mu.Lock()
+	a.generalSettingsOpen = true
+	a.mu.Unlock()
+	a.invalidateNow()
+}
+
+func (a *App) closeGeneralSettingsModal() {
+	if err := a.persistGeneralSettings(); err != nil {
+		a.appendLog("保存通用设置失败: " + err.Error())
+	}
+	a.mu.Lock()
+	a.generalSettingsOpen = false
+	a.mu.Unlock()
+	a.invalidateNow()
+}
+
+func (a *App) persistGeneralSettings() error {
+	state, _, err := gioCompat.LoadState()
+	if err != nil {
+		return err
+	}
+	state = sharedCompat.Normalize(state)
+	state.Settings.ProxyMode = strings.TrimSpace(a.proxy)
+	if state.Settings.ProxyMode == "" {
+		state.Settings.ProxyMode = "system"
+	}
+	state.Settings.ProxyURL = strings.TrimSpace(a.proxyURLInput.Text())
+	state.Settings.OutputDir = strings.TrimSpace(a.outputDirInput.Text())
+	state.Settings.KeepLogs = a.keepLogs
+	state.UpdatedAt = time.Now().UnixMilli()
+	if err := gioCompat.SaveState(state); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (a *App) dismissFailureState() {

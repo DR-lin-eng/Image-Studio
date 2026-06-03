@@ -21,7 +21,7 @@ test("Responses payload defaults partial_images to streaming preview count", () 
 });
 
 test("normalizePartialImages clamps OpenAI range", () => {
-  assert.equal(normalizePartialImages(0), DEFAULT_PARTIAL_IMAGES);
+  assert.equal(normalizePartialImages(0), 0);
   assert.equal(normalizePartialImages(-1), DEFAULT_PARTIAL_IMAGES);
   assert.equal(normalizePartialImages(2.8), 2);
   assert.equal(normalizePartialImages(9), 3);

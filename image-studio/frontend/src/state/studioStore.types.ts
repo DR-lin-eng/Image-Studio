@@ -2,7 +2,10 @@ import type { backend } from "../../wailsjs/go/models";
 import type {
   Annotation,
   APIMode,
+  BackgroundValue,
   HistoryItem,
+  ImageStyleValue,
+  InputFidelityValue,
   KernelRuntimeMode,
   LoopGenerationConfig,
   ModerationValue,
@@ -66,7 +69,13 @@ export interface StudioState {
   quality: QualityValue;
   outputFormat: OutputFormatValue;
   seed: number;
+  background: BackgroundValue;
+  outputCompression: number;
+  inputFidelity: InputFidelityValue;
+  imageStyle: ImageStyleValue;
   moderation: ModerationValue;
+  userIdentifier: string;
+  partialImages: number;
   kernelRuntimeMode: KernelRuntimeMode;
   baseURL: string;
   textModelID: string;

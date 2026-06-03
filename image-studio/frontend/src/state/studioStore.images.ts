@@ -159,6 +159,10 @@ export function createImageActions(store: StateAdapter) {
       };
       if (item.seed !== undefined) patch.seed = item.seed;
       if (item.negativePrompt !== undefined) patch.negativePrompt = item.negativePrompt;
+      if (item.background !== undefined) patch.background = item.background;
+      if (item.outputCompression !== undefined) patch.outputCompression = item.outputCompression;
+      if (item.inputFidelity !== undefined) patch.inputFidelity = item.inputFidelity;
+      if (item.imageStyle !== undefined) patch.imageStyle = item.imageStyle;
       if (item.moderation !== undefined) patch.moderation = item.moderation;
       if (item.styleTag !== undefined) patch.styleTag = item.styleTag;
       if (item.outputFormat) patch.outputFormat = item.outputFormat;

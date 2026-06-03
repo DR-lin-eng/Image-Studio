@@ -1,28 +1,46 @@
-import type { ModerationValue, OutputFormatValue } from "../../types/domain";
+import type { BackgroundValue, ImageStyleValue, InputFidelityValue, ModerationValue, OutputFormatValue } from "../../types/domain";
 import { usePlatform } from "../../platform/context";
 import {
+  AdvancedBackgroundField,
   AdvancedCard,
+  AdvancedImageStyleField,
+  AdvancedInputFidelityField,
   AdvancedModerationField,
   AdvancedNegativePromptField,
+  AdvancedPartialImagesField,
+  AdvancedOutputCompressionField,
   AdvancedOutputFormatField,
   AdvancedSeedField,
+  AdvancedUserIdentifierField,
 } from "./AdvancedParameterBlocks";
 import { Seg, SegItem } from "./panelChrome";
 
 export function DesktopAdvancedPanel({
   advancedOpen,
+  background,
+  imageStyle,
+  inputFidelity,
   moderation,
   negativePrompt,
+  outputCompression,
   outputFormat,
+  partialImages,
   seed,
+  userIdentifier,
   setAdvancedOpen,
   setField,
 }: {
   advancedOpen: boolean;
+  background: BackgroundValue;
+  imageStyle: ImageStyleValue;
+  inputFidelity: InputFidelityValue;
   moderation: ModerationValue;
   negativePrompt: string;
+  outputCompression: number;
   outputFormat: OutputFormatValue;
+  partialImages: number;
   seed: number;
+  userIdentifier: string;
   setAdvancedOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setField: (key: string, value: any) => void;
 }) {
@@ -57,10 +75,62 @@ export function DesktopAdvancedPanel({
             />
           </AdvancedCard>
 
+          <AdvancedCard title="背景">
+            <AdvancedBackgroundField
+              background={background}
+              onChange={(value) => setField("background", value)}
+              Seg={Seg}
+              SegItem={SegItem}
+            />
+          </AdvancedCard>
+
+          <AdvancedCard title="输出压缩">
+            <AdvancedOutputCompressionField
+              outputCompression={outputCompression}
+              onChange={(value) => setField("outputCompression", value)}
+              variant="desktop"
+            />
+          </AdvancedCard>
+
+          <AdvancedCard title="输入保真">
+            <AdvancedInputFidelityField
+              inputFidelity={inputFidelity}
+              onChange={(value) => setField("inputFidelity", value)}
+              Seg={Seg}
+              SegItem={SegItem}
+            />
+          </AdvancedCard>
+
+          <AdvancedCard title="图像风格">
+            <AdvancedImageStyleField
+              imageStyle={imageStyle}
+              onChange={(value) => setField("imageStyle", value)}
+              Seg={Seg}
+              SegItem={SegItem}
+            />
+          </AdvancedCard>
+
           <AdvancedCard title="内容审核">
             <AdvancedModerationField
               moderation={moderation}
               onChange={(value) => setField("moderation", value)}
+              Seg={Seg}
+              SegItem={SegItem}
+            />
+          </AdvancedCard>
+
+          <AdvancedCard title="稳定用户标识">
+            <AdvancedUserIdentifierField
+              userIdentifier={userIdentifier}
+              onChange={(value) => setField("userIdentifier", value)}
+              variant="desktop"
+            />
+          </AdvancedCard>
+
+          <AdvancedCard title="流式预览帧数">
+            <AdvancedPartialImagesField
+              partialImages={partialImages}
+              onChange={(value) => setField("partialImages", value)}
               Seg={Seg}
               SegItem={SegItem}
             />

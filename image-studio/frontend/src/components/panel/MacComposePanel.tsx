@@ -18,6 +18,7 @@ export function MacComposePanel({
   activeResolution,
   activeResolutionLabel,
   activeQualityLabel,
+  allowCustomAspectRatios,
   availableResolutions,
   batchCount,
   mode,
@@ -33,6 +34,7 @@ export function MacComposePanel({
   selectSourceImage,
   clearSources,
   quality,
+  qualityOptions,
   Seg,
   SegItem,
 }: {
@@ -46,6 +48,7 @@ export function MacComposePanel({
   activeResolution: ResolutionPreset;
   activeResolutionLabel: string;
   activeQualityLabel: string;
+  allowCustomAspectRatios: boolean;
   availableResolutions: ResolutionPreset[];
   batchCount: number;
   mode: string;
@@ -61,6 +64,7 @@ export function MacComposePanel({
   selectSourceImage: () => void;
   clearSources: () => void;
   quality: QualityValue;
+  qualityOptions: Array<{ value: QualityValue; label: string }>;
   Seg: (props: { children: React.ReactNode }) => React.ReactNode;
   SegItem: (props: { active: boolean; onClick: () => void; children: React.ReactNode }) => React.ReactNode;
 }) {
@@ -85,6 +89,7 @@ export function MacComposePanel({
             activeAspect={activeAspect}
             aspectOptions={aspectOptions}
             activeResolution={activeResolution}
+            allowCustomAspectRatios={allowCustomAspectRatios}
             apiMode={apiMode}
             availableResolutions={availableResolutions}
             batchCount={batchCount}
@@ -93,6 +98,7 @@ export function MacComposePanel({
             imageModelID={imageModelID}
             onOpenCustomAspectRatioModal={onOpenCustomAspectRatioModal}
             quality={quality}
+            qualityOptions={qualityOptions}
             requestPolicy={requestPolicy}
             setField={setField}
             styleTag={styleTag}

@@ -20,7 +20,10 @@ import {
 import type { backend } from "../../wailsjs/go/models";
 import {
   APIMode,
+  BackgroundValue,
   HistoryItem,
+  ImageStyleValue,
+  InputFidelityValue,
   KernelRuntimeMode,
   LoopGenerationConfig,
   ModerationValue,
@@ -95,6 +98,7 @@ import {
   isBuiltInAspectRatio,
   normalizeSizeSelection,
 } from "../components/panel/sizeCapabilities";
+import { normalizeQualitySelection } from "../components/panel/panelOptions";
 import { buildMacWorkspacePreview, readPreviewScenario } from "../app/dev/previewData";
 import {
   applyTheme,
@@ -264,6 +268,37 @@ function writeKeepLogs(value: boolean): void {
   }
 }
 
+function normalizeBackgroundValue(value: unknown): BackgroundValue {
+  return value === "opaque" || value === "transparent" || value === "auto" ? value : "auto";
+}
+
+function normalizeOutputCompressionValue(value: unknown): number {
+  if (value === null || value === undefined || value === "") return 100;
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return 100;
+  return Math.max(0, Math.min(100, Math.round(numeric)));
+}
+
+function normalizeInputFidelityValue(value: unknown): InputFidelityValue {
+  return value === "low" || value === "high" || value === "auto" ? value : "auto";
+}
+
+function normalizeImageStyleValue(value: unknown): ImageStyleValue {
+  return value === "vivid" || value === "natural" || value === "default" ? value : "default";
+}
+
+function normalizeUserIdentifierValue(value: unknown): string {
+  const trimmed = String(value ?? "").trim();
+  if (!trimmed) return "";
+  return Array.from(trimmed).slice(0, 64).join("");
+}
+
+function normalizePartialImagesValue(value: unknown): number {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric < 0) return 1;
+  return Math.max(0, Math.min(3, Math.floor(numeric)));
+}
+
 async function writeBase64ToTempFile(b64: string, _name: string): Promise<string> {
   // Backend doesn't currently expose a "write temp file from b64" binding,
   // but reuseAsSource needs a path for edit mode. Workaround: use SaveImageAs
@@ -393,7 +428,13 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   quality: "medium",
   outputFormat: "png",
   seed: 0,
+  background: "auto",
+  outputCompression: 100,
+  inputFidelity: "auto",
+  imageStyle: "default",
   moderation: "low",
+  userIdentifier: "",
+  partialImages: 1,
   kernelRuntimeMode: "auto",
   baseURL: "",
   textModelID: "",
@@ -588,6 +629,18 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     // 其他全局偏好字段
     const normalizedValue = key === "batchCount"
       ? normalizeBatchCount(value)
+      : key === "background"
+        ? normalizeBackgroundValue(value)
+        : key === "outputCompression"
+          ? normalizeOutputCompressionValue(value)
+          : key === "inputFidelity"
+            ? normalizeInputFidelityValue(value)
+            : key === "imageStyle"
+              ? normalizeImageStyleValue(value)
+              : key === "userIdentifier"
+                ? normalizeUserIdentifierValue(value)
+                : key === "partialImages"
+                  ? normalizePartialImagesValue(value)
       : key === "loopGeneration"
         ? normalizeLoopGenerationConfig(value)
         : value;
@@ -629,8 +682,20 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       setKernelRuntimeMode(value as KernelRuntimeMode);
     } else if (key === "outputFormat") {
       try { localStorage.setItem("gptcodex.outputFormat", String(value)); } catch {}
+    } else if (key === "background") {
+      try { localStorage.setItem("gptcodex.background", String(value)); } catch {}
+    } else if (key === "outputCompression") {
+      try { localStorage.setItem("gptcodex.outputCompression", String(value)); } catch {}
+    } else if (key === "inputFidelity") {
+      try { localStorage.setItem("gptcodex.inputFidelity", String(value)); } catch {}
+    } else if (key === "imageStyle") {
+      try { localStorage.setItem("gptcodex.imageStyle", String(value)); } catch {}
     } else if (key === "moderation") {
       try { localStorage.setItem("gptcodex.moderation", String(value)); } catch {}
+    } else if (key === "userIdentifier") {
+      try { localStorage.setItem("gptcodex.userIdentifier", String(value)); } catch {}
+    } else if (key === "partialImages") {
+      try { localStorage.setItem("gptcodex.partialImages", String(value)); } catch {}
     }
   },
   setFullscreen: async (value) => {
@@ -804,6 +869,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       requestPolicy: s.requestPolicy,
       imageModelID: s.imageModelID,
     });
+    const resolvedQuality = normalizeQualitySelection(s.quality, s.imageModelID);
 
     const basePayload: backend.GenerateOptions = {
       apiKey: s.apiKey,
@@ -811,14 +877,19 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       requestedJobId: "",
       prompt: augmentedPrompt,
       size: resolvedSize,
-      quality: s.quality,
+      quality: resolvedQuality,
       outputFormat: s.outputFormat,
       imagePaths: editSourcePaths,
       imagePath: "",
       maskB64: maskB64,
       seed: s.seed,
       negativePrompt: s.negativePrompt,
+      background: s.background,
+      outputCompression: s.outputCompression,
+      inputFidelity: s.inputFidelity,
+      imageStyle: s.imageStyle,
       moderation: s.moderation,
+      userIdentifier: s.userIdentifier,
       baseURL: cleanedBaseURL,
       textModelID: s.textModelID,
       imageModelID: s.imageModelID,
@@ -829,8 +900,8 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       apiMode: s.apiMode,
       noPromptRevision: true,
       concurrencyLimit,
-      partialImages: 1,
-      disablePreview: loopEnabled && !loopGeneration.livePreview,
+      partialImages: s.partialImages,
+      disablePreview: s.partialImages === 0 || (loopEnabled && !loopGeneration.livePreview),
     };
     const remotePayload: RuntimeGenerateOptions = {
       ...basePayload,
@@ -852,7 +923,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       workspaceId,
       apiMode: s.apiMode,
       size: s.size,
-      quality: s.quality,
+      quality: resolvedQuality,
       outputFormat: s.outputFormat,
       sources: s.sources,
       currentImage: s.currentImage,
@@ -939,7 +1010,13 @@ export const useStudioStore = create<StudioState>((set, get) => ({
         quality: preview.currentImage.quality,
         outputFormat: "png",
         seed: preview.currentImage.seed ?? 3200,
+        background: preview.currentImage.background ?? "auto",
+        outputCompression: preview.currentImage.outputCompression ?? 100,
+        inputFidelity: preview.currentImage.inputFidelity ?? "auto",
+        imageStyle: preview.currentImage.imageStyle ?? "default",
         moderation: preview.currentImage.moderation ?? "low",
+        userIdentifier: "",
+        partialImages: 1,
         kernelRuntimeMode: "auto",
         baseURL: preview.profile.baseURL,
         textModelID: preview.profile.textModelID,
@@ -1060,10 +1137,34 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       const v = localStorage.getItem("gptcodex.outputFormat");
       if (v === "png" || v === "jpeg" || v === "webp") outputFormat = v;
     } catch {}
+    let background: BackgroundValue = "auto";
+    try {
+      background = normalizeBackgroundValue(localStorage.getItem("gptcodex.background"));
+    } catch {}
+    let outputCompression = 100;
+    try {
+      outputCompression = normalizeOutputCompressionValue(localStorage.getItem("gptcodex.outputCompression"));
+    } catch {}
+    let inputFidelity: InputFidelityValue = "auto";
+    try {
+      inputFidelity = normalizeInputFidelityValue(localStorage.getItem("gptcodex.inputFidelity"));
+    } catch {}
+    let imageStyle: ImageStyleValue = "default";
+    try {
+      imageStyle = normalizeImageStyleValue(localStorage.getItem("gptcodex.imageStyle"));
+    } catch {}
     let moderation: ModerationValue = "low";
     try {
       const v = localStorage.getItem("gptcodex.moderation");
       if (v === "auto" || v === "low") moderation = v;
+    } catch {}
+    let userIdentifier = "";
+    try {
+      userIdentifier = normalizeUserIdentifierValue(localStorage.getItem("gptcodex.userIdentifier"));
+    } catch {}
+    let partialImages = 1;
+    try {
+      partialImages = normalizePartialImagesValue(localStorage.getItem("gptcodex.partialImages"));
     } catch {}
     // ---- v0.1.6 profile 列表加载 / 迁移 -----------------------------------
     // 1) 优先读新格式 gptcodex.profiles。
@@ -1198,7 +1299,13 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       quality: "medium",
       outputFormat,
       seed: 0,
+      background,
+      outputCompression,
+      inputFidelity,
+      imageStyle,
       moderation,
+      userIdentifier,
+      partialImages,
       batchCount: 1,
       loopGeneration: defaultLoopGenerationConfig(),
       sources: [],
@@ -1229,7 +1336,13 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       proxyMode: proxyConfig.mode,
       proxyURL: proxyConfig.url,
       outputFormat,
+      background,
+      outputCompression,
+      inputFidelity,
+      imageStyle,
       moderation,
+      userIdentifier,
+      partialImages,
       profiles,
       activeProfileId,
       workspaces: [initialWorkspace],
@@ -1673,6 +1786,10 @@ async function launchOneJob(
             createdAt: Date.now(),
             seed: payload.seed || undefined,
             negativePrompt: payload.negativePrompt || undefined,
+            background: normalizeBackgroundValue(payload.background),
+            outputCompression: normalizeOutputCompressionValue(payload.outputCompression),
+            inputFidelity: normalizeInputFidelityValue(payload.inputFidelity),
+            imageStyle: normalizeImageStyleValue(payload.imageStyle),
             moderation: payload.moderation === "auto" ? "auto" : "low",
             styleTag: snapshot.styleTag || undefined,
             batchIndex: snapshot.batchIndex,

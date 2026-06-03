@@ -38,6 +38,9 @@ func TestBuildPayloadUsesSizeAndQuality(t *testing.T) {
 	if tool["quality"] != "high" {
 		t.Errorf("quality = %v, want high", tool["quality"])
 	}
+	if tool["background"] != "auto" {
+		t.Errorf("background = %v, want auto", tool["background"])
+	}
 	if tool["moderation"] != "low" {
 		t.Errorf("moderation = %v, want low", tool["moderation"])
 	}
@@ -80,6 +83,53 @@ func TestBuildPayloadAllowsModerationAuto(t *testing.T) {
 	}
 }
 
+func TestBuildPayloadIncludesSafetyIdentifier(t *testing.T) {
+	raw, err := BuildPayload(Options{
+		Prompt:         "生成海报",
+		UserIdentifier: "  user-hash-123  ",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	v := mustDecodePayload(t, raw)
+	if v["safety_identifier"] != "user-hash-123" {
+		t.Fatalf("safety_identifier = %v, want user-hash-123", v["safety_identifier"])
+	}
+}
+
+func TestBuildPayloadIncludesOutputCompressionForJPEG(t *testing.T) {
+	raw, err := BuildPayload(Options{
+		Prompt:            "生成海报",
+		OutputFormat:      "jpeg",
+		OutputCompression: 55,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	v := mustDecodePayload(t, raw)
+	tool := v["tools"].([]any)[0].(map[string]any)
+	if tool["output_compression"] != float64(55) {
+		t.Fatalf("output_compression = %v, want 55", tool["output_compression"])
+	}
+}
+
+func TestBuildPayloadIncludesInputFidelityForSupportedEditModels(t *testing.T) {
+	raw, err := BuildPayload(Options{
+		Prompt:        "生成海报",
+		ImageModelID:  "gpt-image-1.5",
+		ImageDataURL:  "data:image/png;base64,abc123",
+		InputFidelity: "high",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	v := mustDecodePayload(t, raw)
+	tool := v["tools"].([]any)[0].(map[string]any)
+	if tool["input_fidelity"] != "high" {
+		t.Fatalf("input_fidelity = %v, want high", tool["input_fidelity"])
+	}
+}
+
 func TestBuildPayloadOmitsModerationForUnsupportedModel(t *testing.T) {
 	raw, err := BuildPayload(Options{
 		Prompt:       "生成海报",
@@ -92,6 +142,15 @@ func TestBuildPayloadOmitsModerationForUnsupportedModel(t *testing.T) {
 	tool := v["tools"].([]any)[0].(map[string]any)
 	if _, ok := tool["moderation"]; ok {
 		t.Fatalf("moderation should be omitted for dall-e-3, got %v", tool["moderation"])
+	}
+	if _, ok := tool["background"]; ok {
+		t.Fatalf("background should be omitted for dall-e-3, got %v", tool["background"])
+	}
+	if _, ok := tool["output_compression"]; ok {
+		t.Fatalf("output_compression should be omitted for dall-e-3, got %v", tool["output_compression"])
+	}
+	if _, ok := tool["input_fidelity"]; ok {
+		t.Fatalf("input_fidelity should be omitted for dall-e-3, got %v", tool["input_fidelity"])
 	}
 }
 
@@ -118,6 +177,21 @@ func TestBuildPayloadNormalizesPartialImages(t *testing.T) {
 				t.Fatalf("partial_images = %v, want %v", tool["partial_images"], tt.want)
 			}
 		})
+	}
+}
+
+func TestBuildPayloadDisablePreviewForcesZeroPartialImages(t *testing.T) {
+	raw, err := BuildPayload(Options{
+		Prompt:         "生成海报",
+		DisablePreview: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	v := mustDecodePayload(t, raw)
+	tool := v["tools"].([]any)[0].(map[string]any)
+	if tool["partial_images"] != float64(0) {
+		t.Fatalf("partial_images = %v, want 0", tool["partial_images"])
 	}
 }
 

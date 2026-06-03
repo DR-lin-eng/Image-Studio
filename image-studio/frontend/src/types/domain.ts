@@ -32,17 +32,23 @@ export interface UpstreamProfile {
 }
 
 export type SizeValue = "auto" | `${number}x${number}`;
-export type QualityValue = "auto" | "high" | "medium" | "low";
+export type QualityValue = "auto" | "high" | "medium" | "low" | "standard" | "hd";
 export type KernelRuntimeMode = "auto" | "local" | "remote";
 export type ProxyMode = "none" | "system" | "custom";
 // 让上游做编码;落盘扩展名 jpeg → .jpg,其他原样。
 export type OutputFormatValue = "png" | "jpeg" | "webp";
+export type BackgroundValue = "auto" | "opaque" | "transparent";
+export type InputFidelityValue = "auto" | "low" | "high";
+export type ImageStyleValue = "default" | "vivid" | "natural";
 export type ModerationValue = "low" | "auto";
 export type ThemeMode = "system" | "light" | "dark";
 
 export interface SizeOption { value: SizeValue; label: string; }
 export interface QualityOption { value: QualityValue; label: string; }
 export interface OutputFormatOption { value: OutputFormatValue; label: string; }
+export interface BackgroundOption { value: BackgroundValue; label: string; }
+export interface InputFidelityOption { value: InputFidelityValue; label: string; }
+export interface ImageStyleOption { value: ImageStyleValue; label: string; }
 export interface ModerationOption { value: ModerationValue; label: string; }
 
 export interface CustomAspectRatio {
@@ -81,6 +87,24 @@ export const OUTPUT_FORMAT_OPTIONS: OutputFormatOption[] = [
   { value: "png",  label: "PNG" },
   { value: "jpeg", label: "JPEG" },
   { value: "webp", label: "WebP" },
+];
+
+export const BACKGROUND_OPTIONS: BackgroundOption[] = [
+  { value: "auto", label: "自动 auto" },
+  { value: "opaque", label: "纯色 opaque" },
+  { value: "transparent", label: "透明 transparent" },
+];
+
+export const INPUT_FIDELITY_OPTIONS: InputFidelityOption[] = [
+  { value: "auto", label: "默认 auto" },
+  { value: "low", label: "低保真 low" },
+  { value: "high", label: "高保真 high" },
+];
+
+export const IMAGE_STYLE_OPTIONS: ImageStyleOption[] = [
+  { value: "default", label: "默认" },
+  { value: "vivid", label: "vivid" },
+  { value: "natural", label: "natural" },
 ];
 
 export const MODERATION_OPTIONS: ModerationOption[] = [
@@ -127,6 +151,10 @@ export interface HistoryItem {
   // reproduced via "重新生成" or "应用参数" from the right-click menu.
   seed?: number;
   negativePrompt?: string;
+  background?: BackgroundValue;
+  outputCompression?: number;
+  inputFidelity?: InputFidelityValue;
+  imageStyle?: ImageStyleValue;
   moderation?: ModerationValue;
   styleTag?: string;
   batchIndex?: number;
@@ -177,7 +205,13 @@ export interface Workspace {
   quality: QualityValue;
   outputFormat: OutputFormatValue;
   seed: number;
+  background: BackgroundValue;
+  outputCompression: number;
+  inputFidelity: InputFidelityValue;
+  imageStyle: ImageStyleValue;
   moderation: ModerationValue;
+  userIdentifier: string;
+  partialImages: number;
   batchCount: number;
   loopGeneration: LoopGenerationConfig;
   sources: SourceImage[];
@@ -210,6 +244,10 @@ export interface Preset {
   quality: QualityValue;
   outputFormat?: OutputFormatValue;
   negativePrompt: string;
+  background?: BackgroundValue;
+  outputCompression?: number;
+  inputFidelity?: InputFidelityValue;
+  imageStyle?: ImageStyleValue;
   moderation?: ModerationValue;
   kernelRuntimeMode?: KernelRuntimeMode;
   batchCount: number;

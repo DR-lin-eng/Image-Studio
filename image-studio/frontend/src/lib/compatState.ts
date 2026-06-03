@@ -1,7 +1,10 @@
 import { LoadCompatibilityState, SaveCompatibilityState } from "../platform/runtime/host";
 import type {
+  BackgroundValue,
   CustomAspectRatio,
   HistoryItem,
+  ImageStyleValue,
+  InputFidelityValue,
   KernelRuntimeMode,
   ModerationValue,
   OutputFormatValue,
@@ -36,7 +39,13 @@ export type CompatibilityState = {
     theme?: ThemeMode;
     fontScale?: number;
     outputFormat?: OutputFormatValue;
+    background?: BackgroundValue;
+    outputCompression?: number;
+    inputFidelity?: InputFidelityValue;
+    imageStyle?: ImageStyleValue;
     moderation?: ModerationValue;
+    userIdentifier?: string;
+    partialImages?: number;
     outputDir?: string;
     promptHistory?: string[];
     presets?: Preset[];
@@ -61,7 +70,13 @@ export type CompatibilityExportInput = {
   theme: ThemeMode;
   fontScale: number;
   outputFormat: OutputFormatValue;
+  background: BackgroundValue;
+  outputCompression: number;
+  inputFidelity: InputFidelityValue;
+  imageStyle: ImageStyleValue;
   moderation: ModerationValue;
+  userIdentifier: string;
+  partialImages: number;
   promptHistory: string[];
   presets: Preset[];
   customAspectRatios: CustomAspectRatio[];
@@ -108,7 +123,13 @@ export function compatibilityExportFingerprint(input: CompatibilityExportInput):
     theme: input.theme,
     fontScale: input.fontScale,
     outputFormat: input.outputFormat,
+    background: input.background,
+    outputCompression: input.outputCompression,
+    inputFidelity: input.inputFidelity,
+    imageStyle: input.imageStyle,
     moderation: input.moderation,
+    userIdentifier: input.userIdentifier,
+    partialImages: input.partialImages,
     promptHistory: input.promptHistory,
     presets: input.presets,
     customAspectRatios: input.customAspectRatios,
@@ -133,7 +154,13 @@ function buildCompatibilityState(input: CompatibilityExportInput): Compatibility
       theme: normalizeTheme(input.theme),
       fontScale: normalizeFontScale(input.fontScale),
       outputFormat: normalizeOutputFormat(input.outputFormat),
+      background: normalizeBackground(input.background),
+      outputCompression: normalizeOutputCompression(input.outputCompression),
+      inputFidelity: normalizeInputFidelity(input.inputFidelity),
+      imageStyle: normalizeImageStyle(input.imageStyle),
       moderation: normalizeModeration(input.moderation),
+      userIdentifier: normalizeUserIdentifier(input.userIdentifier),
+      partialImages: normalizePartialImages(input.partialImages),
       outputDir: readLocalStorageString("gptcodex.outputDir"),
       promptHistory: cleanStringList(input.promptHistory, 50),
       presets: normalizePresets(input.presets),
@@ -163,7 +190,13 @@ function applyCompatibilityLocalStorage(state: CompatibilityState): void {
   if (settings.theme) writeLocalStorageString("gptcodex.theme", normalizeTheme(settings.theme));
   if (typeof settings.fontScale === "number") writeLocalStorageString("gptcodex.fontScale", String(normalizeFontScale(settings.fontScale)));
   if (settings.outputFormat) writeLocalStorageString("gptcodex.outputFormat", normalizeOutputFormat(settings.outputFormat));
+  if (settings.background) writeLocalStorageString("gptcodex.background", normalizeBackground(settings.background));
+  if (typeof settings.outputCompression === "number") writeLocalStorageString("gptcodex.outputCompression", String(normalizeOutputCompression(settings.outputCompression)));
+  if (settings.inputFidelity) writeLocalStorageString("gptcodex.inputFidelity", normalizeInputFidelity(settings.inputFidelity));
+  if (settings.imageStyle) writeLocalStorageString("gptcodex.imageStyle", normalizeImageStyle(settings.imageStyle));
   if (settings.moderation) writeLocalStorageString("gptcodex.moderation", normalizeModeration(settings.moderation));
+  if (settings.userIdentifier !== undefined) writeLocalStorageString("gptcodex.userIdentifier", normalizeUserIdentifier(settings.userIdentifier));
+  if (typeof settings.partialImages === "number") writeLocalStorageString("gptcodex.partialImages", String(normalizePartialImages(settings.partialImages)));
   if (settings.outputDir?.trim()) writeLocalStorageString("gptcodex.outputDir", settings.outputDir.trim());
   else removeLocalStorage("gptcodex.outputDir");
   if (settings.kernelRuntimeMode) writeLocalStorageString("gptcodex.kernelRuntimeMode", normalizeKernelRuntimeMode(settings.kernelRuntimeMode));
@@ -220,7 +253,13 @@ function normalizeSettings(raw: unknown): CompatibilityState["settings"] {
     theme: normalizeTheme(source.theme),
     fontScale: normalizeFontScale(source.fontScale),
     outputFormat: normalizeOutputFormat(source.outputFormat),
+    background: normalizeBackground(source.background),
+    outputCompression: normalizeOutputCompression(source.outputCompression),
+    inputFidelity: normalizeInputFidelity(source.inputFidelity),
+    imageStyle: normalizeImageStyle(source.imageStyle),
     moderation: normalizeModeration(source.moderation),
+    userIdentifier: normalizeUserIdentifier(source.userIdentifier),
+    partialImages: normalizePartialImages(source.partialImages),
     outputDir: typeof source.outputDir === "string" ? source.outputDir : "",
     promptHistory: cleanStringList(source.promptHistory ?? [], 50),
     presets: normalizePresets(source.presets ?? []),
@@ -265,6 +304,10 @@ function toSerializableHistoryItem(raw: unknown): HistoryItem | null {
     createdAt,
     seed: numberOrUndefined(item.seed),
     negativePrompt: stringOrUndefined(item.negativePrompt),
+    background: backgroundOrUndefined(item.background),
+    outputCompression: numberOrUndefined(item.outputCompression),
+    inputFidelity: inputFidelityOrUndefined(item.inputFidelity),
+    imageStyle: imageStyleOrUndefined(item.imageStyle),
     moderation: moderationOrUndefined(item.moderation),
     styleTag: stringOrUndefined(item.styleTag),
     batchIndex: numberOrUndefined(item.batchIndex),
@@ -290,6 +333,10 @@ function historyFingerprint(item: HistoryItem) {
     createdAt: item.createdAt,
     seed: item.seed,
     negativePrompt: item.negativePrompt,
+    background: item.background,
+    outputCompression: item.outputCompression,
+    inputFidelity: item.inputFidelity,
+    imageStyle: item.imageStyle,
     moderation: item.moderation,
     styleTag: item.styleTag,
     batchIndex: item.batchIndex,
@@ -308,7 +355,13 @@ function cloneExportInput(input: CompatibilityExportInput): CompatibilityExportI
     theme: input.theme,
     fontScale: input.fontScale,
     outputFormat: input.outputFormat,
+    background: input.background,
+    outputCompression: input.outputCompression,
+    inputFidelity: input.inputFidelity,
+    imageStyle: input.imageStyle,
     moderation: input.moderation,
+    userIdentifier: input.userIdentifier,
+    partialImages: input.partialImages,
     promptHistory: [...input.promptHistory],
     presets: input.presets.map((preset) => ({ ...preset })),
     customAspectRatios: input.customAspectRatios.map((ratio) => ({ ...ratio })),
@@ -333,6 +386,10 @@ function normalizePresets(raw: unknown): Preset[] {
       quality: normalizeQuality(source.quality),
       outputFormat: normalizeOutputFormat(source.outputFormat),
       negativePrompt: typeof source.negativePrompt === "string" ? source.negativePrompt : "",
+      background: source.background === undefined ? undefined : normalizeBackground(source.background),
+      outputCompression: source.outputCompression === undefined ? undefined : normalizeOutputCompression(source.outputCompression),
+      inputFidelity: source.inputFidelity === undefined ? undefined : normalizeInputFidelity(source.inputFidelity),
+      imageStyle: source.imageStyle === undefined ? undefined : normalizeImageStyle(source.imageStyle),
       moderation: source.moderation === undefined ? undefined : normalizeModeration(source.moderation),
       kernelRuntimeMode: normalizeKernelRuntimeMode(source.kernelRuntimeMode),
       batchCount: normalizeBatchCount(source.batchCount),
@@ -353,8 +410,39 @@ function normalizeOutputFormat(value: unknown): OutputFormatValue {
   return value === "jpeg" || value === "webp" || value === "png" ? value : "png";
 }
 
+function normalizeBackground(value: unknown): BackgroundValue {
+  return value === "opaque" || value === "transparent" || value === "auto" ? value : "auto";
+}
+
+function normalizeOutputCompression(value: unknown): number {
+  if (value === null || value === undefined || value === "") return 100;
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(n)) return 100;
+  return Math.max(0, Math.min(100, Math.round(n)));
+}
+
+function normalizeInputFidelity(value: unknown): InputFidelityValue {
+  return value === "low" || value === "high" || value === "auto" ? value : "auto";
+}
+
+function normalizeImageStyle(value: unknown): ImageStyleValue {
+  return value === "vivid" || value === "natural" || value === "default" ? value : "default";
+}
+
 function normalizeModeration(value: unknown): ModerationValue {
   return value === "auto" ? "auto" : "low";
+}
+
+function normalizeUserIdentifier(value: unknown): string {
+  const trimmed = String(value ?? "").trim();
+  if (!trimmed) return "";
+  return Array.from(trimmed).slice(0, 64).join("");
+}
+
+function normalizePartialImages(value: unknown): number {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric < 0) return 1;
+  return Math.max(0, Math.min(3, Math.floor(numeric)));
 }
 
 function normalizeSize(value: unknown): HistoryItem["size"] {
@@ -362,7 +450,9 @@ function normalizeSize(value: unknown): HistoryItem["size"] {
 }
 
 function normalizeQuality(value: unknown): HistoryItem["quality"] {
-  return value === "auto" || value === "high" || value === "low" || value === "medium" ? value : "medium";
+  return value === "auto" || value === "high" || value === "low" || value === "medium" || value === "standard" || value === "hd"
+    ? value
+    : "medium";
 }
 
 function normalizeFontScale(value: unknown): number {
@@ -392,6 +482,18 @@ function numberOrUndefined(value: unknown): number | undefined {
 
 function moderationOrUndefined(value: unknown): ModerationValue | undefined {
   return value === "auto" || value === "low" ? value : undefined;
+}
+
+function backgroundOrUndefined(value: unknown): BackgroundValue | undefined {
+  return value === "auto" || value === "opaque" || value === "transparent" ? value : undefined;
+}
+
+function inputFidelityOrUndefined(value: unknown): InputFidelityValue | undefined {
+  return value === "auto" || value === "low" || value === "high" ? value : undefined;
+}
+
+function imageStyleOrUndefined(value: unknown): ImageStyleValue | undefined {
+  return value === "default" || value === "vivid" || value === "natural" ? value : undefined;
 }
 
 function readLocalMarker(): number {

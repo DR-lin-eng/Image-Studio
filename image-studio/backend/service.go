@@ -292,7 +292,12 @@ func (s *Service) runJob(ctx context.Context, jobID string, opts GenerateOptions
 		MaskB64:            opts.MaskB64,
 		Seed:               opts.Seed,
 		NegativePrompt:     opts.NegativePrompt,
+		Background:         opts.Background,
+		OutputCompression:  opts.OutputCompression,
+		InputFidelity:      opts.InputFidelity,
+		ImageStyle:         opts.ImageStyle,
 		Moderation:         opts.Moderation,
+		UserIdentifier:     opts.UserIdentifier,
 		BaseURL:            opts.BaseURL,
 		TextModelID:        opts.TextModelID,
 		ImageModelID:       opts.ImageModelID,
@@ -301,13 +306,11 @@ func (s *Service) runJob(ctx context.Context, jobID string, opts GenerateOptions
 		RequestPolicy:      client.RequestPolicy(strings.TrimSpace(opts.RequestPolicy)),
 		ImagesNewAPICompat: opts.ImagesNewAPICompat,
 		NoPromptRevision:   opts.NoPromptRevision,
+		DisablePreview:     opts.DisablePreview,
 		PartialImages:      client.DefaultPartialImages,
 	}
 	if opts.PartialImages > 0 {
 		clientOpts.PartialImages = opts.PartialImages
-	}
-	if opts.DisablePreview {
-		clientOpts.PartialImages = 0
 	}
 	if mode == client.ModeEdit {
 		paths, cleanup, prepErr := prepareUploadSourcePaths(opts.collectPaths())

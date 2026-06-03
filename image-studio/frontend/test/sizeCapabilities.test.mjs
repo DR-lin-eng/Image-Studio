@@ -21,6 +21,50 @@ test("gpt-image paths expose explicit 2K/4K resolution presets", () => {
   );
 });
 
+test("legacy gpt-image models stay on documented base sizes", () => {
+  const input = {
+    apiMode: "images",
+    requestPolicy: "openai",
+    imageModelID: "gpt-image-1.5",
+  };
+  assert.deepEqual(caps.availableResolutionPresets(input), ["auto", "1k"]);
+  assert.equal(
+    caps.buildSizeSelection("16:9", "1k", input),
+    "1024x1024",
+  );
+  assert.equal(
+    caps.buildSizeSelection("3:2", "1k", input),
+    "1536x1024",
+  );
+});
+
+test("dall-e-3 uses only official aspect/size combinations", () => {
+  const input = {
+    apiMode: "images",
+    requestPolicy: "openai",
+    imageModelID: "dall-e-3",
+  };
+  const values = caps.availableResolutionPresets(input);
+  assert.deepEqual(values, ["1k"]);
+  const aspects = caps.listAspectPresetOptions(input).map((item) => item.value);
+  assert.deepEqual(aspects, ["1:1", "7:4", "4:7"]);
+  assert.equal(caps.buildSizeSelection("7:4", "1k", input), "1792x1024");
+  assert.equal(caps.buildSizeSelection("4:7", "1k", input), "1024x1792");
+});
+
+test("dall-e-2 stays on square sizes only", () => {
+  const input = {
+    apiMode: "images",
+    requestPolicy: "openai",
+    imageModelID: "dall-e-2",
+  };
+  assert.deepEqual(caps.availableResolutionPresets(input), ["256", "512", "1k"]);
+  const aspects = caps.listAspectPresetOptions(input).map((item) => item.value);
+  assert.deepEqual(aspects, ["1:1"]);
+  assert.equal(caps.buildSizeSelection("1:1", "256", input), "256x256");
+  assert.equal(caps.buildSizeSelection("3:2", "1k", input), "1024x1024");
+});
+
 test("non-gpt-image openai-standard paths stay on base resolution presets", () => {
   const values = caps.availableResolutionPresets({
     apiMode: "responses",

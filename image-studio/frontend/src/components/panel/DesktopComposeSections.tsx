@@ -5,7 +5,7 @@ import type {
   RequestPolicy,
   SizeValue,
 } from "../../types/domain";
-import { QUALITY_TIERS, STYLE_CHIPS } from "./panelOptions";
+import { STYLE_CHIPS } from "./panelOptions";
 import { Section, Seg, SegItem } from "./panelChrome";
 import {
   RESOLUTION_PRESETS,
@@ -19,6 +19,7 @@ export function DesktopComposeSections({
   activeAspect,
   aspectOptions,
   activeResolution,
+  allowCustomAspectRatios,
   apiMode,
   batchCount,
   clearSources,
@@ -30,6 +31,7 @@ export function DesktopComposeSections({
   onRemoveSource,
   mode,
   quality,
+  qualityOptions,
   requestPolicy,
   selectSourceImage,
   setField,
@@ -42,6 +44,7 @@ export function DesktopComposeSections({
   activeAspect: AspectPreset;
   aspectOptions: AspectPresetOption[];
   activeResolution: ResolutionPreset;
+  allowCustomAspectRatios: boolean;
   apiMode: "responses" | "images";
   batchCount: number;
   clearSources: () => void;
@@ -54,6 +57,7 @@ export function DesktopComposeSections({
   mode: Mode;
   onRemoveSource: (index: number) => void;
   quality: QualityValue;
+  qualityOptions: Array<{ value: QualityValue; label: string }>;
   requestPolicy: RequestPolicy;
   selectSourceImage: () => void;
   setField: (key: "styleTag" | "quality" | "batchCount" | "size", value: any) => void;
@@ -93,7 +97,7 @@ export function DesktopComposeSections({
 
       <Section
         label="比例"
-        trailing={(
+        trailing={allowCustomAspectRatios ? (
           <button
             type="button"
             onClick={onOpenCustomAspectRatioModal}
@@ -101,7 +105,7 @@ export function DesktopComposeSections({
           >
             自定义比例
           </button>
-        )}
+        ) : undefined}
       >
         <div className="grid grid-cols-3 gap-2.5">
           {aspectOptions.map((aspect) => {
@@ -151,7 +155,7 @@ export function DesktopComposeSections({
 
       <Section label="质量">
         <Seg>
-          {QUALITY_TIERS.map((item) => (
+          {qualityOptions.map((item) => (
             <SegItem
               key={item.value}
               active={quality === item.value}

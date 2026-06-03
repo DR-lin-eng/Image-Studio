@@ -239,6 +239,10 @@ export function createMediaActions(store: StateAdapter) {
         quality: state.quality,
         outputFormat: state.outputFormat,
         negativePrompt: state.negativePrompt,
+        background: state.background,
+        outputCompression: state.outputCompression,
+        inputFidelity: state.inputFidelity,
+        imageStyle: state.imageStyle,
         moderation: state.moderation,
         batchCount: state.batchCount,
       };
@@ -256,6 +260,10 @@ export function createMediaActions(store: StateAdapter) {
         quality: preset.quality,
         outputFormat: preset.outputFormat ?? store.getState().outputFormat,
         negativePrompt: preset.negativePrompt,
+        background: preset.background ?? store.getState().background,
+        outputCompression: preset.outputCompression ?? store.getState().outputCompression,
+        inputFidelity: preset.inputFidelity ?? store.getState().inputFidelity,
+        imageStyle: preset.imageStyle ?? store.getState().imageStyle,
         moderation: preset.moderation ?? store.getState().moderation,
         batchCount: preset.batchCount,
       });

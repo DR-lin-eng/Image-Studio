@@ -13,7 +13,12 @@ export namespace backend {
 	    maskB64: string;
 	    seed: number;
 	    negativePrompt: string;
+	    background: string;
+	    outputCompression: number;
+	    inputFidelity: string;
+	    imageStyle: string;
 	    moderation: string;
+	    userIdentifier: string;
 	    baseURL: string;
 	    textModelID: string;
 	    imageModelID: string;
@@ -45,7 +50,12 @@ export namespace backend {
 	        this.maskB64 = source["maskB64"];
 	        this.seed = source["seed"];
 	        this.negativePrompt = source["negativePrompt"];
+	        this.background = source["background"];
+	        this.outputCompression = source["outputCompression"];
+	        this.inputFidelity = source["inputFidelity"];
+	        this.imageStyle = source["imageStyle"];
 	        this.moderation = source["moderation"];
+	        this.userIdentifier = source["userIdentifier"];
 	        this.baseURL = source["baseURL"];
 	        this.textModelID = source["textModelID"];
 	        this.imageModelID = source["imageModelID"];

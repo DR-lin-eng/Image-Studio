@@ -1,6 +1,9 @@
 package ui
 
 import (
+	"image"
+	"image/color"
+	"image/png"
 	"os"
 	"path/filepath"
 	"strings"
@@ -9,6 +12,32 @@ import (
 
 	sharedCompat "image-studio/shared/compat"
 )
+
+func writeSolidTestPNG(t *testing.T, path string, fill color.NRGBA) {
+	t.Helper()
+	img := image.NewNRGBA(image.Rect(0, 0, 2, 2))
+	for y := 0; y < 2; y++ {
+		for x := 0; x < 2; x++ {
+			img.SetNRGBA(x, y, fill)
+		}
+	}
+	file, err := os.Create(path)
+	if err != nil {
+		t.Fatalf("create png %s: %v", path, err)
+	}
+	defer file.Close()
+	if err := png.Encode(file, img); err != nil {
+		t.Fatalf("encode png %s: %v", path, err)
+	}
+}
+
+func assertImagePixelColor(t *testing.T, img image.Image, want color.NRGBA) {
+	t.Helper()
+	got := color.NRGBAModel.Convert(img.At(0, 0)).(color.NRGBA)
+	if got != want {
+		t.Fatalf("pixel=%#v want %#v", got, want)
+	}
+}
 
 func TestCopyImageFileCopiesToExplicitPath(t *testing.T) {
 	dir := t.TempDir()
@@ -217,6 +246,55 @@ func TestDisplayedWorkspaceNameUsesPromptForDefaultActiveWorkspace(t *testing.T)
 	if name != "夜色城市概念海报" {
 		t.Fatalf("displayedWorkspaceName=%q want 夜色城市概念海报", name)
 	}
+}
+
+func TestImageForHistoryThumbPrefersThumbPath(t *testing.T) {
+	dir := t.TempDir()
+	fullPath := filepath.Join(dir, "full.png")
+	thumbPath := filepath.Join(dir, "thumb.png")
+	writeSolidTestPNG(t, fullPath, color.NRGBA{R: 0xf0, G: 0x44, B: 0x44, A: 0xff})
+	writeSolidTestPNG(t, thumbPath, color.NRGBA{R: 0x44, G: 0x88, B: 0xff, A: 0xff})
+
+	app := &App{imageCache: map[string]cachedImage{}}
+	img, err := app.imageForHistoryThumb(sharedCompat.HistoryItem{
+		ID:        "hist-thumb",
+		SavedPath: fullPath,
+		ThumbPath: thumbPath,
+	})
+	if err != nil {
+		t.Fatalf("imageForHistoryThumb: %v", err)
+	}
+	assertImagePixelColor(t, img, color.NRGBA{R: 0x44, G: 0x88, B: 0xff, A: 0xff})
+}
+
+func TestImageForHistoryItemPrefersSavedPathAndFallsBackToThumb(t *testing.T) {
+	dir := t.TempDir()
+	fullPath := filepath.Join(dir, "full.png")
+	thumbPath := filepath.Join(dir, "thumb.png")
+	writeSolidTestPNG(t, fullPath, color.NRGBA{R: 0xf0, G: 0x44, B: 0x44, A: 0xff})
+	writeSolidTestPNG(t, thumbPath, color.NRGBA{R: 0x44, G: 0x88, B: 0xff, A: 0xff})
+
+	app := &App{imageCache: map[string]cachedImage{}}
+	fullImg, err := app.imageForHistoryItem(sharedCompat.HistoryItem{
+		ID:        "hist-full",
+		SavedPath: fullPath,
+		ThumbPath: thumbPath,
+	})
+	if err != nil {
+		t.Fatalf("imageForHistoryItem full: %v", err)
+	}
+	assertImagePixelColor(t, fullImg, color.NRGBA{R: 0xf0, G: 0x44, B: 0x44, A: 0xff})
+
+	app = &App{imageCache: map[string]cachedImage{}}
+	fallbackImg, err := app.imageForHistoryItem(sharedCompat.HistoryItem{
+		ID:        "hist-fallback",
+		SavedPath: filepath.Join(dir, "missing.png"),
+		ThumbPath: thumbPath,
+	})
+	if err != nil {
+		t.Fatalf("imageForHistoryItem fallback: %v", err)
+	}
+	assertImagePixelColor(t, fallbackImg, color.NRGBA{R: 0x44, G: 0x88, B: 0xff, A: 0xff})
 }
 
 func TestResolveThemeMode(t *testing.T) {

@@ -510,7 +510,7 @@ func (a *App) layoutLatestHistoryCard(gtx layout.Context, item sharedCompat.Hist
 	compareActive := a.isCompareItem(item)
 	return a.elevatedBorderedSurface(gtx, fluent.surfaceElevated, fluentCardRadius, fluent.border, image.Pt(0, 1), func(gtx layout.Context) layout.Dimensions {
 		return layout.UniformInset(unit.Dp(12)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			img, _ := a.imageForHistoryItem(item)
+			img, _ := a.imageForHistoryThumb(item)
 			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(8))}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
@@ -770,7 +770,7 @@ func (a *App) layoutPromptGroupModalTile(gtx layout.Context, item sharedCompat.H
 		image.Pt(0, 1),
 		layout.Inset{},
 		func(gtx layout.Context) layout.Dimensions {
-			img, _ := a.imageForHistoryItem(item)
+			img, _ := a.imageForHistoryThumb(item)
 			indexLabel := chooseBatchIndexLabel(item.BatchIndex)
 			if strings.HasPrefix(indexLabel, "第 ") {
 				indexLabel = "#" + strings.TrimSuffix(strings.TrimPrefix(indexLabel, "第 "), " 张")
@@ -1048,7 +1048,7 @@ func (a *App) layoutHistoryGroupPileSized(
 				layout.Stacked(func(gtx layout.Context) layout.Dimensions {
 					for idx := maxThumbs - 1; idx >= 0; idx-- {
 						item := group.Items[idx]
-						img, _ := a.imageForHistoryItem(item)
+						img, _ := a.imageForHistoryThumb(item)
 						offset := offsets[min(idx, len(offsets)-1)]
 						layout.Inset{
 							Left: unit.Dp(float32(offset.X)),
@@ -1167,7 +1167,7 @@ func (a *App) layoutHistoryRow(gtx layout.Context, item sharedCompat.HistoryItem
 		image.Pt(0, 1),
 		layout.Inset{Top: 7, Bottom: 7, Left: 7, Right: 7},
 		func(gtx layout.Context) layout.Dimensions {
-			img, _ := a.imageForHistoryItem(item)
+			img, _ := a.imageForHistoryThumb(item)
 			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Gap: gtx.Dp(unit.Dp(8))}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return a.imageThumbCover(gtx, img, unit.Dp(48), unit.Dp(48), unit.Dp(4))

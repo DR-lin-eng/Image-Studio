@@ -201,10 +201,15 @@ func (a *App) loadHistoryPreview(item sharedCompat.HistoryItem, addLog bool) err
 }
 
 func (a *App) imageForHistoryItem(item sharedCompat.HistoryItem) (image.Image, error) {
-	cacheKey := strings.TrimSpace(item.SavedPath)
-	if cacheKey == "" {
-		cacheKey = "history:" + item.ID
-	}
+	return a.imageForHistorySource(item, false)
+}
+
+func (a *App) imageForHistoryThumb(item sharedCompat.HistoryItem) (image.Image, error) {
+	return a.imageForHistorySource(item, true)
+}
+
+func (a *App) imageForHistorySource(item sharedCompat.HistoryItem, preferThumb bool) (image.Image, error) {
+	cacheKey := historyImageCacheKey(item, preferThumb)
 	if cached, ok := a.imageCache[cacheKey]; ok {
 		if cached.Failed {
 			return nil, errMissingPreview
@@ -216,10 +221,22 @@ func (a *App) imageForHistoryItem(item sharedCompat.HistoryItem) (image.Image, e
 		if strings.TrimSpace(item.ImageB64) != "" {
 			return decodeImageB64(item.ImageB64)
 		}
-		if strings.TrimSpace(item.SavedPath) == "" {
+		paths := historyImagePaths(item, preferThumb)
+		if len(paths) == 0 {
 			return nil, errMissingPreview
 		}
-		return a.imageForPath(item.SavedPath)
+		var lastErr error
+		for _, path := range paths {
+			img, err := a.imageForPath(path)
+			if err == nil {
+				return img, nil
+			}
+			lastErr = err
+		}
+		if lastErr == nil {
+			lastErr = errMissingPreview
+		}
+		return nil, lastErr
 	}
 
 	img, err := load()
@@ -233,6 +250,49 @@ func (a *App) imageForHistoryItem(item sharedCompat.HistoryItem) (image.Image, e
 	}
 	a.imageCache[cacheKey] = cachedImage{Image: img}
 	return img, nil
+}
+
+func historyImagePaths(item sharedCompat.HistoryItem, preferThumb bool) []string {
+	thumbPath := strings.TrimSpace(item.ThumbPath)
+	savedPath := strings.TrimSpace(item.SavedPath)
+	paths := make([]string, 0, 2)
+	if preferThumb {
+		if thumbPath != "" {
+			paths = append(paths, thumbPath)
+		}
+		if savedPath != "" && savedPath != thumbPath {
+			paths = append(paths, savedPath)
+		}
+		return paths
+	}
+	if savedPath != "" {
+		paths = append(paths, savedPath)
+	}
+	if thumbPath != "" && thumbPath != savedPath {
+		paths = append(paths, thumbPath)
+	}
+	return paths
+}
+
+func historyImageCacheKey(item sharedCompat.HistoryItem, preferThumb bool) string {
+	if paths := historyImagePaths(item, preferThumb); len(paths) > 0 {
+		prefix := "history-full:"
+		if preferThumb {
+			prefix = "history-thumb:"
+		}
+		return prefix + strings.Join(paths, "|")
+	}
+	mode := "full"
+	if preferThumb {
+		mode = "thumb"
+	}
+	if strings.TrimSpace(item.ID) != "" {
+		return "history:" + mode + ":" + item.ID
+	}
+	if strings.TrimSpace(item.ImageB64) != "" {
+		return "history:" + mode + ":inline"
+	}
+	return "history:" + mode + ":missing"
 }
 
 func (a *App) imageForPath(path string) (image.Image, error) {

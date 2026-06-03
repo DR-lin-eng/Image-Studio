@@ -642,7 +642,7 @@ func chooseBatchGridInset(col int, columns int) unit.Dp {
 
 func (a *App) layoutBatchGridTile(gtx layout.Context, item sharedCompat.HistoryItem, index int, active bool) layout.Dimensions {
 	btn := a.historyButton("batch-grid:" + item.ID)
-	img, _ := a.imageForHistoryItem(item)
+	img, _ := a.imageForHistoryThumb(item)
 	return fixedHeight(gtx, unit.Dp(208), func(gtx layout.Context) layout.Dimensions {
 		bg := fluent.surface
 		hoverBg := fluent.surface

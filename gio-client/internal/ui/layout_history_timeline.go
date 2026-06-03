@@ -561,7 +561,7 @@ func (a *App) layoutTimelineGroupPile(gtx layout.Context, group historyPromptGro
 				layout.Stacked(func(gtx layout.Context) layout.Dimensions {
 					for idx := maxThumbs - 1; idx >= 0; idx-- {
 						item := group.Items[idx]
-						img, _ := a.imageForHistoryItem(item)
+						img, _ := a.imageForHistoryThumb(item)
 						offset := offsets[min(idx, len(offsets)-1)]
 						layout.Inset{
 							Left: unit.Dp(float32(offset.X)),
@@ -639,7 +639,7 @@ func (a *App) layoutTimelinePromptThumb(gtx layout.Context, item sharedCompat.Hi
 	btn := a.historyButton("timeline-group-thumb:" + item.ID)
 	moreBtn := a.historyActionButton("timeline-group-thumb-more:" + item.ID)
 	compareActive := a.isCompareItem(item)
-	img, _ := a.imageForHistoryItem(item)
+	img, _ := a.imageForHistoryThumb(item)
 	return a.elevatedSurfaceButton(
 		gtx,
 		btn,
@@ -739,7 +739,7 @@ func (a *App) layoutHistoryTimelineRow(gtx layout.Context, item sharedCompat.His
 		image.Pt(0, 1),
 		layout.Inset{Top: 10, Bottom: 10, Left: 10, Right: 10},
 		func(gtx layout.Context) layout.Dimensions {
-			img, _ := a.imageForHistoryItem(item)
+			img, _ := a.imageForHistoryThumb(item)
 			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Start, Gap: gtx.Dp(unit.Dp(10))}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return a.layoutHistoryThumbWithCompare(gtx, img, item.Mode, unit.Dp(152), unit.Dp(114), compareActive)

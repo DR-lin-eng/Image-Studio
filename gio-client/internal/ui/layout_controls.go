@@ -192,7 +192,7 @@ func (a *App) submitActionButton(
 }
 
 func (a *App) layoutWorkbenchCard(gtx layout.Context) layout.Dimensions {
-	return a.controlCard(gtx, func(gtx layout.Context) layout.Dimensions {
+	return a.card(gtx, func(gtx layout.Context) layout.Dimensions {
 		modeSummary := a.modeLabel()
 		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(3))}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -213,7 +213,7 @@ func (a *App) layoutWorkbenchCard(gtx layout.Context) layout.Dimensions {
 }
 
 func (a *App) layoutModeCard(gtx layout.Context) layout.Dimensions {
-	return a.controlCard(gtx, func(gtx layout.Context) layout.Dimensions {
+	return a.card(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return a.label(gtx, "模式", unit.Sp(11), fluent.textMuted, font.SemiBold)
@@ -304,7 +304,7 @@ func (a *App) layoutPromptCard(gtx layout.Context) layout.Dimensions {
 		hint = "主体保持不变\n把背景换成夜空，补一圈冷色边缘光，保留原有构图"
 	}
 
-	return a.controlCard(gtx, func(gtx layout.Context) layout.Dimensions {
+	return a.card(gtx, func(gtx layout.Context) layout.Dimensions {
 		base := func(gtx layout.Context) layout.Dimensions {
 			promptBorder := fluent.border2
 			if gtx.Focused(&a.promptInput) {

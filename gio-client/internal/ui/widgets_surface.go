@@ -969,7 +969,11 @@ func (a *App) card(gtx layout.Context, w layout.Widget) layout.Dimensions {
 }
 
 func (a *App) controlCard(gtx layout.Context, w layout.Widget) layout.Dimensions {
-	return a.elevatedBorderedSurface(gtx, withAlpha(fluent.white, 0xb3), unit.Dp(12), fluent.border, image.Pt(0, 1), func(gtx layout.Context) layout.Dimensions {
+	bg := withAlpha(fluent.white, 0xb3)
+	if resolveThemeMode(a.themeMode) == "dark" {
+		bg = fluent.surfaceElevated
+	}
+	return a.elevatedBorderedSurface(gtx, bg, unit.Dp(12), fluent.border, image.Pt(0, 1), func(gtx layout.Context) layout.Dimensions {
 		return layout.UniformInset(unit.Dp(12)).Layout(gtx, w)
 	})
 }

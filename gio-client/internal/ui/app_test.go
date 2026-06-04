@@ -335,6 +335,18 @@ func TestContainNoUpscaleSize(t *testing.T) {
 	}
 }
 
+func TestPrefillControlsFromHistoryItemRestoresSourcePaths(t *testing.T) {
+	app := New()
+	app.prefillControlsFromHistoryItem(sharedCompat.HistoryItem{
+		Mode:        "edit",
+		SavedPath:   "/tmp/fallback.png",
+		SourcePaths: []string{"/tmp/a.png", "/tmp/b.png", "/tmp/a.png"},
+	})
+	if got := app.sourcePaths(); len(got) != 2 || got[0] != "/tmp/a.png" || got[1] != "/tmp/b.png" {
+		t.Fatalf("sourcePaths=%v want [/tmp/a.png /tmp/b.png]", got)
+	}
+}
+
 func TestResolveThemeMode(t *testing.T) {
 	prev := systemThemeResolver
 	systemThemeResolver = func() string { return "dark" }

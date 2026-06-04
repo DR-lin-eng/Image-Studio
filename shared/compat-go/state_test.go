@@ -57,6 +57,7 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 			Quality:      "high",
 			OutputFormat: "png",
 			CreatedAt:    200,
+			SourcePaths:  []string{"/tmp/a.png", "/tmp/b.png"},
 			SavedPath:    "/tmp/images/cat.png",
 		}},
 		HistoryFull: []HistoryFullItem{{ID: "h1", ImageB64: "aW1n"}},
@@ -76,6 +77,9 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 	}
 	if len(loaded.History) != 1 || loaded.History[0].SavedPath != "/tmp/images/cat.png" {
 		t.Fatalf("history not preserved: %#v", loaded.History)
+	}
+	if len(loaded.History[0].SourcePaths) != 2 || loaded.History[0].SourcePaths[0] != "/tmp/a.png" || loaded.History[0].SourcePaths[1] != "/tmp/b.png" {
+		t.Fatalf("sourcePaths not preserved: %#v", loaded.History[0].SourcePaths)
 	}
 	if len(loaded.HistoryFull) != 1 || loaded.HistoryFull[0].ImageB64 != "aW1n" {
 		t.Fatalf("historyFull not preserved: %#v", loaded.HistoryFull)

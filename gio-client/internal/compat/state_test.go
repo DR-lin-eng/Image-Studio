@@ -91,6 +91,7 @@ func TestHistoryItemFromRunUsesWebViewCompatibleFields(t *testing.T) {
 		OutputFormat:   "png",
 		Seed:           42,
 		NegativePrompt: "blur",
+		SourcePaths:    []string{"/tmp/images/src-a.png", "/tmp/images/src-b.png"},
 	}, kernel.Result{
 		SavedPath:     "/tmp/images/cat.png",
 		RawPath:       "/tmp/log/raw.txt",
@@ -104,5 +105,8 @@ func TestHistoryItemFromRunUsesWebViewCompatibleFields(t *testing.T) {
 	}
 	if !item.PreviewOnly || item.ElapsedSec != 1.25 || item.Seed != 42 || item.NegativePrompt != "blur" {
 		t.Fatalf("history metadata not mapped: %#v", item)
+	}
+	if len(item.SourcePaths) != 2 || item.SourcePaths[0] != "/tmp/images/src-a.png" || item.SourcePaths[1] != "/tmp/images/src-b.png" {
+		t.Fatalf("source paths not mapped: %#v", item.SourcePaths)
 	}
 }

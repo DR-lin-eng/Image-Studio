@@ -3,6 +3,7 @@ package ui
 import (
 	"encoding/json"
 	"fmt"
+	"image-studio/gio-client/internal/kernel"
 	"os"
 	"path/filepath"
 	"sort"
@@ -298,6 +299,9 @@ func normalizeImportedHistoryItem(item sharedCompat.HistoryItem) sharedCompat.Hi
 	item.OutputFormat = strings.TrimSpace(item.OutputFormat)
 	item.SavedPath = strings.TrimSpace(item.SavedPath)
 	item.ThumbPath = strings.TrimSpace(item.ThumbPath)
+	if len(item.SourcePaths) > 0 {
+		item.SourcePaths = kernel.ParseSourcePaths(strings.Join(item.SourcePaths, "\n"))
+	}
 	if item.SavedPath == "" && item.ThumbPath != "" {
 		item.SavedPath = item.ThumbPath
 	}

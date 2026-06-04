@@ -1213,8 +1213,12 @@ func (a *App) prefillControlsFromHistoryItem(item sharedCompat.HistoryItem) {
 	if item.BatchIndex > 0 {
 		a.batchCount = normalizeBatchCount(item.BatchIndex + 1)
 	}
-	if strings.TrimSpace(item.Mode) == string(client.ModeEdit) && strings.TrimSpace(item.SavedPath) != "" {
-		a.sourcePathsInput.SetText(strings.TrimSpace(item.SavedPath))
+	if strings.TrimSpace(item.Mode) == string(client.ModeEdit) {
+		if len(item.SourcePaths) > 0 {
+			a.setSourcePaths(item.SourcePaths)
+		} else if strings.TrimSpace(item.SavedPath) != "" {
+			a.sourcePathsInput.SetText(strings.TrimSpace(item.SavedPath))
+		}
 	}
 }
 

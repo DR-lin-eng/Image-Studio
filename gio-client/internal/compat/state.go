@@ -224,6 +224,7 @@ func HistoryItemFromRun(cfg kernel.Config, result kernel.Result, elapsedSec floa
 		StyleTag:       cfg.StyleTag,
 		BatchIndex:     cfg.BatchIndex,
 		ElapsedSec:     elapsedSec,
+		SourcePaths:    append([]string(nil), cfg.SourcePaths...),
 		SavedPath:      result.SavedPath,
 		RawPath:        result.RawPath,
 		PreviewOnly:    true,

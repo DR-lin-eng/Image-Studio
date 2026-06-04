@@ -1247,7 +1247,13 @@ func (a *App) settingsPaneCard(gtx layout.Context, title string, body layout.Wid
 }
 
 func (a *App) generalSettingsCard(gtx layout.Context, title string, body layout.Widget) layout.Dimensions {
-	return a.elevatedBorderedSurface(gtx, withAlpha(fluent.white, 0xb8), unit.Dp(12), fluent.border, image.Pt(0, 1), func(gtx layout.Context) layout.Dimensions {
+	bg := withAlpha(fluent.white, 0xb8)
+	radius := unit.Dp(12)
+	if resolveThemeMode(a.themeMode) == "dark" {
+		bg = fluent.surfaceElevated
+		radius = unit.Dp(8)
+	}
+	return a.elevatedBorderedSurface(gtx, bg, radius, fluent.border, image.Pt(0, 1), func(gtx layout.Context) layout.Dimensions {
 		return layout.UniformInset(unit.Dp(13)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(8))}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {

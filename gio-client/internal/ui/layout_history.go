@@ -953,7 +953,7 @@ func (a *App) layoutHistoryGroupRow(gtx layout.Context, group historyPromptGroup
 }
 
 func (a *App) layoutHistoryGroupPile(gtx layout.Context, group historyPromptGroup) layout.Dimensions {
-	return a.layoutHistoryGroupPileSized(gtx, group, unit.Dp(58), unit.Dp(44), unit.Dp(40), unit.Dp(30), unit.Dp(6), unit.Dp(3))
+	return a.layoutHistoryGroupPileSized(gtx, group, unit.Dp(58), unit.Dp(44), unit.Dp(45), unit.Dp(36), unit.Dp(6), unit.Dp(3))
 }
 
 func (a *App) layoutHistoryPileLayer(gtx layout.Context, img image.Image, width unit.Dp, height unit.Dp, radius unit.Dp) layout.Dimensions {
@@ -1029,10 +1029,10 @@ func (a *App) layoutHistoryGroupPileSized(
 				layerRadius = unit.Dp(5)
 				modeInset = image.Pt(4, 4)
 				countInset = image.Pt(0, 0)
-				countMinWidth = unit.Dp(22)
-				countHeight = unit.Dp(18)
-				countSize = unit.Sp(10)
-				countPadding = layout.Inset{Top: 3, Bottom: 3, Left: 6, Right: 6}
+				countMinWidth = unit.Dp(18)
+				countHeight = unit.Dp(16)
+				countSize = unit.Sp(9)
+				countPadding = layout.Inset{Top: 2, Bottom: 2, Left: 5, Right: 5}
 			}
 			stackClip := clip.RRect{
 				Rect: image.Rectangle{Max: image.Pt(gtx.Constraints.Min.X, gtx.Constraints.Min.Y)},

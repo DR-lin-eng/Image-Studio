@@ -929,7 +929,7 @@ func (a *App) layoutHistoryGroupRow(gtx layout.Context, group historyPromptGroup
 			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Gap: gtx.Dp(unit.Dp(7))}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return pileBtn.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return a.layoutHistoryGroupPileSized(gtx, group, unit.Dp(72), unit.Dp(52), unit.Dp(52), unit.Dp(40), unit.Dp(7), unit.Dp(3))
+						return a.layoutHistoryResultGroupThumb(gtx, group)
 					})
 				}),
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
@@ -954,6 +954,37 @@ func (a *App) layoutHistoryGroupRow(gtx layout.Context, group historyPromptGroup
 
 func (a *App) layoutHistoryGroupPile(gtx layout.Context, group historyPromptGroup) layout.Dimensions {
 	return a.layoutHistoryGroupPileSized(gtx, group, unit.Dp(58), unit.Dp(44), unit.Dp(45), unit.Dp(36), unit.Dp(6), unit.Dp(3))
+}
+
+func (a *App) layoutHistoryResultGroupThumb(gtx layout.Context, group historyPromptGroup) layout.Dimensions {
+	img, _ := a.imageForHistoryThumb(group.Representative)
+	return fixedWidth(gtx, unit.Dp(58), func(gtx layout.Context) layout.Dimensions {
+		return fixedHeight(gtx, unit.Dp(44), func(gtx layout.Context) layout.Dimensions {
+			return layout.Stack{}.Layout(gtx,
+				layout.Stacked(func(gtx layout.Context) layout.Dimensions {
+					return a.imageThumbCover(gtx, img, unit.Dp(58), unit.Dp(44), unit.Dp(4))
+				}),
+				layout.Stacked(func(gtx layout.Context) layout.Dimensions {
+					return layout.NW.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return layout.Inset{Left: unit.Dp(4), Top: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							return a.historyModeBadge(gtx, group.Representative.Mode)
+						})
+					})
+				}),
+				layout.Stacked(func(gtx layout.Context) layout.Dimensions {
+					return layout.SW.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return layout.Inset{Left: unit.Dp(4), Bottom: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							return a.elevatedBorderedSurface(gtx, fluent.accent, unit.Dp(4), withAlpha(fluent.white, 0xd8), image.Pt(0, 1), func(gtx layout.Context) layout.Dimensions {
+								return layout.Inset{Top: 2, Bottom: 2, Left: 5, Right: 5}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+									return a.label(gtx, strconv.Itoa(len(group.Items)), unit.Sp(9), fluent.white, font.SemiBold)
+								})
+							})
+						})
+					})
+				}),
+			)
+		})
+	})
 }
 
 func (a *App) layoutHistoryPileLayer(gtx layout.Context, img image.Image, width unit.Dp, height unit.Dp, radius unit.Dp) layout.Dimensions {
@@ -1018,15 +1049,16 @@ func (a *App) layoutHistoryGroupPileSized(
 			if compact {
 				offsets = []image.Point{
 					image.Pt(0, 0),
-					image.Pt(5, 0),
-					image.Pt(9, 1),
+					image.Pt(4, 0),
+					image.Pt(8, 1),
 				}
 				angles = []float32{
 					float32(0),
-					float32(3 * math.Pi / 180),
-					float32(6 * math.Pi / 180),
+					float32(2 * math.Pi / 180),
+					float32(5 * math.Pi / 180),
 				}
-				layerRadius = unit.Dp(5)
+				scales = []float32{1, 0.98, 0.94}
+				layerRadius = unit.Dp(6)
 				modeInset = image.Pt(4, 4)
 				countInset = image.Pt(0, 0)
 				countMinWidth = unit.Dp(18)

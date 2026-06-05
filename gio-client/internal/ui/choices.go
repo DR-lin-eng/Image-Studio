@@ -351,6 +351,9 @@ func choiceLabel(choices []choice, value string) string {
 
 func classifyImageModel(modelID string) string {
 	value := strings.ToLower(strings.TrimSpace(modelID))
+	if value == "" {
+		value = strings.ToLower(client.ImageModel)
+	}
 	switch {
 	case strings.Contains(value, "gpt-image"):
 		return "gpt-image"

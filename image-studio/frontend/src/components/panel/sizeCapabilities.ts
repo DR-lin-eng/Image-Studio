@@ -1,4 +1,4 @@
-import { classifyImageModel } from "../../../../../shared/kernel/requestModel.js";
+import { classifyImageModel, normalizeImageModel } from "../../../../../shared/kernel/requestModel.js";
 import {
   buildCustomAspectRatioId,
   reduceAspectRatio,
@@ -153,7 +153,7 @@ function modelFamily(input: { imageModelID?: string }): ReturnType<typeof classi
 }
 
 function normalizedImageModelID(input: { imageModelID?: string }): string {
-  return String(input.imageModelID || "").trim().toLowerCase();
+  return normalizeImageModel(input.imageModelID || "").toLowerCase();
 }
 
 function isFlexibleGPTImageModel(input: { imageModelID?: string }): boolean {

@@ -21,6 +21,22 @@ test("gpt-image paths expose explicit 2K/4K resolution presets", () => {
   );
 });
 
+test("blank image model falls back to default gpt-image-2 capabilities", () => {
+  const input = {
+    apiMode: "responses",
+    requestPolicy: "openai",
+    imageModelID: "",
+  };
+  const values = caps.availableResolutionPresets(input);
+  assert.ok(values.includes("2k"));
+  assert.ok(values.includes("4k"));
+  assert.deepEqual(
+    caps.listAspectPresetOptions(input).map((item) => item.value),
+    ["auto", "1:1", "3:2", "2:3", "16:9", "9:16"],
+  );
+  assert.equal(caps.buildSizeSelection("9:16", "4k", input), "2160x3840");
+});
+
 test("legacy gpt-image models stay on documented base sizes", () => {
   const input = {
     apiMode: "images",

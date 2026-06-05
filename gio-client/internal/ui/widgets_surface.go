@@ -880,28 +880,46 @@ func (a *App) metaBadge(gtx layout.Context, text string, compact bool) layout.Di
 }
 
 func (a *App) metaBadgeRow(gtx layout.Context, items []string, compact bool) layout.Dimensions {
-	filtered := compactNonEmpty(items)
-	if len(filtered) == 0 {
+	visibleCount := 0
+	for _, item := range items {
+		if strings.TrimSpace(item) != "" {
+			visibleCount++
+		}
+	}
+	if visibleCount == 0 {
 		return layout.Dimensions{}
 	}
-	children := make([]layout.FlexChild, 0, len(filtered)*2)
+	children := make([]layout.FlexChild, 0, visibleCount*2)
 	gap := unit.Dp(6)
 	if compact {
 		gap = unit.Dp(4)
 	}
-	for idx, item := range filtered {
-		if idx > 0 {
+	seen := 0
+	for _, item := range items {
+		item = strings.TrimSpace(item)
+		if item == "" {
+			continue
+		}
+		if seen > 0 {
 			children = append(children, layout.Rigid(layout.Spacer{Width: gap}.Layout))
 		}
 		item := item
 		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return a.metaBadge(gtx, item, compact)
 		}))
+		seen++
 	}
 	return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx, children...)
 }
 
 func (a *App) imageThumb(gtx layout.Context, img image.Image, width unit.Dp, height unit.Dp, radius unit.Dp) layout.Dimensions {
+	if img == nil {
+		return a.imageThumbWithOp(gtx, nil, paint.ImageOp{}, width, height, radius)
+	}
+	return a.imageThumbWithOp(gtx, img, paint.NewImageOp(img), width, height, radius)
+}
+
+func (a *App) imageThumbWithOp(gtx layout.Context, img image.Image, imgOp paint.ImageOp, width unit.Dp, height unit.Dp, radius unit.Dp) layout.Dimensions {
 	return fixedWidth(gtx, width, func(gtx layout.Context) layout.Dimensions {
 		return fixedHeight(gtx, height, func(gtx layout.Context) layout.Dimensions {
 			return a.borderedSurface(gtx, fluent.panel2, radius, fluent.border, func(gtx layout.Context) layout.Dimensions {
@@ -913,7 +931,7 @@ func (a *App) imageThumb(gtx layout.Context, img image.Image, width unit.Dp, hei
 					gtx.Constraints.Min = gtx.Constraints.Max
 					return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 						view := widget.Image{
-							Src:      paint.NewImageOp(img),
+							Src:      imgOp,
 							Fit:      widget.Contain,
 							Position: layout.Center,
 						}
@@ -926,6 +944,13 @@ func (a *App) imageThumb(gtx layout.Context, img image.Image, width unit.Dp, hei
 }
 
 func (a *App) imageThumbCover(gtx layout.Context, img image.Image, width unit.Dp, height unit.Dp, radius unit.Dp) layout.Dimensions {
+	if img == nil {
+		return a.imageThumbCoverWithOp(gtx, nil, paint.ImageOp{}, width, height, radius)
+	}
+	return a.imageThumbCoverWithOp(gtx, img, paint.NewImageOp(img), width, height, radius)
+}
+
+func (a *App) imageThumbCoverWithOp(gtx layout.Context, img image.Image, imgOp paint.ImageOp, width unit.Dp, height unit.Dp, radius unit.Dp) layout.Dimensions {
 	return fixedWidth(gtx, width, func(gtx layout.Context) layout.Dimensions {
 		return fixedHeight(gtx, height, func(gtx layout.Context) layout.Dimensions {
 			return a.borderedSurface(gtx, fluent.panel2, radius, fluent.border, func(gtx layout.Context) layout.Dimensions {
@@ -934,7 +959,7 @@ func (a *App) imageThumbCover(gtx layout.Context, img image.Image, width unit.Dp
 					return a.previewFallbackGraphic(gtx, radius)
 				}
 				view := widget.Image{
-					Src:      paint.NewImageOp(img),
+					Src:      imgOp,
 					Fit:      widget.Cover,
 					Position: layout.Center,
 				}
@@ -950,6 +975,16 @@ func (a *App) previewFallbackGraphic(gtx layout.Context, radius unit.Dp) layout.
 		return layout.Dimensions{Size: size}
 	}
 	gtx.Constraints.Min = size
+	if a.reducedEffects {
+		paint.FillShape(gtx.Ops, fluent.canvasTile, clip.RRect{
+			Rect: image.Rect(0, 0, size.X, size.Y),
+			NW:   gtx.Dp(radius),
+			NE:   gtx.Dp(radius),
+			SW:   gtx.Dp(radius),
+			SE:   gtx.Dp(radius),
+		}.Op(gtx.Ops))
+		return layout.Dimensions{Size: size}
+	}
 	paintLinearGradient(gtx, image.Rect(0, 0, size.X, size.Y), radius, rgb(0x49b2e8), rgb(0x4b27d2))
 	paint.FillShape(gtx.Ops, rgba(0xffffff, 0x2d), clip.Ellipse(image.Rect(int(float32(size.X)*0.6), int(float32(size.Y)*0.05), int(float32(size.X)*1.02), int(float32(size.Y)*0.48))).Op(gtx.Ops))
 	paint.FillShape(gtx.Ops, rgba(0x0c145a, 0x45), clip.Ellipse(image.Rect(int(float32(size.X)*-0.08), int(float32(size.Y)*0.48), int(float32(size.X)*0.52), int(float32(size.Y)*1.08))).Op(gtx.Ops))
@@ -1090,6 +1125,9 @@ func (a *App) elevatedBorderedSurface(
 	shadowOffset image.Point,
 	w layout.Widget,
 ) layout.Dimensions {
+	if a.reducedEffects {
+		return a.borderedSurface(gtx, bg, radius, border, w)
+	}
 	macro := op.Record(gtx.Ops)
 	dims := a.borderedSurface(gtx, bg, radius, border, w)
 	call := macro.Stop()
@@ -1128,7 +1166,7 @@ func (a *App) borderedSurface(gtx layout.Context, bg color.NRGBA, radius unit.Dp
 			dims := a.surface(gtx, bg, radius, w)
 			call := macro.Stop()
 			call.Add(gtx.Ops)
-			if dims.Size.X > 2 && dims.Size.Y > 2 && fluent.windowOutline.A > 0 {
+			if !a.reducedEffects && dims.Size.X > 2 && dims.Size.Y > 2 && fluent.windowOutline.A > 0 {
 				highlightHeight := min(dims.Size.Y/3, gtx.Dp(unit.Dp(22)))
 				if highlightHeight < 4 {
 					highlightHeight = min(dims.Size.Y, gtx.Dp(unit.Dp(4)))

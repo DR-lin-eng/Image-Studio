@@ -60,7 +60,7 @@ func (a *App) startRunWithConfig(cfg kernel.Config, total int) {
 	a.activePromptGroup = historyPromptGroup{}
 	a.batchResultIDs = nil
 	a.resultGridOpen = total > 1
-	a.logs = appendBounded(a.logs, fmt.Sprintf("开始任务 1/%d: %s", total, shortPrompt(cfg.Prompt)))
+	a.appendLogLocked(fmt.Sprintf("开始任务 1/%d: %s", total, shortPrompt(cfg.Prompt)))
 	a.mu.Unlock()
 	a.invalidateNow()
 
@@ -98,11 +98,6 @@ func (a *App) startRunWithConfig(cfg kernel.Config, total int) {
 				a.finishWithError(err, res.RawPath)
 				return
 			}
-			img, err := decodeImageB64(res.ImageB64)
-			if err != nil {
-				a.finishWithError(err, res.RawPath)
-				return
-			}
 			elapsedSec := time.Since(jobStarted).Seconds()
 			if err := gioCompat.SaveConfigAndHistory(jobCfg, res, elapsedSec); err != nil {
 				a.appendLog("兼容历史保存失败: " + err.Error())
@@ -117,21 +112,42 @@ func (a *App) startRunWithConfig(cfg kernel.Config, total int) {
 			if profile, ok := gioCompat.ActiveProfile(compatState); ok {
 				activeProfileID = profile.ID
 			}
-			a.mu.Lock()
-			a.status = fmt.Sprintf("完成 %s · %.1fs", jobLabel, time.Since(batchStarted).Seconds())
-			a.lastErrorMessage = ""
-			a.result = resultState{
-				Image:         img,
+			displayItem := selectedItem
+			if !hasSelected {
+				displayItem = sharedCompat.HistoryItem{}
+			}
+			if strings.TrimSpace(displayItem.SavedPath) == "" {
+				displayItem.SavedPath = res.SavedPath
+			}
+			if strings.TrimSpace(displayItem.RawPath) == "" {
+				displayItem.RawPath = res.RawPath
+			}
+			if strings.TrimSpace(displayItem.RevisedPrompt) == "" {
+				displayItem.RevisedPrompt = res.RevisedPrompt
+			}
+			if strings.TrimSpace(displayItem.PreviewPath) == "" {
+				displayItem.PreviewPath = res.PreviewPath
+			}
+			if strings.TrimSpace(displayItem.ThumbPath) == "" {
+				displayItem.ThumbPath = res.ThumbPath
+			}
+			nextResult := resultState{
 				SavedPath:     res.SavedPath,
 				RawPath:       res.RawPath,
 				RevisedPrompt: res.RevisedPrompt,
 				SourceEvent:   res.SourceEvent,
-				Item:          selectedItem,
-				HasItem:       hasSelected,
-				Rev:           a.result.Rev + 1,
+				Item:          displayItem,
+				HasItem:       hasSelected || strings.TrimSpace(displayItem.SavedPath) != "",
 			}
-			a.history = append([]sharedCompat.HistoryItem(nil), compatState.History...)
-			a.profiles = append([]sharedCompat.UpstreamProfile(nil), compatState.Profiles...)
+			nextResult.Image = a.loadCanvasImmediatePreviewForState(res.SavedPath, nextResult)
+			a.mu.Lock()
+			a.status = fmt.Sprintf("完成 %s · %.1fs", jobLabel, time.Since(batchStarted).Seconds())
+			a.lastErrorMessage = ""
+			nextResult.Rev = a.result.Rev + 1
+			a.result = nextResult
+			rev := a.result.Rev
+			a.setHistoryLocked(compatState.History)
+			a.setProfilesLocked(compatState.Profiles)
 			a.activeProfileID = activeProfileID
 			if hasSelected {
 				a.selectedHistoryID = selectedItem.ID
@@ -146,7 +162,7 @@ func (a *App) startRunWithConfig(cfg kernel.Config, total int) {
 				a.savePromptSourcePath = res.SavedPath
 				a.savePromptPathInput.SetText(res.SavedPath)
 			}
-			a.logs = appendBounded(a.logs, fmt.Sprintf("生成完成 %s: %s", jobLabel, res.SavedPath))
+			a.appendLogLocked(fmt.Sprintf("生成完成 %s: %s", jobLabel, res.SavedPath))
 			if i == total-1 {
 				a.running = false
 				a.cancel = nil
@@ -154,6 +170,7 @@ func (a *App) startRunWithConfig(cfg kernel.Config, total int) {
 			}
 			a.mu.Unlock()
 			a.invalidateNow()
+			a.startAsyncCurrentResultImageLoad(res.SavedPath, displayItem, res.SourceEvent, rev)
 		}
 	}()
 }
@@ -162,7 +179,7 @@ func (a *App) currentConfig() kernel.Config {
 	seed, _ := strconv.ParseInt(strings.TrimSpace(a.seedInput.Text()), 10, 64)
 	partial, _ := strconv.Atoi(strings.TrimSpace(a.partialImagesInput.Text()))
 	outputCompression, _ := strconv.Atoi(strings.TrimSpace(a.outputCompressionInput.Text()))
-	sourcePaths := kernel.ParseSourcePaths(a.sourcePathsInput.Text())
+	sourcePaths := a.sourcePaths()
 	if client.Mode(a.mode) == client.ModeEdit && len(sourcePaths) == 0 {
 		if current := strings.TrimSpace(a.readSnapshot().Result.SavedPath); current != "" {
 			sourcePaths = []string{current}

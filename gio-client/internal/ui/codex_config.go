@@ -255,7 +255,7 @@ func (a *App) startCodexConfigSync() {
 		return
 	}
 	a.syncingCodexConfig = true
-	a.logs = appendBounded(a.logs, "开始同步 Codex 配置")
+	a.appendLogLocked("开始同步 Codex 配置")
 	a.mu.Unlock()
 	a.invalidateNow()
 
@@ -279,7 +279,7 @@ func (a *App) finishCodexConfigSync(name string, err error) {
 	a.syncingCodexConfig = false
 	if err != nil {
 		a.status = "同步 Codex 配置失败"
-		a.logs = appendBounded(a.logs, "同步 Codex 配置失败: "+err.Error())
+		a.appendLogLocked("同步 Codex 配置失败: " + err.Error())
 		a.mu.Unlock()
 		a.invalidateNow()
 		return
@@ -288,7 +288,7 @@ func (a *App) finishCodexConfigSync(name string, err error) {
 		name = "Codex"
 	}
 	a.status = "已同步 " + name
-	a.logs = appendBounded(a.logs, "已同步 "+name)
+	a.appendLogLocked("已同步 " + name)
 	a.mu.Unlock()
 	a.invalidateNow()
 }

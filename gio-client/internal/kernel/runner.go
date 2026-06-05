@@ -4,12 +4,20 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"image"
+	"image/draw"
+	_ "image/jpeg"
+	"image/png"
+	_ "image/png"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
+	_ "github.com/gen2brain/avif"
 	"github.com/yuanhua/image-gptcodex/pkg/client"
+	xdraw "golang.org/x/image/draw"
+	_ "golang.org/x/image/webp"
 )
 
 type Config struct {
@@ -50,11 +58,16 @@ type Callbacks struct {
 
 type Result struct {
 	SavedPath     string
+	PreviewPath   string
+	ThumbPath     string
 	RawPath       string
 	ImageB64      string
 	RevisedPrompt string
 	SourceEvent   string
 }
+
+const historyThumbMaxEdge = 256
+const historyPreviewMaxEdge = 128
 
 type Runner struct{}
 
@@ -75,7 +88,7 @@ func DefaultConfig() Config {
 		Moderation:        client.DefaultModeration,
 		ProxyMode:         client.ProxyModeSystem,
 		OutputDir:         DefaultOutputDir(),
-		PartialImages:     client.DefaultPartialImages,
+		PartialImages:     0,
 	}
 }
 
@@ -171,6 +184,7 @@ func (Runner) Run(ctx context.Context, cfg Config, cb Callbacks) (Result, error)
 		Seed:               cfg.Seed,
 		NegativePrompt:     cfg.NegativePrompt,
 		PartialImages:      cfg.PartialImages,
+		DisablePreview:     cfg.PartialImages == 0,
 	}
 	if cfg.Mode == client.ModeEdit {
 		if err := attachSourceImages(&opts, cfg.SourcePaths); err != nil {
@@ -199,10 +213,25 @@ func (Runner) Run(ctx context.Context, cfg Config, cb Callbacks) (Result, error)
 	if err != nil {
 		return Result{RawPath: rawPath, ImageB64: result.ImageB64}, err
 	}
+	previewPath := ""
+	thumbPath := ""
+	if nextPreview, nextThumb, mediaErr := EnsurePreviewAndThumbForPath(savedPath); mediaErr == nil {
+		previewPath = nextPreview
+		thumbPath = nextThumb
+	} else {
+		if nextPreview != "" {
+			previewPath = nextPreview
+		}
+		if nextThumb != "" {
+			thumbPath = nextThumb
+		}
+		nonNilLog(cb.Log)("生成历史预览/缩略图失败: " + mediaErr.Error())
+	}
 	return Result{
 		SavedPath:     savedPath,
+		PreviewPath:   previewPath,
+		ThumbPath:     thumbPath,
 		RawPath:       rawPath,
-		ImageB64:      result.ImageB64,
 		RevisedPrompt: result.RevisedPrompt,
 		SourceEvent:   result.SourceEvent,
 	}, nil
@@ -282,7 +311,7 @@ func normalizeConfig(cfg Config) Config {
 	if cfg.OutputDir == "" {
 		cfg.OutputDir = DefaultOutputDir()
 	}
-	if cfg.PartialImages <= 0 {
+	if cfg.PartialImages < 0 {
 		cfg.PartialImages = client.DefaultPartialImages
 	}
 	cfg.SourcePaths = normalizeSourcePaths(cfg.SourcePaths)
@@ -337,6 +366,41 @@ func buildImageName(mode client.Mode, prompt, timestamp, outputFormat string) st
 	return fmt.Sprintf("image-%s-%s-%s.%s", prefix, slug, timestamp, ext)
 }
 
+func buildThumbName(imageName string) string {
+	base := strings.TrimSuffix(filepath.Base(imageName), filepath.Ext(imageName))
+	return base + ".png"
+}
+
+func previewOutputPathForSource(sourcePath string) string {
+	sourcePath = absPathOrRaw(sourcePath)
+	dir := filepath.Dir(sourcePath)
+	previewsDir := filepath.Join(dir, "previews")
+	if filepath.Base(dir) == "images" {
+		previewsDir = filepath.Join(filepath.Dir(dir), "previews")
+	}
+	previewPath := filepath.Join(previewsDir, buildThumbName(filepath.Base(sourcePath)))
+	if filepath.Clean(previewPath) == filepath.Clean(sourcePath) {
+		stem := strings.TrimSuffix(filepath.Base(sourcePath), filepath.Ext(sourcePath))
+		previewPath = filepath.Join(previewsDir, stem+"-preview.png")
+	}
+	return previewPath
+}
+
+func thumbOutputPathForSource(sourcePath string) string {
+	sourcePath = absPathOrRaw(sourcePath)
+	dir := filepath.Dir(sourcePath)
+	thumbsDir := filepath.Join(dir, "thumbs")
+	if filepath.Base(dir) == "images" {
+		thumbsDir = filepath.Join(filepath.Dir(dir), "thumbs")
+	}
+	thumbPath := filepath.Join(thumbsDir, buildThumbName(filepath.Base(sourcePath)))
+	if filepath.Clean(thumbPath) == filepath.Clean(sourcePath) {
+		stem := strings.TrimSuffix(filepath.Base(sourcePath), filepath.Ext(sourcePath))
+		thumbPath = filepath.Join(thumbsDir, stem+"-thumb.png")
+	}
+	return thumbPath
+}
+
 func saveImage(imageB64, outputPath string) (string, error) {
 	data, err := base64.StdEncoding.DecodeString(imageB64)
 	if err != nil {
@@ -345,6 +409,255 @@ func saveImage(imageB64, outputPath string) (string, error) {
 	if err := os.WriteFile(outputPath, data, 0o600); err != nil {
 		return "", fmt.Errorf("write image: %w", err)
 	}
+	abs, err := filepath.Abs(outputPath)
+	if err != nil {
+		return outputPath, nil
+	}
+	return abs, nil
+}
+
+func EnsurePreviewForPath(sourcePath string) (string, error) {
+	previewPath, _, err := EnsurePreviewAndThumbForPath(sourcePath)
+	if strings.TrimSpace(previewPath) == "" {
+		if err == nil {
+			err = fmt.Errorf("preview path empty")
+		}
+		return "", err
+	}
+	return previewPath, err
+}
+
+func EnsurePreviewForPathWithFallback(sourcePath string, fallbackPath string) (string, error) {
+	sourcePath = strings.TrimSpace(sourcePath)
+	if sourcePath == "" {
+		return "", fmt.Errorf("source path empty")
+	}
+	previewPath := previewOutputPathForSource(sourcePath)
+	if info, statErr := os.Stat(previewPath); statErr == nil && !info.IsDir() {
+		return absPathOrRaw(previewPath), nil
+	}
+
+	candidates := make([]string, 0, 2)
+	if fallbackPath = strings.TrimSpace(fallbackPath); fallbackPath != "" {
+		candidates = append(candidates, fallbackPath)
+	}
+	if len(candidates) == 0 || filepath.Clean(candidates[len(candidates)-1]) != filepath.Clean(sourcePath) {
+		candidates = append(candidates, sourcePath)
+	}
+
+	var firstErr error
+	for _, candidate := range candidates {
+		if candidate == "" {
+			continue
+		}
+		if info, statErr := os.Stat(candidate); statErr != nil || info.IsDir() {
+			if statErr != nil && firstErr == nil {
+				firstErr = statErr
+			}
+			continue
+		}
+		src, err := decodeImageAtPath(candidate)
+		if err != nil {
+			if firstErr == nil {
+				firstErr = err
+			}
+			continue
+		}
+		resized, resizeErr := resizeThumbnailImage(src, historyPreviewMaxEdge)
+		if resizeErr != nil {
+			if firstErr == nil {
+				firstErr = resizeErr
+			}
+			continue
+		}
+		next, writeErr := writeThumbnailImage(resized, previewPath)
+		if writeErr != nil {
+			if firstErr == nil {
+				firstErr = writeErr
+			}
+			continue
+		}
+		return next, nil
+	}
+	if firstErr == nil {
+		firstErr = os.ErrNotExist
+	}
+	return "", firstErr
+}
+
+func EnsureThumbForPath(sourcePath string) (string, error) {
+	_, thumbPath, err := EnsurePreviewAndThumbForPath(sourcePath)
+	if strings.TrimSpace(thumbPath) == "" {
+		if err == nil {
+			err = fmt.Errorf("thumb path empty")
+		}
+		return "", err
+	}
+	return thumbPath, err
+}
+
+func EnsurePreviewAndThumbForPath(sourcePath string) (previewPath string, thumbPath string, err error) {
+	sourcePath = strings.TrimSpace(sourcePath)
+	if sourcePath == "" {
+		return "", "", fmt.Errorf("source path empty")
+	}
+	previewPath = previewOutputPathForSource(sourcePath)
+	thumbPath = thumbOutputPathForSource(sourcePath)
+
+	previewReady := false
+	if info, statErr := os.Stat(previewPath); statErr == nil && !info.IsDir() {
+		previewPath = absPathOrRaw(previewPath)
+		previewReady = true
+	}
+	thumbReady := false
+	if info, statErr := os.Stat(thumbPath); statErr == nil && !info.IsDir() {
+		thumbPath = absPathOrRaw(thumbPath)
+		thumbReady = true
+	}
+	if previewReady && thumbReady {
+		return previewPath, thumbPath, nil
+	}
+
+	srcPath := sourcePath
+	if !previewReady && thumbReady {
+		srcPath = thumbPath
+	}
+	if _, statErr := os.Stat(srcPath); statErr != nil {
+		if previewReady {
+			srcPath = previewPath
+		} else if thumbReady {
+			srcPath = thumbPath
+		} else {
+			return previewPath, thumbPath, statErr
+		}
+	}
+	src, err := decodeImageAtPath(srcPath)
+	if err != nil {
+		return previewPath, thumbPath, err
+	}
+
+	var firstErr error
+	var thumbImage image.Image
+	if !thumbReady {
+		resized, resizeErr := resizeThumbnailImage(src, historyThumbMaxEdge)
+		if resizeErr != nil {
+			if firstErr == nil {
+				firstErr = resizeErr
+			}
+		} else {
+			thumbImage = resized
+			next, thumbErr := writeThumbnailImage(thumbImage, thumbPath)
+			if thumbErr != nil {
+				if firstErr == nil {
+					firstErr = thumbErr
+				}
+				thumbPath = ""
+			} else {
+				thumbPath = next
+				thumbReady = true
+			}
+		}
+	}
+	if !previewReady {
+		previewSource := src
+		if thumbImage != nil {
+			previewSource = thumbImage
+		}
+		resized, resizeErr := resizeThumbnailImage(previewSource, historyPreviewMaxEdge)
+		if resizeErr != nil {
+			if firstErr == nil {
+				firstErr = resizeErr
+			}
+		} else {
+			next, previewErr := writeThumbnailImage(resized, previewPath)
+			if previewErr != nil {
+				if firstErr == nil {
+					firstErr = previewErr
+				}
+				previewPath = ""
+			} else {
+				previewPath = next
+			}
+		}
+	}
+	if strings.TrimSpace(previewPath) == "" && strings.TrimSpace(thumbPath) == "" && firstErr == nil {
+		firstErr = fmt.Errorf("preview/thumb generation produced no outputs")
+	}
+	return previewPath, thumbPath, firstErr
+}
+
+func saveThumbnail(sourcePath, outputPath string, maxEdge int) (string, error) {
+	src, err := decodeImageAtPath(sourcePath)
+	if err != nil {
+		return "", err
+	}
+	return saveThumbnailFromImage(src, outputPath, maxEdge)
+}
+
+func decodeImageAtPath(sourcePath string) (image.Image, error) {
+	file, err := os.Open(sourcePath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	src, _, err := image.Decode(file)
+	if err != nil {
+		return nil, fmt.Errorf("decode image: %w", err)
+	}
+	return src, nil
+}
+
+func saveThumbnailFromImage(src image.Image, outputPath string, maxEdge int) (string, error) {
+	dst, err := resizeThumbnailImage(src, maxEdge)
+	if err != nil {
+		return "", err
+	}
+	return writeThumbnailImage(dst, outputPath)
+}
+
+func resizeThumbnailImage(src image.Image, maxEdge int) (image.Image, error) {
+	if maxEdge <= 0 {
+		maxEdge = historyThumbMaxEdge
+	}
+	bounds := src.Bounds()
+	srcW := bounds.Dx()
+	srcH := bounds.Dy()
+	if srcW <= 0 || srcH <= 0 {
+		return nil, fmt.Errorf("invalid image bounds: %dx%d", srcW, srcH)
+	}
+	scale := float64(maxEdge) / float64(max(srcW, srcH))
+	if scale > 1 {
+		scale = 1
+	}
+	dstW := max(1, int(float64(srcW)*scale+0.5))
+	dstH := max(1, int(float64(srcH)*scale+0.5))
+	dst := image.NewRGBA(image.Rect(0, 0, dstW, dstH))
+	xdraw.ApproxBiLinear.Scale(dst, dst.Bounds(), src, bounds, draw.Src, nil)
+	return dst, nil
+}
+
+func writeThumbnailImage(dst image.Image, outputPath string) (string, error) {
+	if err := os.MkdirAll(filepath.Dir(outputPath), 0o700); err != nil {
+		return "", err
+	}
+	out, err := os.OpenFile(outputPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
+	if err != nil {
+		return "", err
+	}
+	ok := false
+	defer func() {
+		_ = out.Close()
+		if !ok {
+			_ = os.Remove(outputPath)
+		}
+	}()
+	if err := png.Encode(out, dst); err != nil {
+		return "", fmt.Errorf("encode thumbnail: %w", err)
+	}
+	if err := out.Close(); err != nil {
+		return "", err
+	}
+	ok = true
 	abs, err := filepath.Abs(outputPath)
 	if err != nil {
 		return outputPath, nil

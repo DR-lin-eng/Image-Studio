@@ -21,7 +21,8 @@ import (
 	"github.com/yuanhua/image-gptcodex/pkg/client"
 )
 
-func (a *App) layoutHistoryAndLogs(gtx layout.Context) layout.Dimensions {
+func (a *App) layoutHistoryAndLogs(gtx layout.Context, snap snapshot) layout.Dimensions {
+	defer a.recordLayoutTiming(layoutTimingHistoryRail, time.Now())
 	clearCompareBtn := a.historyActionButton("clear-compare-rail")
 	for a.historyCollapseButton.Clicked(gtx) {
 		a.historyRailCollapsed = !a.historyRailCollapsed
@@ -46,11 +47,12 @@ func (a *App) layoutHistoryAndLogs(gtx layout.Context) layout.Dimensions {
 		}
 	}
 
-	snap := a.readSnapshot()
-	filtered := a.filteredHistory(snap.History)
-	entries := buildHistoryPromptEntries(filtered)
-	generateCount, editCount := historyCounts(snap.History)
-	latest, hasLatest := newestHistoryItem(filtered)
+	data := a.historyPanelData(snap.History)
+	entries := data.entries
+	filteredCount := data.filteredCount
+	generateCount, editCount := data.generateCount, data.editCount
+	latest, hasLatest := data.latest, data.hasLatest
+	compareItemID := snap.Compare.Item.ID
 	visible := entries
 	if len(visible) > 18 {
 		visible = visible[:18]
@@ -72,17 +74,17 @@ func (a *App) layoutHistoryAndLogs(gtx layout.Context) layout.Dimensions {
 			}
 			pileBtn := a.historyButton("pile:" + entry.Group.Key)
 			for pileBtn.Clicked(gtx) {
-				a.openPromptGroup(entry.Group)
+				a.openPromptGroup(*entry.Group)
 			}
 			expand := a.historyButton("expand:" + entry.Group.Key)
 			for expand.Clicked(gtx) {
-				a.openPromptGroup(entry.Group)
+				a.openPromptGroup(*entry.Group)
 			}
 			continue
 		}
 		button := a.historyButton("row:" + entry.Item.ID)
 		for button.Clicked(gtx) {
-			if err := a.loadHistoryPreview(entry.Item, true); err != nil && !isMissingPreview(err) {
+			if err := a.loadHistoryPreview(*entry.Item, true); err != nil && !isMissingPreview(err) {
 				a.appendLog("载入历史结果失败: " + err.Error())
 			}
 		}
@@ -109,7 +111,7 @@ func (a *App) layoutHistoryAndLogs(gtx layout.Context) layout.Dimensions {
 		if entry.Kind != "item" {
 			continue
 		}
-		item := entry.Item
+		item := *entry.Item
 		detailBtn := a.historyActionButton("row-detail:" + item.ID)
 		for detailBtn.Clicked(gtx) {
 			a.openResultDetail(item)
@@ -135,7 +137,7 @@ func (a *App) layoutHistoryAndLogs(gtx layout.Context) layout.Dimensions {
 				}),
 				layout.Rigid(layout.Spacer{Height: unit.Dp(10)}.Layout),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return a.layoutHistorySummaryCard(gtx, snap, filtered, generateCount, editCount)
+					return a.layoutHistorySummaryCard(gtx, snap, filteredCount, generateCount, editCount)
 				}),
 			}
 
@@ -152,7 +154,7 @@ func (a *App) layoutHistoryAndLogs(gtx layout.Context) layout.Dimensions {
 				children = append(children,
 					layout.Rigid(layout.Spacer{Height: unit.Dp(10)}.Layout),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return a.layoutLatestHistoryCard(gtx, latest, snap.SelectedHistoryID == latest.ID)
+						return a.layoutLatestHistoryCard(gtx, latest, snap.SelectedHistoryID == latest.ID, compareItemID)
 					}),
 				)
 			}
@@ -160,14 +162,14 @@ func (a *App) layoutHistoryAndLogs(gtx layout.Context) layout.Dimensions {
 			children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(10)}.Layout))
 			if !a.historyRailCollapsed && len(visible) > 0 {
 				children = append(children, layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-					return a.layoutHistoryResultsCard(gtx, snap, filtered, entries, visible)
+					return a.layoutHistoryResultsCard(gtx, snap, filteredCount, entries, visible, compareItemID)
 				}))
 			} else {
 				children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					if a.historyRailCollapsed {
 						return layout.Dimensions{}
 					}
-					return a.layoutHistoryResultsCard(gtx, snap, filtered, entries, visible)
+					return a.layoutHistoryResultsCard(gtx, snap, filteredCount, entries, visible, compareItemID)
 				}))
 			}
 			return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
@@ -176,6 +178,7 @@ func (a *App) layoutHistoryAndLogs(gtx layout.Context) layout.Dimensions {
 }
 
 func (a *App) layoutUpstreamCard(gtx layout.Context, snap snapshot) layout.Dimensions {
+	defer a.recordLayoutTiming(layoutTimingUpstreamCard, time.Now())
 	for a.upstreamConfigButton.Clicked(gtx) {
 		a.openSettingsModal()
 	}
@@ -388,12 +391,13 @@ func (a *App) layoutProfileOption(gtx layout.Context, profile sharedCompat.Upstr
 func (a *App) layoutHistorySummaryCard(
 	gtx layout.Context,
 	snap snapshot,
-	filtered []sharedCompat.HistoryItem,
+	filteredCount int,
 	generateCount int,
 	editCount int,
 ) layout.Dimensions {
-	countText := strconv.Itoa(len(filtered))
-	if len(filtered) != len(snap.History) {
+	defer a.recordLayoutTiming(layoutTimingHistorySummaryCard, time.Now())
+	countText := strconv.Itoa(filteredCount)
+	if filteredCount != len(snap.History) {
 		countText += " / " + strconv.Itoa(len(snap.History))
 	}
 	return a.elevatedBorderedSurface(gtx, fluent.surfaceElevated, fluentCardRadius, fluent.border, image.Pt(0, 1), func(gtx layout.Context) layout.Dimensions {
@@ -504,13 +508,15 @@ func (a *App) historyStatButton(
 	})
 }
 
-func (a *App) layoutLatestHistoryCard(gtx layout.Context, item sharedCompat.HistoryItem, active bool) layout.Dimensions {
+func (a *App) layoutLatestHistoryCard(gtx layout.Context, item sharedCompat.HistoryItem, active bool, compareItemID string) layout.Dimensions {
+	defer a.recordLayoutTiming(layoutTimingLatestHistoryCard, time.Now())
 	btn := a.historyButton("feature:" + item.ID)
 	detailBtn := a.historyActionButton("feature-detail:" + item.ID)
-	compareActive := a.isCompareItem(item)
+	compareActive := compareItemActive(item.ID, compareItemID)
+	display := a.historyItemDisplay(item)
 	return a.elevatedBorderedSurface(gtx, fluent.surfaceElevated, fluentCardRadius, fluent.border, image.Pt(0, 1), func(gtx layout.Context) layout.Dimensions {
 		return layout.UniformInset(unit.Dp(12)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			img, _ := a.imageForHistoryThumb(item)
+			img, imgOp := a.displayHistoryThumb(item, gtx.Dp(unit.Dp(88)))
 			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(8))}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
@@ -546,17 +552,17 @@ func (a *App) layoutLatestHistoryCard(gtx layout.Context, item sharedCompat.Hist
 						func(gtx layout.Context) layout.Dimensions {
 							return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Gap: gtx.Dp(unit.Dp(10))}.Layout(gtx,
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-									return a.layoutHistoryThumbWithCompare(gtx, img, item.Mode, unit.Dp(88), unit.Dp(88), compareActive)
+									return a.layoutHistoryThumbWithCompare(gtx, img, imgOp, item.Mode, unit.Dp(88), unit.Dp(88), compareActive)
 								}),
 								layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 									return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx,
 										layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-											return a.clampedLabel(gtx, shortPrompt(item.Prompt), unit.Sp(12), fluent.text, font.Medium, 2)
+											return a.clampedLabel(gtx, display.ShortPrompt, unit.Sp(12), fluent.text, font.Medium, 2)
 										}),
 										layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 											return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Gap: gtx.Dp(unit.Dp(4))}.Layout(gtx,
 												layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-													return a.metaBadgeRow(gtx, historyMetaBadgeItems(item), true)
+													return a.metaBadgeRow(gtx, display.MetaBadges, true)
 												}),
 												layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 													if !compareActive {
@@ -607,8 +613,7 @@ func (a *App) layoutLatestHistoryCard(gtx layout.Context, item sharedCompat.Hist
 	})
 }
 
-func (a *App) layoutPromptGroupModal(gtx layout.Context) layout.Dimensions {
-	snap := a.readSnapshot()
+func (a *App) layoutPromptGroupModal(gtx layout.Context, snap snapshot) layout.Dimensions {
 	group := snap.ActivePromptGroup
 	if group.Key == "" {
 		return layout.Dimensions{}
@@ -629,16 +634,6 @@ func (a *App) layoutPromptGroupModal(gtx layout.Context) layout.Dimensions {
 	latestDetailBtn := a.historyActionButton("modal-latest-detail:" + latest.ID)
 	for latestDetailBtn.Clicked(gtx) {
 		a.openResultDetail(latest)
-	}
-	for _, item := range group.Items {
-		item := item
-		btn := a.historyButton("modal:" + item.ID)
-		for btn.Clicked(gtx) {
-			if err := a.loadHistoryPreview(item, true); err != nil && !isMissingPreview(err) {
-				a.appendLog("载入历史结果失败: " + err.Error())
-			}
-			a.closePromptGroup()
-		}
 	}
 
 	return a.layoutStandardModal(
@@ -676,12 +671,12 @@ func (a *App) layoutPromptGroupModal(gtx layout.Context) layout.Dimensions {
 													return a.label(gtx, "同提示词", unit.Sp(11), fluent.textMuted, font.SemiBold)
 												}),
 												layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-													return a.singleLineLabel(gtx, strconv.Itoa(len(group.Items))+" 张", unit.Sp(11), fluent.textMuted, font.Medium)
+													return a.singleLineLabel(gtx, group.CountText, unit.Sp(11), fluent.textMuted, font.Medium)
 												}),
 											)
 										}),
 										layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-											return a.clampedLabel(gtx, choosePromptGroupTitle(group), unit.Sp(15), fluent.text, font.SemiBold, 2)
+											return a.clampedLabel(gtx, group.Title, unit.Sp(15), fluent.text, font.SemiBold, 2)
 										}),
 										layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 											return a.metaBadgeRow(gtx, compactNonEmpty([]string{
@@ -711,7 +706,7 @@ func (a *App) layoutPromptGroupModal(gtx layout.Context) layout.Dimensions {
 					rowCount := (len(group.Items) + columns - 1) / columns
 					return a.promptGroupList.Layout(gtx, rowCount, func(gtx layout.Context, row int) layout.Dimensions {
 						return layout.Inset{Bottom: 10}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return a.layoutPromptGroupModalGridRow(gtx, group.Items, row, columns, snap.SelectedHistoryID)
+							return a.layoutPromptGroupModalGridRow(gtx, group.Items, row, columns, snap.SelectedHistoryID, snap.Compare.Item.ID)
 						})
 					})
 				}),
@@ -735,7 +730,7 @@ func promptGroupModalColumns(gtx layout.Context) int {
 	return historyAutoGridColumns(gtx, unit.Dp(118), unit.Dp(10))
 }
 
-func (a *App) layoutPromptGroupModalGridRow(gtx layout.Context, items []sharedCompat.HistoryItem, row int, columns int, selectedHistoryID string) layout.Dimensions {
+func (a *App) layoutPromptGroupModalGridRow(gtx layout.Context, items []*sharedCompat.HistoryItem, row int, columns int, selectedHistoryID string, compareItemID string) layout.Dimensions {
 	cells := make([]layout.FlexChild, 0, columns)
 	for col := 0; col < columns; col++ {
 		idx := row*columns + col
@@ -746,17 +741,23 @@ func (a *App) layoutPromptGroupModalGridRow(gtx layout.Context, items []sharedCo
 		item := items[idx]
 		cells = append(cells, layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Right: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return a.layoutPromptGroupModalTile(gtx, item, selectedHistoryID == item.ID)
+				return a.layoutPromptGroupModalTile(gtx, *item, selectedHistoryID == item.ID, compareItemID)
 			})
 		}))
 	}
 	return layout.Flex{Axis: layout.Horizontal}.Layout(gtx, cells...)
 }
 
-func (a *App) layoutPromptGroupModalTile(gtx layout.Context, item sharedCompat.HistoryItem, active bool) layout.Dimensions {
+func (a *App) layoutPromptGroupModalTile(gtx layout.Context, item sharedCompat.HistoryItem, active bool, compareItemID string) layout.Dimensions {
 	btn := a.historyButton("modal:" + item.ID)
 	detailBtn := a.historyActionButton("modal-detail:" + item.ID)
-	compareActive := a.isCompareItem(item)
+	compareActive := compareItemActive(item.ID, compareItemID)
+	for btn.Clicked(gtx) {
+		if err := a.loadHistoryPreview(item, true); err != nil && !isMissingPreview(err) {
+			a.appendLog("载入历史结果失败: " + err.Error())
+		}
+		a.closePromptGroup()
+	}
 	for detailBtn.Clicked(gtx) {
 		a.openResultDetail(item)
 	}
@@ -770,18 +771,18 @@ func (a *App) layoutPromptGroupModalTile(gtx layout.Context, item sharedCompat.H
 		image.Pt(0, 1),
 		layout.Inset{},
 		func(gtx layout.Context) layout.Dimensions {
-			img, _ := a.imageForHistoryThumb(item)
 			indexLabel := chooseBatchIndexLabel(item.BatchIndex)
 			if strings.HasPrefix(indexLabel, "第 ") {
 				indexLabel = "#" + strings.TrimSuffix(strings.TrimPrefix(indexLabel, "第 "), " 张")
 			}
 			side := max(gtx.Constraints.Max.X, gtx.Dp(unit.Dp(118)))
+			img, imgOp := a.displayHistoryThumb(item, side)
 			sideDp := unit.Dp(float32(side) / gtx.Metric.PxPerDp)
 			return layout.Stack{}.Layout(gtx,
 				layout.Stacked(func(gtx layout.Context) layout.Dimensions {
 					return fixedPixelWidth(gtx, side, func(gtx layout.Context) layout.Dimensions {
 						return fixedPixelHeight(gtx, side, func(gtx layout.Context) layout.Dimensions {
-							return a.imageThumbCover(gtx, img, sideDp, sideDp, unit.Dp(8))
+							return a.imageThumbCoverWithOp(gtx, img, imgOp, sideDp, sideDp, unit.Dp(8))
 						})
 					})
 				}),
@@ -846,10 +847,13 @@ func (a *App) layoutPromptGroupModalTile(gtx layout.Context, item sharedCompat.H
 func (a *App) layoutHistoryResultsCard(
 	gtx layout.Context,
 	snap snapshot,
-	filtered []sharedCompat.HistoryItem,
+	filteredCount int,
 	entries []historyPromptEntry,
 	visible []historyPromptEntry,
+	compareItemID string,
 ) layout.Dimensions {
+	defer a.recordLayoutTiming(layoutTimingHistoryResultsCard, time.Now())
+	selectedGroupKey := promptGroupKeyForEntries(entries, snap.SelectedHistoryID)
 	return a.elevatedBorderedSurface(gtx, fluent.surfaceElevated, fluentCardRadius, fluent.border, image.Pt(0, 1), func(gtx layout.Context) layout.Dimensions {
 		return layout.UniformInset(unit.Dp(12)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(8))}.Layout(gtx,
@@ -882,7 +886,7 @@ func (a *App) layoutHistoryResultsCard(
 					if len(visible) == 0 {
 						return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							text := "还没有结果"
-							if len(filtered) == 0 && len(snap.History) > 0 {
+							if filteredCount == 0 && len(snap.History) > 0 {
 								text = "没有匹配项"
 							}
 							return a.emptyPanel(gtx, text)
@@ -893,9 +897,9 @@ func (a *App) layoutHistoryResultsCard(
 							entry := visible[i]
 							return layout.Inset{Bottom: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 								if entry.Kind == "group" {
-									return a.layoutHistoryGroupRow(gtx, entry.Group, snap.SelectedHistoryID)
+									return a.layoutHistoryGroupRow(gtx, *entry.Group, selectedGroupKey, compareItemID)
 								}
-								return a.layoutHistoryRow(gtx, entry.Item, entry.Item.ID == snap.SelectedHistoryID)
+								return a.layoutHistoryRow(gtx, *entry.Item, entry.Item.ID == snap.SelectedHistoryID, compareItemID)
 							})
 						})
 					})
@@ -912,17 +916,17 @@ func (a *App) layoutHistoryResultsCard(
 	})
 }
 
-func (a *App) layoutHistoryGroupRow(gtx layout.Context, group historyPromptGroup, selectedHistoryID string) layout.Dimensions {
-	active := historyPromptGroupContains(group, selectedHistoryID)
+func (a *App) layoutHistoryGroupRow(gtx layout.Context, group historyPromptGroup, selectedGroupKey string, compareItemID string) layout.Dimensions {
+	active := group.Key != "" && group.Key == selectedGroupKey
 	summaryBtn := a.historyButton("group:" + group.Key)
 	pileBtn := a.historyButton("pile:" + group.Key)
 	expandBtn := a.historyButton("expand:" + group.Key)
-	compareActive := a.isCompareItem(group.Representative)
+	compareActive := compareItemActive(group.Representative.ID, compareItemID)
 	label := choosePromptGroupTitle(group)
-	meta := strconv.Itoa(len(group.Items)) + " 张 · " + strings.Join(compactNonEmpty([]string{
-		sizeDisplayLabel(group.Representative.Size),
-		qualityDisplayLabel(group.Representative.Quality),
-	}), " · ")
+	meta := group.CountText
+	if strings.TrimSpace(group.RepresentativeDisplay.RailMetaText) != "" {
+		meta += " · " + group.RepresentativeDisplay.RailMetaText
+	}
 
 	return a.elevatedBorderedSurface(gtx, fluent.surfaceElevated, unit.Dp(6), chooseColor(active || compareActive, accentAlpha(0x48), fluent.border), image.Pt(0, 1), func(gtx layout.Context) layout.Dimensions {
 		return layout.UniformInset(unit.Dp(7)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -957,12 +961,12 @@ func (a *App) layoutHistoryGroupPile(gtx layout.Context, group historyPromptGrou
 }
 
 func (a *App) layoutHistoryResultGroupThumb(gtx layout.Context, group historyPromptGroup) layout.Dimensions {
-	img, _ := a.imageForHistoryThumb(group.Representative)
+	img, imgOp := a.displayHistoryThumb(group.Representative, max(gtx.Dp(unit.Dp(58)), gtx.Dp(unit.Dp(44))))
 	return fixedWidth(gtx, unit.Dp(58), func(gtx layout.Context) layout.Dimensions {
 		return fixedHeight(gtx, unit.Dp(44), func(gtx layout.Context) layout.Dimensions {
 			return layout.Stack{}.Layout(gtx,
 				layout.Stacked(func(gtx layout.Context) layout.Dimensions {
-					return a.imageThumbCover(gtx, img, unit.Dp(58), unit.Dp(44), unit.Dp(4))
+					return a.imageThumbCoverWithOp(gtx, img, imgOp, unit.Dp(58), unit.Dp(44), unit.Dp(4))
 				}),
 				layout.Stacked(func(gtx layout.Context) layout.Dimensions {
 					return layout.NW.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -976,7 +980,7 @@ func (a *App) layoutHistoryResultGroupThumb(gtx layout.Context, group historyPro
 						return layout.Inset{Left: unit.Dp(4), Bottom: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 							return a.elevatedBorderedSurface(gtx, fluent.accent, unit.Dp(4), withAlpha(fluent.white, 0xd8), image.Pt(0, 1), func(gtx layout.Context) layout.Dimensions {
 								return layout.Inset{Top: 2, Bottom: 2, Left: 5, Right: 5}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-									return a.label(gtx, strconv.Itoa(len(group.Items)), unit.Sp(9), fluent.white, font.SemiBold)
+									return a.label(gtx, group.CountValue, unit.Sp(9), fluent.white, font.SemiBold)
 								})
 							})
 						})
@@ -987,7 +991,7 @@ func (a *App) layoutHistoryResultGroupThumb(gtx layout.Context, group historyPro
 	})
 }
 
-func (a *App) layoutHistoryPileLayer(gtx layout.Context, img image.Image, width unit.Dp, height unit.Dp, radius unit.Dp) layout.Dimensions {
+func (a *App) layoutHistoryPileLayer(gtx layout.Context, img image.Image, imgOp paint.ImageOp, width unit.Dp, height unit.Dp, radius unit.Dp) layout.Dimensions {
 	border := withAlpha(fluent.white, 0xdc)
 	bg := rgb(0xf4f4f5)
 	if resolveThemeMode(a.themeMode) == "dark" {
@@ -1004,7 +1008,7 @@ func (a *App) layoutHistoryPileLayer(gtx layout.Context, img image.Image, width 
 					})
 				}
 				view := widget.Image{
-					Src:      paint.NewImageOp(img),
+					Src:      imgOp,
 					Fit:      widget.Cover,
 					Position: layout.Center,
 				}
@@ -1080,7 +1084,7 @@ func (a *App) layoutHistoryGroupPileSized(
 				layout.Stacked(func(gtx layout.Context) layout.Dimensions {
 					for idx := maxThumbs - 1; idx >= 0; idx-- {
 						item := group.Items[idx]
-						img, _ := a.imageForHistoryThumb(item)
+						img, imgOp := a.displayHistoryThumb(*item, max(gtx.Dp(thumbWidth), gtx.Dp(thumbHeight)))
 						offset := offsets[min(idx, len(offsets)-1)]
 						layout.Inset{
 							Left: unit.Dp(float32(offset.X)),
@@ -1093,7 +1097,7 @@ func (a *App) layoutHistoryGroupPileSized(
 								Scale(origin, f32.Pt(scales[min(idx, len(scales)-1)], scales[min(idx, len(scales)-1)])).
 								Rotate(origin, angles[min(idx, len(angles)-1)])
 							stack := op.Affine(transform).Push(gtx.Ops)
-							dims := a.layoutHistoryPileLayer(gtx, img, thumbWidth, thumbHeight, layerRadius)
+							dims := a.layoutHistoryPileLayer(gtx, img, imgOp, thumbWidth, thumbHeight, layerRadius)
 							stack.Pop()
 							opacityStack.Pop()
 							return dims
@@ -1119,7 +1123,7 @@ func (a *App) layoutHistoryGroupPileSized(
 									return a.elevatedBorderedSurface(gtx, fluent.accent, unit.Dp(999), withAlpha(fluent.white, 0xd8), image.Pt(0, 1), func(gtx layout.Context) layout.Dimensions {
 										return countPadding.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 											return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-												return a.label(gtx, strconv.Itoa(len(group.Items)), countSize, fluent.white, font.SemiBold)
+												return a.label(gtx, group.CountValue, countSize, fluent.white, font.SemiBold)
 											})
 										})
 									})
@@ -1135,14 +1139,14 @@ func (a *App) layoutHistoryGroupPileSized(
 	})
 }
 
-func (a *App) layoutHistoryModeThumb(gtx layout.Context, img image.Image, mode string, width unit.Dp, height unit.Dp) layout.Dimensions {
-	return a.layoutHistoryThumbWithCompare(gtx, img, mode, width, height, false)
+func (a *App) layoutHistoryModeThumb(gtx layout.Context, img image.Image, imgOp paint.ImageOp, mode string, width unit.Dp, height unit.Dp) layout.Dimensions {
+	return a.layoutHistoryThumbWithCompare(gtx, img, imgOp, mode, width, height, false)
 }
 
-func (a *App) layoutHistoryThumbWithCompare(gtx layout.Context, img image.Image, mode string, width unit.Dp, height unit.Dp, compareActive bool) layout.Dimensions {
+func (a *App) layoutHistoryThumbWithCompare(gtx layout.Context, img image.Image, imgOp paint.ImageOp, mode string, width unit.Dp, height unit.Dp, compareActive bool) layout.Dimensions {
 	return layout.Stack{}.Layout(gtx,
 		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
-			return a.imageThumbCover(gtx, img, width, height, unit.Dp(4))
+			return a.imageThumbCoverWithOp(gtx, img, imgOp, width, height, unit.Dp(4))
 		}),
 		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
 			return layout.NW.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -1184,11 +1188,12 @@ func (a *App) historyCompareBadge(gtx layout.Context) layout.Dimensions {
 	})
 }
 
-func (a *App) layoutHistoryRow(gtx layout.Context, item sharedCompat.HistoryItem, active bool) layout.Dimensions {
+func (a *App) layoutHistoryRow(gtx layout.Context, item sharedCompat.HistoryItem, active bool, compareItemID string) layout.Dimensions {
 	btn := a.historyButton("row:" + item.ID)
 	detailBtn := a.historyActionButton("row-detail:" + item.ID)
 	deleteBtn := a.historyActionButton("row-delete:" + item.ID)
-	compareActive := a.isCompareItem(item)
+	compareActive := compareItemActive(item.ID, compareItemID)
+	display := a.historyItemDisplay(item)
 	return a.elevatedSurfaceButton(
 		gtx,
 		btn,
@@ -1199,15 +1204,15 @@ func (a *App) layoutHistoryRow(gtx layout.Context, item sharedCompat.HistoryItem
 		image.Pt(0, 1),
 		layout.Inset{Top: 7, Bottom: 7, Left: 7, Right: 7},
 		func(gtx layout.Context) layout.Dimensions {
-			img, _ := a.imageForHistoryThumb(item)
+			img, imgOp := a.displayHistoryThumb(item, gtx.Dp(unit.Dp(48)))
 			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Gap: gtx.Dp(unit.Dp(8))}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return a.imageThumbCover(gtx, img, unit.Dp(48), unit.Dp(48), unit.Dp(4))
+					return a.imageThumbCoverWithOp(gtx, img, imgOp, unit.Dp(48), unit.Dp(48), unit.Dp(4))
 				}),
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(4))}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return a.clampedLabel(gtx, shortPrompt(item.Prompt), unit.Sp(12), fluent.text, font.Medium, 2)
+							return a.clampedLabel(gtx, display.ShortPrompt, unit.Sp(12), fluent.text, font.Medium, 2)
 						}),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Gap: gtx.Dp(unit.Dp(4))}.Layout(gtx,
@@ -1215,7 +1220,7 @@ func (a *App) layoutHistoryRow(gtx layout.Context, item sharedCompat.HistoryItem
 									return a.historyModeBadge(gtx, item.Mode)
 								}),
 								layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-									return a.metaBadgeRow(gtx, historyMetaBadgeItems(item), true)
+									return a.metaBadgeRow(gtx, display.MetaBadges, true)
 								}),
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 									if !compareActive {
@@ -1329,6 +1334,9 @@ func chooseHistoryCollapseLabel(collapsed bool) string {
 }
 
 func choosePromptGroupTitle(group historyPromptGroup) string {
+	if strings.TrimSpace(group.Title) != "" {
+		return group.Title
+	}
 	if strings.TrimSpace(group.Prompt) == "" {
 		return "同提示词结果"
 	}
@@ -1352,7 +1360,13 @@ func historyMetaText(item sharedCompat.HistoryItem) string {
 	if strings.TrimSpace(item.StyleTag) != "" {
 		style = "#" + styleChoiceLabel(item.StyleTag)
 	}
-	return strings.Join(compactNonEmpty([]string{mode, sizeDisplayLabel(item.Size), qualityDisplayLabel(item.Quality), style, format}), " · ")
+	return joinHistoryMetaParts(
+		mode,
+		sizeDisplayLabel(item.Size),
+		qualityDisplayLabel(item.Quality),
+		style,
+		format,
+	)
 }
 
 func historyRailMetaText(item sharedCompat.HistoryItem) string {
@@ -1360,21 +1374,38 @@ func historyRailMetaText(item sharedCompat.HistoryItem) string {
 	if strings.TrimSpace(item.StyleTag) != "" {
 		style = "#" + styleChoiceLabel(item.StyleTag)
 	}
-	return strings.Join(compactNonEmpty([]string{sizeDisplayLabel(item.Size), qualityDisplayLabel(item.Quality), style}), " · ")
+	return joinHistoryMetaParts(
+		sizeDisplayLabel(item.Size),
+		qualityDisplayLabel(item.Quality),
+		style,
+	)
 }
 
 func historyMetaBadgeItems(item sharedCompat.HistoryItem) []string {
+	items := make([]string, 0, 3)
+	if size := strings.TrimSpace(sizeDisplayLabel(item.Size)); size != "" {
+		items = append(items, size)
+	}
+	if quality := strings.TrimSpace(qualityDisplayLabel(item.Quality)); quality != "" {
+		items = append(items, quality)
+	}
 	style := ""
 	if strings.TrimSpace(item.StyleTag) != "" {
 		style = "#" + styleChoiceLabel(item.StyleTag)
 	}
-	return compactNonEmpty([]string{sizeDisplayLabel(item.Size), qualityDisplayLabel(item.Quality), style})
+	if style != "" {
+		items = append(items, style)
+	}
+	return items
 }
 
 func statusBarMetaBadgeItems(item sharedCompat.HistoryItem) []string {
-	items := []string{
-		sizeDisplayLabel(item.Size),
-		qualityDisplayLabel(item.Quality),
+	items := make([]string, 0, 5)
+	if size := strings.TrimSpace(sizeDisplayLabel(item.Size)); size != "" {
+		items = append(items, size)
+	}
+	if quality := strings.TrimSpace(qualityDisplayLabel(item.Quality)); quality != "" {
+		items = append(items, quality)
 	}
 	if item.ElapsedSec > 0 {
 		items = append(items, detailValue(item.ElapsedSec)+"s")
@@ -1385,7 +1416,38 @@ func statusBarMetaBadgeItems(item sharedCompat.HistoryItem) []string {
 	if strings.TrimSpace(item.StyleTag) != "" {
 		items = append(items, "#"+styleChoiceLabel(item.StyleTag))
 	}
-	return compactNonEmpty(items)
+	return items
+}
+
+func joinHistoryMetaParts(parts ...string) string {
+	total := 0
+	count := 0
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		total += len(part)
+		count++
+	}
+	if count == 0 {
+		return ""
+	}
+	var b strings.Builder
+	b.Grow(total + (count-1)*len(" · "))
+	written := 0
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		if written > 0 {
+			b.WriteString(" · ")
+		}
+		b.WriteString(part)
+		written++
+	}
+	return b.String()
 }
 
 func historyPathText(path string) string {
@@ -1400,19 +1462,59 @@ func formatHistoryClock(createdAt int64) string {
 	if createdAt <= 0 {
 		return ""
 	}
-	return time.UnixMilli(createdAt).Format("15:04")
+	t := time.UnixMilli(createdAt)
+	hour, min, _ := t.Clock()
+	var buf [5]byte
+	buf[0] = byte('0' + hour/10)
+	buf[1] = byte('0' + hour%10)
+	buf[2] = ':'
+	buf[3] = byte('0' + min/10)
+	buf[4] = byte('0' + min%10)
+	return string(buf[:])
 }
 
 func formatHistoryClockPrecise(createdAt int64) string {
 	if createdAt <= 0 {
 		return ""
 	}
-	return time.UnixMilli(createdAt).Format("15:04:05")
+	t := time.UnixMilli(createdAt)
+	hour, min, sec := t.Clock()
+	var buf [8]byte
+	buf[0] = byte('0' + hour/10)
+	buf[1] = byte('0' + hour%10)
+	buf[2] = ':'
+	buf[3] = byte('0' + min/10)
+	buf[4] = byte('0' + min%10)
+	buf[5] = ':'
+	buf[6] = byte('0' + sec/10)
+	buf[7] = byte('0' + sec%10)
+	return string(buf[:])
 }
 
 func formatHistoryDateTime(createdAt int64) string {
 	if createdAt <= 0 {
 		return ""
 	}
-	return time.UnixMilli(createdAt).Format("2006-01-02 15:04")
+	t := time.UnixMilli(createdAt)
+	year, month, day := t.Date()
+	hour, min, _ := t.Clock()
+	var buf [16]byte
+	buf[0] = byte('0' + (year/1000)%10)
+	buf[1] = byte('0' + (year/100)%10)
+	buf[2] = byte('0' + (year/10)%10)
+	buf[3] = byte('0' + year%10)
+	buf[4] = '-'
+	mon := int(month)
+	buf[5] = byte('0' + mon/10)
+	buf[6] = byte('0' + mon%10)
+	buf[7] = '-'
+	buf[8] = byte('0' + day/10)
+	buf[9] = byte('0' + day%10)
+	buf[10] = ' '
+	buf[11] = byte('0' + hour/10)
+	buf[12] = byte('0' + hour%10)
+	buf[13] = ':'
+	buf[14] = byte('0' + min/10)
+	buf[15] = byte('0' + min%10)
+	return string(buf[:])
 }

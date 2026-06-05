@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"image-studio/gio-client/internal/kernel"
 	sharedCompat "image-studio/shared/compat"
@@ -44,7 +45,8 @@ type settingsOptionChoice struct {
 	Value  string
 }
 
-func (a *App) layoutControls(gtx layout.Context) layout.Dimensions {
+func (a *App) layoutControls(gtx layout.Context, snap snapshot) layout.Dimensions {
+	defer a.recordLayoutTiming(layoutTimingControls, time.Now())
 	for a.composeToggleButton.Clicked(gtx) {
 		a.composeOpen = !a.composeOpen
 	}
@@ -58,7 +60,9 @@ func (a *App) layoutControls(gtx layout.Context) layout.Dimensions {
 	return a.borderedSurface(gtx, fluent.sidebar, unit.Dp(0), fluent.border, func(gtx layout.Context) layout.Dimensions {
 		gtx.Constraints.Min = gtx.Constraints.Max
 		return layout.Inset{Top: 12, Bottom: 12, Left: 16, Right: 16}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			snap := a.readSnapshot()
+			trimmedPrompt, promptLen := a.promptInputMetrics()
+			ready := strings.TrimSpace(a.apiKeyInput.Text()) != "" && strings.TrimSpace(a.baseURLInput.Text()) != ""
+			hasPrompt := trimmedPrompt != ""
 			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 					return a.controlsList.Layout(gtx, 1, func(gtx layout.Context, _ int) layout.Dimensions {
@@ -72,8 +76,12 @@ func (a *App) layoutControls(gtx layout.Context) layout.Dimensions {
 						}
 						children = append(children,
 							layout.Rigid(a.layoutModeCard),
-							layout.Rigid(a.layoutPromptCard),
-							layout.Rigid(a.layoutComposeCard),
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								return a.layoutPromptCard(gtx, snap, promptLen)
+							}),
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								return a.layoutComposeCard(gtx, snap)
+							}),
 							layout.Rigid(a.layoutAdvancedCard),
 						)
 						return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(8))}.Layout(gtx, children...)
@@ -81,14 +89,39 @@ func (a *App) layoutControls(gtx layout.Context) layout.Dimensions {
 				}),
 				layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return a.layoutSubmitDock(gtx)
+					return a.layoutSubmitDock(gtx, snap, ready, hasPrompt)
 				}),
 			)
 		})
 	})
 }
 
-func (a *App) layoutSubmitDock(gtx layout.Context) layout.Dimensions {
+func (a *App) promptInputMetrics() (string, int) {
+	text := a.promptInput.Text()
+	a.mu.Lock()
+	if a.promptTextMetricsKey == text {
+		trimmed := a.promptTextMetricsTrimmed
+		length := a.promptTextMetricsLen
+		a.mu.Unlock()
+		return trimmed, length
+	}
+	a.mu.Unlock()
+
+	trimmed := strings.TrimSpace(text)
+	length := utf8.RuneCountInString(trimmed)
+
+	a.mu.Lock()
+	if a.promptTextMetricsKey != text {
+		a.promptTextMetricsKey = text
+		a.promptTextMetricsTrimmed = trimmed
+		a.promptTextMetricsLen = length
+	}
+	a.mu.Unlock()
+	return trimmed, length
+}
+
+func (a *App) layoutSubmitDock(gtx layout.Context, snap snapshot, ready bool, hasPrompt bool) layout.Dimensions {
+	defer a.recordLayoutTiming(layoutTimingSubmitDock, time.Now())
 	return layout.Stack{}.Layout(gtx,
 		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
 			size := gtx.Constraints.Min
@@ -103,7 +136,7 @@ func (a *App) layoutSubmitDock(gtx layout.Context) layout.Dimensions {
 		}),
 		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Top: 8, Bottom: 2}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return a.layoutActions(gtx)
+				return a.layoutActions(gtx, snap, ready, hasPrompt)
 			})
 		}),
 	)
@@ -269,9 +302,8 @@ func (a *App) layoutModeCard(gtx layout.Context) layout.Dimensions {
 	})
 }
 
-func (a *App) layoutPromptCard(gtx layout.Context) layout.Dimensions {
-	snap := a.readSnapshot()
-	promptSuggestions := buildPromptSuggestions(snap.PromptHistory, snap.History)
+func (a *App) layoutPromptCard(gtx layout.Context, snap snapshot, promptLen int) layout.Dimensions {
+	defer a.recordLayoutTiming(layoutTimingPromptCard, time.Now())
 	for a.promptHelperButton.Clicked(gtx) {
 		if !a.promptHelperOpen {
 			a.promptHelperTab = "templates"
@@ -281,22 +313,7 @@ func (a *App) layoutPromptCard(gtx layout.Context) layout.Dimensions {
 	for a.optimizePromptButton.Clicked(gtx) {
 		a.startPromptOptimize()
 	}
-	for _, item := range promptTemplates {
-		btn := a.promptButton("prompt-template:" + item.ID)
-		item := item
-		for btn.Clicked(gtx) {
-			a.applyPromptSuggestion(item.Detail)
-		}
-	}
-	for idx := range promptSuggestions {
-		btn := a.promptButton(fmt.Sprintf("prompt-history:%d", idx))
-		text := promptSuggestions[idx]
-		for btn.Clicked(gtx) {
-			a.applyPromptSuggestion(text)
-		}
-	}
 
-	promptLen := len([]rune(strings.TrimSpace(a.promptInput.Text())))
 	title := "提示词"
 	hint := "主体 / 场景 / 光照 / 镜头 / 风格\n例如：一只橘猫坐在雨夜窗边，电影级侧逆光，50mm，浅景深，写实摄影"
 	if a.mode == string(client.ModeEdit) {
@@ -362,6 +379,7 @@ func (a *App) layoutPromptCard(gtx layout.Context) layout.Dimensions {
 		if !a.promptHelperOpen {
 			return base(gtx)
 		}
+		promptSuggestions := a.promptSuggestions(snap.History)
 		return layout.Stack{}.Layout(gtx,
 			layout.Expanded(base),
 			layout.Stacked(func(gtx layout.Context) layout.Dimensions {
@@ -391,7 +409,7 @@ func (a *App) layoutPromptHelperPanel(gtx layout.Context, suggestions []string) 
 	prefix := "prompt-template:"
 	emptyText := "还没有提交过 prompt"
 	if a.promptHelperTab == "history" {
-		items = promptLabels(suggestions)
+		items = a.promptLabelsCached(suggestions)
 		prefix = "prompt-history:"
 		emptyText = "还没有提交过提示词。"
 	}
@@ -466,7 +484,7 @@ func (a *App) layoutPromptHelperModal(gtx layout.Context) layout.Dimensions {
 		a.promptHelperTab = "history"
 	}
 	snap := a.readSnapshot()
-	suggestions := buildPromptSuggestions(snap.PromptHistory, snap.History)
+	suggestions := a.promptSuggestions(snap.History)
 	return a.layoutStandardModal(
 		gtx,
 		unit.Dp(560),
@@ -564,6 +582,9 @@ func (a *App) layoutPromptHelperTabs(gtx layout.Context, templateCount int, hist
 
 func (a *App) layoutPromptHelperItem(gtx layout.Context, buttonID string, item promptHelperItem) layout.Dimensions {
 	btn := a.promptButton(buttonID)
+	for btn.Clicked(gtx) {
+		a.applyPromptSuggestion(promptHelperApplyText(item))
+	}
 	return a.surfaceButton(
 		gtx,
 		btn,
@@ -588,7 +609,14 @@ func (a *App) layoutPromptHelperItem(gtx layout.Context, buttonID string, item p
 	)
 }
 
-func (a *App) layoutSettingsModal(gtx layout.Context) layout.Dimensions {
+func promptHelperApplyText(item promptHelperItem) string {
+	if strings.TrimSpace(item.Detail) != "" {
+		return item.Detail
+	}
+	return item.Title
+}
+
+func (a *App) layoutSettingsModal(gtx layout.Context, snap snapshot) layout.Dimensions {
 	for a.closeSettingsButton.Clicked(gtx) {
 		a.closeSettingsModal()
 	}
@@ -644,7 +672,6 @@ func (a *App) layoutSettingsModal(gtx layout.Context) layout.Dimensions {
 			a.appendLog("创建配置失败: " + err.Error())
 		}
 	}
-	snap := a.readSnapshot()
 	activeName := strings.TrimSpace(activeProfileName(snap.Profiles, snap.ActiveProfileID))
 	if activeName == "" {
 		activeName = "未命名配置"
@@ -666,7 +693,9 @@ func (a *App) layoutSettingsModal(gtx layout.Context) layout.Dimensions {
 			"上游配置",
 			"",
 			&a.closeSettingsButton,
-			a.layoutSettingsEmptyState,
+			func(gtx layout.Context) layout.Dimensions {
+				return a.layoutSettingsEmptyState(gtx, snap)
+			},
 		)
 	}
 	return a.layoutStandardModal(
@@ -793,9 +822,34 @@ func (a *App) layoutSettingsHelpModal(gtx layout.Context) layout.Dimensions {
 	)
 }
 
-func (a *App) layoutGeneralSettingsModal(gtx layout.Context) layout.Dimensions {
+func (a *App) layoutGeneralSettingsModal(gtx layout.Context, snap snapshot) layout.Dimensions {
 	for a.closeGeneralSettingsButton.Clicked(gtx) {
 		a.closeGeneralSettingsModal()
+	}
+	for a.copyGeneralPerformanceDiagnosticsButton.Clicked(gtx) {
+		copyResultDetailText(gtx, a.buildPerformanceDiagnosticsReport())
+		a.appendLog("已复制性能诊断")
+	}
+	for a.openGeneralDiagnosticsDirButton.Clicked(gtx) {
+		dir, err := diagnosticsDirPath()
+		if err != nil {
+			a.appendLog("打开诊断目录失败: " + err.Error())
+		} else if err := openPath(dir); err != nil {
+			a.appendLog("打开诊断目录失败: " + err.Error())
+		}
+	}
+	for a.openGeneralLastLowFPSSnapshotButton.Clicked(gtx) {
+		path := strings.TrimSpace(snap.LastLowFPSSnapshotPath)
+		if path == "" {
+			continue
+		}
+		if err := openPath(path); err != nil {
+			a.appendLog("打开低帧率快照失败: " + err.Error())
+		}
+	}
+	for a.triggerGeneralHistoryMediaBackfillButton.Clicked(gtx) {
+		a.startHistoryThumbBackfill()
+		a.appendLog("已开始补齐历史预览/缩略图")
 	}
 	for a.generalRuntimePickerButton.Clicked(gtx) {
 		a.generalRuntimePickerOpen = !a.generalRuntimePickerOpen
@@ -817,6 +871,12 @@ func (a *App) layoutGeneralSettingsModal(gtx layout.Context) layout.Dimensions {
 		for a.generalFontScaleButtons[idx].Clicked(gtx) {
 			a.applyFontScale(scale)
 		}
+	}
+	for a.generalPerformanceButtons[0].Clicked(gtx) {
+		a.applyReducedEffects(false)
+	}
+	for a.generalPerformanceButtons[1].Clicked(gtx) {
+		a.applyReducedEffects(true)
 	}
 	for a.generalSavePromptButtons[0].Clicked(gtx) {
 		a.setSavePromptSuppressed(false)
@@ -893,6 +953,152 @@ func (a *App) layoutGeneralSettingsModal(gtx layout.Context) layout.Dimensions {
 			a.appendLog("打开反馈页失败: " + err.Error())
 		}
 	}
+	renderDiagnostics := formatRenderDiagnostics(snap)
+	partialPreview := strings.TrimSpace(a.partialImagesInput.Text())
+	if partialPreview == "" {
+		partialPreview = strconv.Itoa(kernel.DefaultConfig().PartialImages)
+	}
+	partialPreviewSummary := partialPreview + " 帧"
+	if partialPreview == "0" {
+		partialPreviewSummary = "仅最终图"
+	}
+	historyThumbPathsPresent := 0
+	historyPreviewPathsPresent := 0
+	for _, item := range snap.History {
+		if strings.TrimSpace(item.ThumbPath) != "" {
+			historyThumbPathsPresent++
+		}
+		if strings.TrimSpace(item.PreviewPath) != "" {
+			historyPreviewPathsPresent++
+		}
+	}
+	historyThumbPathsMissing := max(0, len(snap.History)-historyThumbPathsPresent)
+	historyPreviewPathsMissing := max(0, len(snap.History)-historyPreviewPathsPresent)
+	historyThumbCoverage := 0.0
+	historyPreviewCoverage := 0.0
+	if len(snap.History) > 0 {
+		historyThumbCoverage = float64(historyThumbPathsPresent) * 100 / float64(len(snap.History))
+		historyPreviewCoverage = float64(historyPreviewPathsPresent) * 100 / float64(len(snap.History))
+	}
+	a.mu.Lock()
+	historyBackfillInFlight := len(a.historyThumbBackfillInFlight)
+	layoutShellEMA := a.layoutShellEMA
+	layoutControlsEMA := a.layoutControlsEMA
+	layoutSubmitDockEMA := a.layoutSubmitDockEMA
+	layoutActionsEMA := a.layoutActionsEMA
+	layoutPromptCardEMA := a.layoutPromptCardEMA
+	layoutComposeCardEMA := a.layoutComposeCardEMA
+	layoutAdvancedCardEMA := a.layoutAdvancedCardEMA
+	layoutCanvasEMA := a.layoutCanvasEMA
+	layoutCanvasToolbarEMA := a.layoutCanvasToolbarEMA
+	layoutResultSurfaceEMA := a.layoutResultSurfaceEMA
+	layoutCanvasStatusEMA := a.layoutCanvasStatusEMA
+	layoutHistoryRailEMA := a.layoutHistoryRailEMA
+	layoutUpstreamCardEMA := a.layoutUpstreamCardEMA
+	layoutHistorySummaryEMA := a.layoutHistorySummaryEMA
+	layoutLatestHistoryEMA := a.layoutLatestHistoryEMA
+	layoutHistoryResultsEMA := a.layoutHistoryResultsEMA
+	layoutTimelineModalEMA := a.layoutTimelineModalEMA
+	layoutPeaks := a.layoutPeaks
+	lastHistoryThumbPrewarmAt := a.lastHistoryThumbPrewarmAt
+	lastHistoryThumbPrewarmMs := a.lastHistoryThumbPrewarmMs
+	lastHistoryThumbPrewarmLoad := a.lastHistoryThumbPrewarmLoad
+	lastHistoryThumbPrewarmFail := a.lastHistoryThumbPrewarmFail
+	controlsVisible := !a.fullscreen
+	submitDockVisible := !a.fullscreen
+	actionsVisible := !a.fullscreen
+	controlCardsVisible := !a.fullscreen
+	historyRailVisible := !a.fullscreen
+	timelineVisible := a.historyTimelineOpen
+	a.mu.Unlock()
+	thumbDecodeQueueLen := thumbDecodeQueueLen()
+	thumbDecodeBusyCount := thumbDecodeBusyCount()
+	thumbDecodeQueuePeak := thumbDecodeQueuePeakCount()
+	thumbDecodeBusyPeak := thumbDecodeBusyPeakCount()
+	thumbRequests := thumbDisplayRequestCount()
+	thumbHits := thumbDisplayCacheHitCount()
+	thumbLoadsQueued := thumbDisplayLoadQueuedCount()
+	historyThumbPreviewHits := historyThumbSourcePreviewCount()
+	historyThumbThumbHits := historyThumbSourceThumbCount()
+	historyThumbSavedHits := historyThumbSourceSavedCount()
+	canvasManagedPreviewHits := canvasDisplaySourceManagedPreviewCount()
+	canvasPathThumbHits := canvasDisplaySourcePathThumbCount()
+	canvasHistoryScaledHits := canvasDisplaySourceHistoryScaledCount()
+	canvasInlineHits := canvasDisplaySourceInlineCount()
+	thumbMisses := max(0, int(thumbRequests-thumbHits))
+	thumbHitRate := 0.0
+	if thumbRequests > 0 {
+		thumbHitRate = float64(thumbHits) * 100 / float64(thumbRequests)
+	}
+	historyThumbPrewarmSummary := "最近预热 尚未运行"
+	if !lastHistoryThumbPrewarmAt.IsZero() {
+		historyThumbPrewarmSummary = fmt.Sprintf(
+			"最近预热 %d 项 · 失败 %d · %.1fms · %s",
+			lastHistoryThumbPrewarmLoad,
+			lastHistoryThumbPrewarmFail,
+			float64(lastHistoryThumbPrewarmMs)/float64(time.Millisecond),
+			lastHistoryThumbPrewarmAt.Format("15:04:05"),
+		)
+	}
+	currentResultSavedPresent := false
+	currentResultPreviewPresent := false
+	currentResultThumbPresent := false
+	currentResultManagedPreviewReady := false
+	currentResultCanvasTarget := a.effectiveCanvasMaxDimension()
+	if item := snap.Result.Item; strings.TrimSpace(item.SavedPath) != "" {
+		currentResultSavedPresent = headlessPathReady(item.SavedPath)
+		currentResultPreviewPresent = headlessPathReady(item.PreviewPath)
+		currentResultThumbPresent = headlessPathReady(item.ThumbPath)
+		if previewPath, err := managedSourcePreviewPath(item.SavedPath, currentResultCanvasTarget); err == nil {
+			currentResultManagedPreviewReady = headlessPathReady(previewPath)
+		}
+	}
+	currentResultCanvasSummary := fmt.Sprintf(
+		"当前结果 原图/预览/缩略图 %t/%t/%t · 受管画布预览 %t · 目标 %dpx",
+		currentResultSavedPresent,
+		currentResultPreviewPresent,
+		currentResultThumbPresent,
+		currentResultManagedPreviewReady,
+		currentResultCanvasTarget,
+	)
+	slowestLayout := slowestLayoutSample([]layoutTimingSample{
+		{name: "shell", duration: layoutShellEMA, visible: true},
+		{name: "controls", duration: layoutControlsEMA, visible: controlsVisible},
+		{name: "submit_dock", duration: layoutSubmitDockEMA, visible: submitDockVisible},
+		{name: "actions", duration: layoutActionsEMA, visible: actionsVisible},
+		{name: "prompt_card", duration: layoutPromptCardEMA, visible: controlCardsVisible},
+		{name: "compose_card", duration: layoutComposeCardEMA, visible: controlCardsVisible},
+		{name: "advanced_card", duration: layoutAdvancedCardEMA, visible: controlCardsVisible},
+		{name: "canvas", duration: layoutCanvasEMA, visible: true},
+		{name: "canvas_toolbar", duration: layoutCanvasToolbarEMA, visible: true},
+		{name: "result_surface", duration: layoutResultSurfaceEMA, visible: true},
+		{name: "canvas_status", duration: layoutCanvasStatusEMA, visible: true},
+		{name: "history_rail", duration: layoutHistoryRailEMA, visible: historyRailVisible},
+		{name: "upstream_card", duration: layoutUpstreamCardEMA, visible: historyRailVisible},
+		{name: "history_summary", duration: layoutHistorySummaryEMA, visible: historyRailVisible},
+		{name: "latest_history", duration: layoutLatestHistoryEMA, visible: historyRailVisible},
+		{name: "history_results", duration: layoutHistoryResultsEMA, visible: historyRailVisible},
+		{name: "history_timeline", duration: layoutTimelineModalEMA, visible: timelineVisible},
+	})
+	slowestLayoutPeak := slowestLayoutSample([]layoutTimingSample{
+		{name: "shell", duration: layoutPeaks[layoutTimingShell], visible: true},
+		{name: "controls", duration: layoutPeaks[layoutTimingControls], visible: controlsVisible},
+		{name: "submit_dock", duration: layoutPeaks[layoutTimingSubmitDock], visible: submitDockVisible},
+		{name: "actions", duration: layoutPeaks[layoutTimingActions], visible: actionsVisible},
+		{name: "prompt_card", duration: layoutPeaks[layoutTimingPromptCard], visible: controlCardsVisible},
+		{name: "compose_card", duration: layoutPeaks[layoutTimingComposeCard], visible: controlCardsVisible},
+		{name: "advanced_card", duration: layoutPeaks[layoutTimingAdvancedCard], visible: controlCardsVisible},
+		{name: "canvas", duration: layoutPeaks[layoutTimingCanvas], visible: true},
+		{name: "canvas_toolbar", duration: layoutPeaks[layoutTimingCanvasToolbar], visible: true},
+		{name: "result_surface", duration: layoutPeaks[layoutTimingResultSurface], visible: true},
+		{name: "canvas_status", duration: layoutPeaks[layoutTimingCanvasStatusBar], visible: true},
+		{name: "history_rail", duration: layoutPeaks[layoutTimingHistoryRail], visible: historyRailVisible},
+		{name: "upstream_card", duration: layoutPeaks[layoutTimingUpstreamCard], visible: historyRailVisible},
+		{name: "history_summary", duration: layoutPeaks[layoutTimingHistorySummaryCard], visible: historyRailVisible},
+		{name: "latest_history", duration: layoutPeaks[layoutTimingLatestHistoryCard], visible: historyRailVisible},
+		{name: "history_results", duration: layoutPeaks[layoutTimingHistoryResultsCard], visible: historyRailVisible},
+		{name: "history_timeline", duration: layoutPeaks[layoutTimingTimelineModal], visible: timelineVisible},
+	})
 
 	themeRows := []layout.FlexChild{
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
@@ -916,6 +1122,14 @@ func (a *App) layoutGeneralSettingsModal(gtx layout.Context) layout.Dimensions {
 			return a.compactButton(gtx, &a.generalFontScaleButtons[2], "大", a.fontScale == 1.15)
 		}),
 	}
+	performanceRows := []layout.FlexChild{
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			return a.compactButton(gtx, &a.generalPerformanceButtons[0], "标准", !a.reducedEffects)
+		}),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			return a.compactButton(gtx, &a.generalPerformanceButtons[1], "低特效", a.reducedEffects)
+		}),
+	}
 	savePromptRows := []layout.FlexChild{
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			return a.compactIconTextButton(gtx, &a.generalSavePromptButtons[0], uiIconSave, "提示", !a.savePromptSuppressed)
@@ -932,7 +1146,7 @@ func (a *App) layoutGeneralSettingsModal(gtx layout.Context) layout.Dimensions {
 			return a.compactButton(gtx, &a.generalKeepLogsButtons[1], "开启", a.keepLogs)
 		}),
 	}
-	presetItems := presetLabels(a.presets)
+	presetItems := a.presetLabelsCached(a.presets)
 	sections := []layout.Widget{
 		func(gtx layout.Context) layout.Dimensions {
 			return a.generalSettingsCard(gtx, "内核执行", func(gtx layout.Context) layout.Dimensions {
@@ -1067,6 +1281,18 @@ func (a *App) layoutGeneralSettingsModal(gtx layout.Context) layout.Dimensions {
 			})
 		},
 		func(gtx layout.Context) layout.Dimensions {
+			return a.generalSettingsCard(gtx, "性能模式", func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(8))}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx, performanceRows...)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return a.label(gtx, "低特效会减少背景渐变、卡片阴影和高光装饰，适合低端 GPU 或高分辨率窗口。", unit.Sp(10), fluent.textDim, font.Normal)
+					}),
+				)
+			})
+		},
+		func(gtx layout.Context) layout.Dimensions {
 			return a.generalSettingsCard(gtx, "参数预设", func(gtx layout.Context) layout.Dimensions {
 				rows := []layout.FlexChild{
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -1134,6 +1360,68 @@ func (a *App) layoutGeneralSettingsModal(gtx layout.Context) layout.Dimensions {
 						)
 					}),
 				)
+			})
+		},
+		func(gtx layout.Context) layout.Dimensions {
+			return a.generalSettingsCard(gtx, "性能诊断", func(gtx layout.Context) layout.Dimensions {
+				rows := []layout.FlexChild{
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return a.label(gtx, "当前 Gio 渲染后端、帧率、内存、历史规模和最近日志可一键复制。", unit.Sp(10), fluent.textDim, font.Normal)
+					}),
+				}
+				if strings.TrimSpace(renderDiagnostics) != "" {
+					rows = append(rows, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return a.borderedSurface(gtx, fluent.surface, fluentCardRadius, fluent.border, func(gtx layout.Context) layout.Dimensions {
+							return layout.UniformInset(unit.Dp(10)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								return a.singleLineLabel(gtx, renderDiagnostics+" · 预览 "+partialPreviewSummary, unit.Sp(11), fluent.text, font.Normal)
+							})
+						})
+					}))
+				}
+				rows = append(rows, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return a.borderedSurface(gtx, fluent.surface, fluentCardRadius, fluent.border, func(gtx layout.Context) layout.Dimensions {
+						return layout.UniformInset(unit.Dp(10)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(4))}.Layout(gtx,
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									return a.label(gtx, fmt.Sprintf("历史媒体 %d 条 · 缩略图 %d/%d(%.1f%%) · 预览 %d/%d(%.1f%%) · 回填 %d", len(snap.History), historyThumbPathsPresent, historyThumbPathsMissing, historyThumbCoverage, historyPreviewPathsPresent, historyPreviewPathsMissing, historyPreviewCoverage, historyBackfillInFlight), unit.Sp(10), fluent.textDim, font.Normal)
+								}),
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									return a.label(gtx, fmt.Sprintf("缩略图命中率 %.1f%% · 请求 %d · 未命中 %d · 排队 %d/%d · 解码 %d/%d", thumbHitRate, thumbRequests, thumbMisses, thumbDecodeQueueLen, thumbDecodeQueuePeak, thumbDecodeBusyCount, thumbDecodeBusyPeak), unit.Sp(10), fluent.textDim, font.Normal)
+								}),
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									return a.label(gtx, fmt.Sprintf("缩略图来源 预览/缩略图/原图 = %d/%d/%d · 加载排队 %d · 最慢布局 %s", historyThumbPreviewHits, historyThumbThumbHits, historyThumbSavedHits, thumbLoadsQueued, slowestLayout), unit.Sp(10), fluent.textDim, font.Normal)
+								}),
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									return a.label(gtx, "布局峰值 "+slowestLayoutPeak, unit.Sp(10), fluent.textDim, font.Normal)
+								}),
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									return a.label(gtx, historyThumbPrewarmSummary, unit.Sp(10), fluent.textDim, font.Normal)
+								}),
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									return a.label(gtx, currentResultCanvasSummary, unit.Sp(10), fluent.textDim, font.Normal)
+								}),
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									return a.label(gtx, fmt.Sprintf("画布来源 受管预览/路径缩图/历史缩放/内存 = %d/%d/%d/%d", canvasManagedPreviewHits, canvasPathThumbHits, canvasHistoryScaledHits, canvasInlineHits), unit.Sp(10), fluent.textDim, font.Normal)
+								}),
+							)
+						})
+					})
+				}))
+				rows = append(rows, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return a.compactIconTextButton(gtx, &a.copyGeneralPerformanceDiagnosticsButton, uiIconCopy, "复制性能诊断", false)
+				}))
+				rows = append(rows, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return a.compactIconTextButton(gtx, &a.openGeneralDiagnosticsDirButton, uiIconFolder, "打开诊断目录", false)
+				}))
+				rows = append(rows, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return a.compactIconTextButton(gtx, &a.triggerGeneralHistoryMediaBackfillButton, uiIconRefresh, "补齐历史预览/缩略图", false)
+				}))
+				if strings.TrimSpace(snap.LastLowFPSSnapshotPath) != "" {
+					rows = append(rows, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return a.compactIconTextButton(gtx, &a.openGeneralLastLowFPSSnapshotButton, uiIconFolder, "打开最近低帧率快照", false)
+					}))
+				}
+				return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(8))}.Layout(gtx, rows...)
 			})
 		},
 		func(gtx layout.Context) layout.Dimensions {
@@ -1265,8 +1553,7 @@ func (a *App) generalSettingsCard(gtx layout.Context, title string, body layout.
 	})
 }
 
-func (a *App) layoutSettingsEmptyState(gtx layout.Context) layout.Dimensions {
-	snap := a.readSnapshot()
+func (a *App) layoutSettingsEmptyState(gtx layout.Context, snap snapshot) layout.Dimensions {
 	canSync := canLoadCodexAPIConfig()
 	syncLabel := "同步 Codex 配置"
 	if snap.SyncingCodexConfig {
@@ -1988,11 +2275,11 @@ func (a *App) layoutSettingsEditorPane(gtx layout.Context, snap snapshot) layout
 	)
 }
 
-func (a *App) layoutComposeCard(gtx layout.Context) layout.Dimensions {
+func (a *App) composeSummary(snap snapshot) string {
 	activeAspect := deriveAspectPreset(a.size)
 	activeResolution := normalizeResolutionChoice(deriveResolutionPreset(a.size), a.api, a.policy, a.imageModelInput.Text())
-	currentSaved := strings.TrimSpace(a.readSnapshot().Result.SavedPath)
-	sourcePaths := kernel.ParseSourcePaths(a.sourcePathsInput.Text())
+	currentSaved := strings.TrimSpace(snap.Result.SavedPath)
+	sourcePaths := a.sourcePaths()
 	sourceLabel := "文生图"
 	if a.mode == string(client.ModeEdit) {
 		count := len(sourcePaths)
@@ -2004,6 +2291,24 @@ func (a *App) layoutComposeCard(gtx layout.Context) layout.Dimensions {
 			sourceLabel = "未添加源图"
 		}
 	}
+	key := strings.Join([]string{
+		a.styleTag,
+		activeAspect,
+		activeResolution,
+		a.quality,
+		strconv.Itoa(normalizeBatchCount(a.batchCount)),
+		a.mode,
+		strconv.Itoa(len(sourcePaths)),
+		currentSaved,
+	}, "\x00")
+	a.mu.Lock()
+	if a.composeSummaryCacheKey == key {
+		summary := a.composeSummaryCache
+		a.mu.Unlock()
+		return summary
+	}
+	a.mu.Unlock()
+
 	summary := strings.Join(compactNonEmpty([]string{
 		chooseStyleSummary(a.styleTag),
 		aspectChoiceLabel(activeAspect),
@@ -2012,6 +2317,20 @@ func (a *App) layoutComposeCard(gtx layout.Context) layout.Dimensions {
 		fmt.Sprintf("%d 张", normalizeBatchCount(a.batchCount)),
 		sourceLabel,
 	}), " · ")
+	a.mu.Lock()
+	a.composeSummaryCacheKey = key
+	a.composeSummaryCache = summary
+	a.mu.Unlock()
+	return summary
+}
+
+func (a *App) layoutComposeCard(gtx layout.Context, snap snapshot) layout.Dimensions {
+	defer a.recordLayoutTiming(layoutTimingComposeCard, time.Now())
+	activeAspect := deriveAspectPreset(a.size)
+	activeResolution := normalizeResolutionChoice(deriveResolutionPreset(a.size), a.api, a.policy, a.imageModelInput.Text())
+	currentSaved := strings.TrimSpace(snap.Result.SavedPath)
+	sourcePaths := a.sourcePaths()
+	summary := a.composeSummary(snap)
 
 	return a.elevatedBorderedSurface(gtx, fluent.surfaceElevated, fluentCardRadius, fluent.border, image.Pt(0, 1), func(gtx layout.Context) layout.Dimensions {
 		return layout.UniformInset(unit.Dp(12)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -2338,11 +2657,35 @@ func (a *App) layoutBatchCountSection(gtx layout.Context) layout.Dimensions {
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
 }
 
-func (a *App) layoutAdvancedCard(gtx layout.Context) layout.Dimensions {
+func (a *App) advancedSummary() string {
 	partialPreview := strings.TrimSpace(a.partialImagesInput.Text())
 	if partialPreview == "" {
-		partialPreview = strconv.Itoa(client.DefaultPartialImages)
+		partialPreview = strconv.Itoa(kernel.DefaultConfig().PartialImages)
 	}
+	partialPreviewSummary := partialPreview + " 帧"
+	if partialPreview == "0" {
+		partialPreviewSummary = "仅最终图"
+	}
+	key := strings.Join([]string{
+		a.negativePromptInput.Text(),
+		a.format,
+		a.background,
+		a.outputCompressionInput.Text(),
+		a.inputFidelity,
+		a.imageStyle,
+		a.moderation,
+		partialPreview,
+		a.userIdentifierInput.Text(),
+		a.seedInput.Text(),
+	}, "\x00")
+	a.mu.Lock()
+	if a.advancedSummaryCacheKey == key {
+		summary := a.advancedSummaryCache
+		a.mu.Unlock()
+		return summary
+	}
+	a.mu.Unlock()
+
 	summary := strings.Join(compactNonEmpty([]string{
 		negativePromptSummary(a.negativePromptInput.Text()),
 		strings.ToUpper(strings.TrimSpace(a.format)),
@@ -2351,10 +2694,24 @@ func (a *App) layoutAdvancedCard(gtx layout.Context) layout.Dimensions {
 		chooseOptionalFidelitySummary(a.inputFidelity),
 		chooseOptionalImageStyleSummary(a.imageStyle),
 		"审核 " + moderationChoiceLabel(a.moderation),
-		"预览 " + partialPreview + " 帧",
+		"预览 " + partialPreviewSummary,
 		chooseOptionalUserIdentifierSummary(a.userIdentifierInput.Text()),
 		seedSummary(a.seedInput.Text()),
 	}), " · ")
+	a.mu.Lock()
+	a.advancedSummaryCacheKey = key
+	a.advancedSummaryCache = summary
+	a.mu.Unlock()
+	return summary
+}
+
+func (a *App) layoutAdvancedCard(gtx layout.Context) layout.Dimensions {
+	defer a.recordLayoutTiming(layoutTimingAdvancedCard, time.Now())
+	for a.copyPerformanceDiagnosticsButton.Clicked(gtx) {
+		copyResultDetailText(gtx, a.buildPerformanceDiagnosticsReport())
+		a.appendLog("已复制性能诊断")
+	}
+	summary := a.advancedSummary()
 
 	return a.elevatedBorderedSurface(gtx, fluent.surfaceElevated, fluentCardRadius, fluent.border, image.Pt(0, 1), func(gtx layout.Context) layout.Dimensions {
 		return layout.UniformInset(unit.Dp(12)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -2449,9 +2806,19 @@ func (a *App) layoutAdvancedCard(gtx layout.Context) layout.Dimensions {
 						return a.advancedSectionCard(gtx, "流式预览帧数", "", func(gtx layout.Context) layout.Dimensions {
 							selected := strings.TrimSpace(a.partialImagesInput.Text())
 							if selected == "" {
-								selected = strconv.Itoa(client.DefaultPartialImages)
+								selected = strconv.Itoa(kernel.DefaultConfig().PartialImages)
 							}
-							return a.segmented(gtx, partialPreviewChoices, selected, a.partialPreviewButtons, func(value string) { a.partialImagesInput.SetText(value) })
+							return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx,
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									return a.segmented(gtx, partialPreviewChoices, selected, a.partialPreviewButtons, func(value string) { a.partialImagesInput.SetText(value) })
+								}),
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									return a.label(gtx, "Gio 默认仅请求最终图；打开预览帧会增加上游响应体积和界面刷新开销。", unit.Sp(10), fluent.textDim, font.Normal)
+								}),
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									return a.compactIconTextButton(gtx, &a.copyPerformanceDiagnosticsButton, uiIconCopy, "复制性能诊断", false)
+								}),
+							)
 						})
 					}),
 					layout.Rigid(layout.Spacer{Height: unit.Dp(12)}.Layout),
@@ -2529,10 +2896,8 @@ func (a *App) layoutAspectButton(gtx layout.Context, btn *widget.Clickable, choi
 	)
 }
 
-func (a *App) layoutActions(gtx layout.Context) layout.Dimensions {
-	snap := a.readSnapshot()
-	ready := strings.TrimSpace(a.apiKeyInput.Text()) != "" && strings.TrimSpace(a.baseURLInput.Text()) != ""
-	hasPrompt := strings.TrimSpace(a.promptInput.Text()) != ""
+func (a *App) layoutActions(gtx layout.Context, snap snapshot, ready bool, hasPrompt bool) layout.Dimensions {
+	defer a.recordLayoutTiming(layoutTimingActions, time.Now())
 	children := make([]layout.FlexChild, 0, 4)
 	if !ready {
 		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -2861,5 +3226,72 @@ func promptLabels(values []string) []promptHelperItem {
 			Detail: value,
 		})
 	}
+	return items
+}
+
+func promptLabelCacheKey(values []string) string {
+	return strings.Join(values, "\x00")
+}
+
+func presetLabelCacheKey(presets []sharedCompat.Preset) string {
+	parts := make([]string, 0, len(presets)*6)
+	for _, preset := range presets {
+		parts = append(parts,
+			preset.ID,
+			strings.TrimSpace(preset.Name),
+			strings.TrimSpace(preset.Size),
+			strings.TrimSpace(preset.Quality),
+			strings.TrimSpace(preset.OutputFormat),
+			strconv.Itoa(normalizeBatchCount(preset.BatchCount)),
+		)
+	}
+	return strings.Join(parts, "\x00")
+}
+
+func (a *App) promptLabelsCached(values []string) []promptHelperItem {
+	key := promptLabelCacheKey(values)
+	a.mu.Lock()
+	if a.promptLabelCacheKey == key {
+		items := a.promptLabelCacheItems
+		a.mu.Unlock()
+		return items
+	}
+	a.mu.Unlock()
+
+	items := promptLabels(values)
+
+	a.mu.Lock()
+	if a.promptLabelCacheKey == key {
+		items = a.promptLabelCacheItems
+		a.mu.Unlock()
+		return items
+	}
+	a.promptLabelCacheKey = key
+	a.promptLabelCacheItems = items
+	a.mu.Unlock()
+	return items
+}
+
+func (a *App) presetLabelsCached(presets []sharedCompat.Preset) []promptHelperItem {
+	key := presetLabelCacheKey(presets)
+	a.mu.Lock()
+	if a.presetLabelCacheKey == key {
+		items := a.presetLabelCacheItems
+		a.mu.Unlock()
+		return items
+	}
+	a.mu.Unlock()
+
+	items := presetLabels(presets)
+
+	a.mu.Lock()
+	if a.presetLabelCacheKey == key {
+		items = a.presetLabelCacheItems
+		a.mu.Unlock()
+		return items
+	}
+	a.presetLabelCacheKey = key
+	a.presetLabelCacheItems = items
+	a.mu.Unlock()
 	return items
 }

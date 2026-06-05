@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"image/draw"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
-	"image-studio/gio-client/internal/kernel"
 	sharedCompat "image-studio/shared/compat"
 
 	"gioui.org/font"
@@ -25,9 +25,18 @@ import (
 	"github.com/yuanhua/image-gptcodex/pkg/client"
 )
 
-func (a *App) layoutCanvas(gtx layout.Context) layout.Dimensions {
-	snap := a.readSnapshot()
-	sourcePaths := kernel.ParseSourcePaths(a.sourcePathsInput.Text())
+type checkerboardCache struct {
+	size   image.Point
+	tile   int
+	first  color.NRGBA
+	second color.NRGBA
+	img    *image.RGBA
+	op     paint.ImageOp
+}
+
+func (a *App) layoutCanvas(gtx layout.Context, snap snapshot) layout.Dimensions {
+	defer a.recordLayoutTiming(layoutTimingCanvas, time.Now())
+	sourcePaths := a.sourcePaths()
 	showSourceStrip := a.mode == string(client.ModeEdit) && len(sourcePaths) > 0
 
 	children := []layout.FlexChild{
@@ -58,6 +67,8 @@ func (a *App) layoutCanvas(gtx layout.Context) layout.Dimensions {
 }
 
 func (a *App) canvasToolbar(gtx layout.Context, snap snapshot) layout.Dimensions {
+	defer a.recordLayoutTiming(layoutTimingCanvasToolbar, time.Now())
+	latestItem, hasLatest := newestHistoryItem(snap.History)
 	for a.closeCompareButton.Clicked(gtx) {
 		a.clearCompare()
 	}
@@ -65,74 +76,34 @@ func (a *App) canvasToolbar(gtx layout.Context, snap snapshot) layout.Dimensions
 		a.openSavePromptForCurrent()
 	}
 	if a.latestResultButton.Clicked(gtx) {
-		if latest, ok := newestHistoryItem(snap.History); ok {
-			if err := a.loadHistoryPreview(latest, true); err != nil && !isMissingPreview(err) {
+		if hasLatest {
+			if err := a.loadHistoryPreview(latestItem, true); err != nil && !isMissingPreview(err) {
 				a.appendLog("载入当前图失败: " + err.Error())
-			}
-		}
-	}
-	latestItem, hasLatest := newestHistoryItem(snap.History)
-	currentGroup, hasCurrentGroup := findPromptGroupForItem(snap.History, snap.SelectedHistoryID)
-	batchGridCount := len(snap.BatchResults)
-	if snap.Running && snap.BatchTotal > batchGridCount {
-		batchGridCount = snap.BatchTotal
-	}
-	if a.currentGroupButton.Clicked(gtx) {
-		if batchGridCount > 1 {
-			if snap.ResultGridOpen {
-				a.closeResultGrid()
-			} else {
-				a.openResultGrid()
-			}
-		} else if hasCurrentGroup && len(currentGroup.Items) > 1 {
-			if snap.ActivePromptGroup.Key == currentGroup.Key {
-				a.closePromptGroup()
-			} else {
-				a.openPromptGroup(currentGroup)
 			}
 		}
 	}
 	for a.closeResultGridButton.Clicked(gtx) {
 		a.closeResultGrid()
 	}
-	for _, item := range snap.BatchResults {
-		item := item
-		btn := a.historyButton("batch-grid:" + item.ID)
-		for btn.Clicked(gtx) {
-			if err := a.loadHistoryPreview(item, true); err != nil && !isMissingPreview(err) {
-				a.appendLog("载入批量结果失败: " + err.Error())
-			} else {
-				a.closeResultGrid()
-			}
-		}
-	}
 	if a.rotateLeftButton.Clicked(gtx) {
-		if next, err := rotateImageFile(snap.Result.SavedPath, -90); err != nil {
-			a.appendLog("左转失败: " + err.Error())
-		} else if err := a.replaceCurrentResultWithPath(next, "rotate"); err != nil {
-			a.appendLog("载入旋转结果失败: " + err.Error())
-		}
+		a.startCurrentImageTransform("左转", "rotate", func(path string) (string, error) {
+			return rotateImageFile(path, -90)
+		})
 	}
 	if a.rotateRightButton.Clicked(gtx) {
-		if next, err := rotateImageFile(snap.Result.SavedPath, 90); err != nil {
-			a.appendLog("右转失败: " + err.Error())
-		} else if err := a.replaceCurrentResultWithPath(next, "rotate"); err != nil {
-			a.appendLog("载入旋转结果失败: " + err.Error())
-		}
+		a.startCurrentImageTransform("右转", "rotate", func(path string) (string, error) {
+			return rotateImageFile(path, 90)
+		})
 	}
 	if a.flipHorizontalButton.Clicked(gtx) {
-		if next, err := flipImageFile(snap.Result.SavedPath, true); err != nil {
-			a.appendLog("水平翻转失败: " + err.Error())
-		} else if err := a.replaceCurrentResultWithPath(next, "flip"); err != nil {
-			a.appendLog("载入翻转结果失败: " + err.Error())
-		}
+		a.startCurrentImageTransform("水平翻转", "flip", func(path string) (string, error) {
+			return flipImageFile(path, true)
+		})
 	}
 	if a.flipVerticalButton.Clicked(gtx) {
-		if next, err := flipImageFile(snap.Result.SavedPath, false); err != nil {
-			a.appendLog("竖直翻转失败: " + err.Error())
-		} else if err := a.replaceCurrentResultWithPath(next, "flip"); err != nil {
-			a.appendLog("载入翻转结果失败: " + err.Error())
-		}
+		a.startCurrentImageTransform("竖直翻转", "flip", func(path string) (string, error) {
+			return flipImageFile(path, false)
+		})
 	}
 	if a.clearCurrentButton.Clicked(gtx) {
 		a.clearCurrentResult()
@@ -145,8 +116,13 @@ func (a *App) canvasToolbar(gtx layout.Context, snap snapshot) layout.Dimensions
 			a.openResultDetail(snap.Result.Item)
 		}
 	}
-	hasCanvasResult := snap.Result.HasItem || strings.TrimSpace(snap.Result.SavedPath) != ""
+	currentSavedPath := strings.TrimSpace(snap.Result.SavedPath)
+	hasCanvasResult := snap.Result.HasItem || currentSavedPath != ""
 	compareActive := snap.Compare.HasItem && snap.Compare.Image != nil && !snap.ResultGridOpen
+	var resultDisplay historyItemDisplay
+	if snap.Result.HasItem {
+		resultDisplay = a.historyItemDisplay(snap.Result.Item)
+	}
 
 	return a.borderedSurface(gtx, fluent.panel2, unit.Dp(0), fluent.border, func(gtx layout.Context) layout.Dimensions {
 		return layout.Inset{Top: 8, Bottom: 8, Left: 12, Right: 12}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -226,10 +202,7 @@ func (a *App) canvasToolbar(gtx layout.Context, snap snapshot) layout.Dimensions
 					}
 					if snap.Result.HasItem {
 						rightChildren = append(rightChildren, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return a.metaBadgeRow(gtx, compactNonEmpty([]string{
-								sizeDisplayLabel(snap.Result.Item.Size),
-								qualityDisplayLabel(snap.Result.Item.Quality),
-							}), true)
+							return a.metaBadgeRow(gtx, resultDisplay.MetaBadges, true)
 						}))
 					}
 					rightChildren = append(rightChildren, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -247,7 +220,7 @@ func (a *App) canvasToolbar(gtx layout.Context, snap snapshot) layout.Dimensions
 							return a.toolbarIconButton(gtx, &a.clearCurrentButton, uiIconDelete, false)
 						}))
 					}
-					if strings.TrimSpace(snap.Result.SavedPath) != "" {
+					if currentSavedPath != "" {
 						rightChildren = append(rightChildren, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							return a.toolbarPrimaryTextButton(gtx, &a.saveAsButton, uiIconDownload, "另存为")
 						}))
@@ -309,10 +282,11 @@ func (a *App) sourceStrip(gtx layout.Context, sourcePaths []string) layout.Dimen
 				layout.Rigid(layout.Spacer{Width: unit.Dp(12)}.Layout),
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 					tiles := make([]layout.FlexChild, 0, len(sourcePaths)+1)
-					for _, path := range sourcePaths {
+					for idx, path := range sourcePaths {
 						path := path
+						indexLabel := strconv.Itoa(idx + 1)
 						tiles = append(tiles, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return a.layoutSourceStripTile(gtx, path)
+							return a.layoutSourceStripTile(gtx, path, indexLabel)
 						}))
 					}
 					tiles = append(tiles, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -325,19 +299,19 @@ func (a *App) sourceStrip(gtx layout.Context, sourcePaths []string) layout.Dimen
 	})
 }
 
-func (a *App) layoutSourceStripTile(gtx layout.Context, path string) layout.Dimensions {
+func (a *App) layoutSourceStripTile(gtx layout.Context, path string, indexLabel string) layout.Dimensions {
 	btn := a.sourceButton("remove:" + path)
-	img, _ := a.imageForPath(path)
+	img, imgOp := a.displayPathThumb(path, gtx.Dp(unit.Dp(48)))
 	return layout.Stack{}.Layout(gtx,
 		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
-			return a.imageThumbCover(gtx, img, unit.Dp(48), unit.Dp(48), unit.Dp(6))
+			return a.imageThumbCoverWithOp(gtx, img, imgOp, unit.Dp(48), unit.Dp(48), unit.Dp(6))
 		}),
 		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
 			return layout.NW.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Left: unit.Dp(3), Top: unit.Dp(3)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return a.surface(gtx, rgba(0x111111, 0xb8), unit.Dp(3), func(gtx layout.Context) layout.Dimensions {
 						return layout.Inset{Top: 1, Bottom: 1, Left: 4, Right: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return a.label(gtx, sourceStripIndexLabel(path, kernel.ParseSourcePaths(a.sourcePathsInput.Text())), unit.Sp(8), fluent.white, font.Medium)
+							return a.label(gtx, indexLabel, unit.Sp(8), fluent.white, font.Medium)
 						})
 					})
 				})
@@ -410,15 +384,6 @@ func (a *App) layoutSourceStripAddTile(gtx layout.Context) layout.Dimensions {
 	})
 }
 
-func sourceStripIndexLabel(path string, sourcePaths []string) string {
-	for idx, value := range sourcePaths {
-		if value == path {
-			return strconv.Itoa(idx + 1)
-		}
-	}
-	return ""
-}
-
 func sourceStripFormatLabel(path string) string {
 	ext := strings.TrimPrefix(strings.ToUpper(filepath.Ext(strings.TrimSpace(path))), ".")
 	if ext == "" {
@@ -428,6 +393,7 @@ func sourceStripFormatLabel(path string) string {
 }
 
 func (a *App) resultSurface(gtx layout.Context, snap snapshot) layout.Dimensions {
+	defer a.recordLayoutTiming(layoutTimingResultSurface, time.Now())
 	for a.emptyStateImportButton.Clicked(gtx) {
 		paths, err := chooseImageFiles()
 		if err != nil {
@@ -441,7 +407,7 @@ func (a *App) resultSurface(gtx layout.Context, snap snapshot) layout.Dimensions
 	gtx.Constraints.Min = gtx.Constraints.Max
 	return a.surface(gtx, fluent.canvasBg, unit.Dp(0), func(gtx layout.Context) layout.Dimensions {
 		gtx.Constraints.Min = gtx.Constraints.Max
-		paintCheckerboard(gtx, clip.Rect{Max: gtx.Constraints.Max}.Op(), gtx.Dp(unit.Dp(22)), fluent.canvasBg, fluent.canvasTile)
+		a.paintCheckerboard(gtx, clip.Rect{Max: gtx.Constraints.Max}.Op(), gtx.Dp(unit.Dp(22)), fluent.canvasBg, fluent.canvasTile)
 		if snap.ResultGridOpen && (len(snap.BatchResults) > 1 || (snap.Running && snap.BatchTotal > 1)) {
 			a.canvasDisplayScale = 0
 			return a.layoutBatchResultGrid(gtx, snap)
@@ -453,6 +419,10 @@ func (a *App) resultSurface(gtx layout.Context, snap snapshot) layout.Dimensions
 		if snap.Result.Rev != a.imageOpRev {
 			a.imageOp = paint.NewImageOp(snap.Result.Image)
 			a.imageOpRev = snap.Result.Rev
+		}
+		if snap.Compare.Image != nil && snap.Compare.Rev != a.compareImageOpRev {
+			a.compareImageOp = paint.NewImageOp(snap.Compare.Image)
+			a.compareImageOpRev = snap.Compare.Rev
 		}
 		if snap.Compare.Image != nil {
 			return a.layoutCompareSurface(gtx, snap)
@@ -523,7 +493,6 @@ func minFloat32(values ...float32) float32 {
 }
 
 func (a *App) layoutCompareSurface(gtx layout.Context, snap snapshot) layout.Dimensions {
-	compareOp := paint.NewImageOp(snap.Compare.Image)
 	split := snap.CompareSplit
 	if split < 0 {
 		split = 0
@@ -534,7 +503,7 @@ func (a *App) layoutCompareSurface(gtx layout.Context, snap snapshot) layout.Dim
 	gtx.Constraints.Min = gtx.Constraints.Max
 	return layout.Stack{}.Layout(gtx,
 		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
-			return a.layoutCompareViewport(gtx, snap.Result.Image, a.imageOp, snap.Compare.Image, compareOp, split)
+			return a.layoutCompareViewport(gtx, snap.Result.Image, a.imageOp, snap.Compare.Image, a.compareImageOp, split)
 		}),
 		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
 			return layout.NW.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -564,6 +533,7 @@ func (a *App) layoutCompareViewport(gtx layout.Context, currentImg image.Image, 
 		if max.X <= 0 {
 			continue
 		}
+		a.noteRenderActivity()
 		next := ev.Position.X / float32(max.X)
 		if next < 0 {
 			next = 0
@@ -716,7 +686,14 @@ func chooseBatchGridInset(col int, columns int) unit.Dp {
 
 func (a *App) layoutBatchGridTile(gtx layout.Context, item sharedCompat.HistoryItem, index int, active bool) layout.Dimensions {
 	btn := a.historyButton("batch-grid:" + item.ID)
-	img, _ := a.imageForHistoryThumb(item)
+	for btn.Clicked(gtx) {
+		if err := a.loadHistoryPreview(item, true); err != nil && !isMissingPreview(err) {
+			a.appendLog("载入批量结果失败: " + err.Error())
+		} else {
+			a.closeResultGrid()
+		}
+	}
+	img, imgOp := a.displayHistoryThumb(item, gtx.Dp(unit.Dp(208)))
 	return fixedHeight(gtx, unit.Dp(208), func(gtx layout.Context) layout.Dimensions {
 		bg := fluent.surface
 		hoverBg := fluent.surface
@@ -742,7 +719,7 @@ func (a *App) layoutBatchGridTile(gtx layout.Context, item sharedCompat.HistoryI
 								})
 							}
 							view := widget.Image{
-								Src:      paint.NewImageOp(img),
+								Src:      imgOp,
 								Fit:      widget.Contain,
 								Position: layout.Center,
 							}
@@ -895,33 +872,61 @@ func (a *App) layoutCanvasEmptyState(gtx layout.Context) layout.Dimensions {
 	})
 }
 
-func paintCheckerboard(gtx layout.Context, area clip.Op, tile int, first color.NRGBA, second color.NRGBA) {
+func (a *App) paintCheckerboard(gtx layout.Context, area clip.Op, tile int, first color.NRGBA, second color.NRGBA) {
+	if a.reducedEffects {
+		paint.FillShape(gtx.Ops, first, area)
+		return
+	}
 	if tile <= 0 {
 		tile = 16
 	}
-	paint.FillShape(gtx.Ops, first, area)
 	max := gtx.Constraints.Max
-	for y := 0; y < max.Y; y += tile {
-		for x := 0; x < max.X; x += tile {
-			if ((x/tile)+(y/tile))%2 == 0 {
-				continue
+	if max.X <= 0 || max.Y <= 0 {
+		return
+	}
+	cache := &a.checkerboard
+	if cache.img == nil || cache.size != max || cache.tile != tile || cache.first != first || cache.second != second {
+		img := image.NewRGBA(image.Rect(0, 0, max.X, max.Y))
+		draw.Draw(img, img.Bounds(), image.NewUniform(first), image.Point{}, draw.Src)
+		for y := 0; y < max.Y; y += tile {
+			for x := 0; x < max.X; x += tile {
+				if ((x/tile)+(y/tile))%2 == 0 {
+					continue
+				}
+				rect := image.Rect(x, y, min(x+tile, max.X), min(y+tile, max.Y))
+				draw.Draw(img, rect, image.NewUniform(second), image.Point{}, draw.Src)
 			}
-			rect := image.Rect(x, y, min(x+tile, max.X), min(y+tile, max.Y))
-			paint.FillShape(gtx.Ops, second, clip.Rect(rect).Op())
+		}
+		*cache = checkerboardCache{
+			size:   max,
+			tile:   tile,
+			first:  first,
+			second: second,
+			img:    img,
+			op:     paint.NewImageOp(img),
 		}
 	}
+	stack := area.Push(gtx.Ops)
+	defer stack.Pop()
+	cache.op.Add(gtx.Ops)
+	paint.PaintOp{}.Add(gtx.Ops)
 }
 
 func (a *App) canvasStatusBar(gtx layout.Context, snap snapshot) layout.Dimensions {
+	defer a.recordLayoutTiming(layoutTimingCanvasStatusBar, time.Now())
 	lastLog := ""
 	if len(snap.Logs) > 0 {
 		lastLog = snap.Logs[len(snap.Logs)-1]
 	}
+	hasLastLog := strings.TrimSpace(lastLog) != ""
 	zoomLabel := formatCanvasScaleLabel(a.canvasDisplayScale)
+	renderDiagnostics := formatRenderDiagnostics(snap)
+	hasRenderDiagnostics := strings.TrimSpace(renderDiagnostics) != ""
+	hasRevisedPrompt := strings.TrimSpace(snap.Result.RevisedPrompt) != ""
 
 	return a.borderedSurface(gtx, fluent.panel2, unit.Dp(0), fluent.border, func(gtx layout.Context) layout.Dimensions {
 		return layout.Inset{Top: 9, Bottom: 9, Left: 14, Right: 14}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			if snap.Running {
+			if snap.Running || snap.ProcessingImageTransform {
 				return layout.Stack{}.Layout(gtx,
 					layout.Stacked(func(gtx layout.Context) layout.Dimensions {
 						return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
@@ -939,11 +944,19 @@ func (a *App) canvasStatusBar(gtx layout.Context, snap snapshot) layout.Dimensio
 							}),
 							layout.Flexed(1, layout.Spacer{}.Layout),
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								if strings.TrimSpace(lastLog) == "" {
+								if !hasLastLog {
 									return layout.Dimensions{}
 								}
 								return fixedWidth(gtx, unit.Dp(220), func(gtx layout.Context) layout.Dimensions {
 									return a.singleLineLabel(gtx, lastLog, unit.Sp(11), fluent.textDim, font.Normal)
+								})
+							}),
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								if !hasRenderDiagnostics {
+									return layout.Dimensions{}
+								}
+								return layout.Inset{Left: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+									return a.singleLineLabel(gtx, renderDiagnostics, unit.Sp(11), fluent.textDim, font.Normal)
 								})
 							}),
 						)
@@ -957,6 +970,7 @@ func (a *App) canvasStatusBar(gtx layout.Context, snap snapshot) layout.Dimensio
 			}
 
 			if snap.Result.HasItem {
+				display := a.historyItemDisplay(snap.Result.Item)
 				headline := "生成结果"
 				if snap.Result.Item.Mode == "edit" {
 					headline = "编辑结果"
@@ -976,50 +990,43 @@ func (a *App) canvasStatusBar(gtx layout.Context, snap snapshot) layout.Dimensio
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return layout.Inset{Left: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return a.metaBadgeRow(gtx, statusBarMetaBadgeItems(snap.Result.Item), true)
+							return a.metaBadgeRow(gtx, display.StatusMetaBadges, true)
 						})
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						if snap.Result.Item.CreatedAt <= 0 {
+						if display.ClockPrecise == "" {
 							return layout.Dimensions{}
 						}
 						return layout.Inset{Left: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return a.singleLineLabel(gtx, formatHistoryClockPrecise(snap.Result.Item.CreatedAt), unit.Sp(11), fluent.textDim, font.Normal)
+							return a.singleLineLabel(gtx, display.ClockPrecise, unit.Sp(11), fluent.textDim, font.Normal)
 						})
 					}),
 					func() layout.FlexChild {
-						if strings.TrimSpace(snap.Result.RevisedPrompt) == "" {
-							return layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-								if zoomLabel == "" {
-									return layout.Spacer{}.Layout(gtx)
-								}
-								return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
-									layout.Flexed(1, layout.Spacer{}.Layout),
-									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-										return a.singleLineLabel(gtx, zoomLabel, unit.Sp(11), fluent.textDim, font.Normal)
-									}),
-								)
-							})
+						if !hasRevisedPrompt {
+							return layout.Flexed(1, layout.Spacer{}.Layout)
 						}
 						return layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-							children := []layout.FlexChild{
-								layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-									return layout.Inset{Left: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-										return a.singleLineLabel(gtx, "✨ "+snap.Result.RevisedPrompt, unit.Sp(11), fluent.textDim, font.Normal)
-									})
-								}),
-							}
-							if zoomLabel != "" {
-								children = append(children,
-									layout.Rigid(layout.Spacer{Width: unit.Dp(10)}.Layout),
-									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-										return a.singleLineLabel(gtx, zoomLabel, unit.Sp(11), fluent.textDim, font.Normal)
-									}),
-								)
-							}
-							return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx, children...)
+							return layout.Inset{Left: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								return a.singleLineLabel(gtx, "✨ "+snap.Result.RevisedPrompt, unit.Sp(11), fluent.textDim, font.Normal)
+							})
 						})
 					}(),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						if zoomLabel == "" {
+							return layout.Dimensions{}
+						}
+						return layout.Inset{Left: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							return a.singleLineLabel(gtx, zoomLabel, unit.Sp(11), fluent.textDim, font.Normal)
+						})
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						if !hasRenderDiagnostics {
+							return layout.Dimensions{}
+						}
+						return layout.Inset{Left: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							return a.singleLineLabel(gtx, renderDiagnostics, unit.Sp(11), fluent.textDim, font.Normal)
+						})
+					}),
 				)
 			}
 
@@ -1036,13 +1043,19 @@ func (a *App) canvasStatusBar(gtx layout.Context, snap snapshot) layout.Dimensio
 						return a.label(gtx, "准备就绪", unit.Sp(11), fluent.textMuted, font.Normal)
 					})
 				}),
+				layout.Flexed(1, layout.Spacer{}.Layout),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					if !hasRenderDiagnostics {
+						return layout.Dimensions{}
+					}
+					return a.singleLineLabel(gtx, renderDiagnostics, unit.Sp(11), fluent.textDim, font.Normal)
+				}),
 			)
 		})
 	})
 }
 
 func (a *App) layoutRunningStatusProgressBar(gtx layout.Context) layout.Dimensions {
-	gtx.Execute(op.InvalidateCmd{At: gtx.Now.Add(50 * time.Millisecond)})
 	return fixedHeight(gtx, unit.Dp(2), func(gtx layout.Context) layout.Dimensions {
 		size := gtx.Constraints.Min
 		if size.X == 0 {
@@ -1052,20 +1065,12 @@ func (a *App) layoutRunningStatusProgressBar(gtx layout.Context) layout.Dimensio
 			size.Y = gtx.Dp(unit.Dp(2))
 		}
 		paint.FillShape(gtx.Ops, withAlpha(fluent.accent, 0x18), clip.Rect(image.Rect(0, 0, size.X, size.Y)).Op())
-
-		segmentWidth := max(size.X/3, gtx.Dp(unit.Dp(72)))
-		if segmentWidth > size.X {
-			segmentWidth = size.X
-		}
-		cycle := int64(1500)
-		phase := float32(gtx.Now.UnixMilli()%cycle) / float32(cycle)
-		travel := size.X + segmentWidth
-		startX := int(float32(travel)*phase) - segmentWidth
-		endX := startX + segmentWidth
-		startX = clampInt(startX, 0, size.X)
-		endX = clampInt(endX, 0, size.X)
-		if endX > startX {
-			paintLinearGradient(gtx, image.Rect(startX, 0, endX, size.Y), 0, fluent.accent, fluent.accent2)
+		if size.X > 0 {
+			if a.reducedEffects {
+				paint.FillShape(gtx.Ops, fluent.accent, clip.Rect(image.Rect(0, 0, size.X, size.Y)).Op())
+				return layout.Dimensions{Size: size}
+			}
+			paintLinearGradient(gtx, image.Rect(0, 0, size.X, size.Y), 0, fluent.accent, fluent.accent2)
 		}
 		return layout.Dimensions{Size: size}
 	})
@@ -1079,7 +1084,7 @@ func chooseStatusText(status string) string {
 	return status
 }
 
-func (a *App) layoutSavePrompt(gtx layout.Context) layout.Dimensions {
+func (a *App) layoutSavePrompt(gtx layout.Context, snap snapshot) layout.Dimensions {
 	if a.savePromptNeverAsk.Update(gtx) {
 		a.setSavePromptSuppressed(a.savePromptNeverAsk.Value)
 	}
@@ -1089,10 +1094,9 @@ func (a *App) layoutSavePrompt(gtx layout.Context) layout.Dimensions {
 	for a.savePromptSaveButton.Clicked(gtx) {
 		a.savePromptCopy()
 	}
-
-	snap := a.readSnapshot()
 	item := snap.Result.Item
 	img := snap.Result.Image
+	imgOp := a.imageOp
 	return a.layoutStandardModal(
 		gtx,
 		unit.Dp(520),
@@ -1107,7 +1111,7 @@ func (a *App) layoutSavePrompt(gtx layout.Context) layout.Dimensions {
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							return a.borderedSurface(gtx, fluent.surface, fluentCardRadius, fluent.border, func(gtx layout.Context) layout.Dimensions {
 								return layout.UniformInset(unit.Dp(8)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-									return a.imageThumb(gtx, img, unit.Dp(116), unit.Dp(116), unit.Dp(8))
+									return a.imageThumbWithOp(gtx, img, imgOp, unit.Dp(116), unit.Dp(116), unit.Dp(8))
 								})
 							})
 						}),

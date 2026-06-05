@@ -139,7 +139,7 @@ func (a *App) importHistoryJSON() {
 		return
 	}
 	a.mu.Lock()
-	a.history = append([]sharedCompat.HistoryItem(nil), state.History...)
+	a.setHistoryLocked(state.History)
 	a.mu.Unlock()
 	if latest, ok := newestHistoryItem(state.History); ok {
 		if err := a.loadHistoryPreview(latest, false); err != nil && !isMissingPreview(err) {
@@ -226,7 +226,7 @@ func (a *App) replaceHistoryState(next []sharedCompat.HistoryItem, logMessage st
 		kept[item.ID] = struct{}{}
 	}
 	a.mu.Lock()
-	a.history = append([]sharedCompat.HistoryItem(nil), next...)
+	a.setHistoryLocked(next)
 	if len(a.batchResultIDs) > 0 {
 		filtered := make([]string, 0, len(a.batchResultIDs))
 		for _, id := range a.batchResultIDs {
@@ -261,9 +261,11 @@ func (a *App) replaceHistoryState(next []sharedCompat.HistoryItem, logMessage st
 	if a.activePromptGroup.Key != "" {
 		found := false
 		for _, item := range a.activePromptGroup.Items {
-			if _, ok := kept[item.ID]; ok {
-				found = true
-				break
+			if item != nil {
+				if _, ok := kept[item.ID]; ok {
+					found = true
+					break
+				}
 			}
 		}
 		if !found {
@@ -271,7 +273,7 @@ func (a *App) replaceHistoryState(next []sharedCompat.HistoryItem, logMessage st
 		}
 	}
 	if strings.TrimSpace(logMessage) != "" {
-		a.logs = appendBounded(a.logs, logMessage)
+		a.appendLogLocked(logMessage)
 	}
 	a.mu.Unlock()
 	a.invalidateNow()
@@ -297,6 +299,7 @@ func normalizeImportedHistoryItem(item sharedCompat.HistoryItem) sharedCompat.Hi
 	item.Size = strings.TrimSpace(item.Size)
 	item.Quality = strings.TrimSpace(item.Quality)
 	item.OutputFormat = strings.TrimSpace(item.OutputFormat)
+	item.PreviewPath = strings.TrimSpace(item.PreviewPath)
 	item.SavedPath = strings.TrimSpace(item.SavedPath)
 	item.ThumbPath = strings.TrimSpace(item.ThumbPath)
 	if len(item.SourcePaths) > 0 {

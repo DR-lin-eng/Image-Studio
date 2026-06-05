@@ -141,11 +141,13 @@ func (a *App) applyWorkspace(ws workspaceState) {
 	a.seedInput.SetText(ws.SeedText)
 	a.batchCount = normalizeBatchCount(ws.BatchCount)
 	a.sourcePathsInput.SetText(ws.SourcePathsText)
+	a.sourceButtons = map[string]*widget.Clickable{}
 	a.selectedHistoryID = ws.SelectedHistoryID
 	a.activePromptGroup = historyPromptGroup{}
 	a.batchResultIDs = append([]string(nil), ws.BatchResultIDs...)
 	a.resultGridOpen = ws.ResultGridOpen && len(ws.BatchResultIDs) > 1
 	a.promptHelperOpen = false
+	a.promptButtons = map[string]*widget.Clickable{}
 	a.settingsModalOpen = false
 	a.activeResultDetail = sharedCompat.HistoryItem{}
 	a.compare = resultState{Rev: a.compare.Rev + 1}
@@ -159,31 +161,76 @@ func (a *App) applyWorkspace(ws workspaceState) {
 		HasItem:       ws.ResultHasItem,
 		Rev:           a.result.Rev + 1,
 	}
-	if strings.TrimSpace(ws.ResultSavedPath) != "" {
-		if img, err := a.imageForPath(ws.ResultSavedPath); err == nil {
-			a.result.Image = img
-		}
-	}
+	resultRev := a.result.Rev
+	compareRev := a.compare.Rev
 	if compareID := strings.TrimSpace(ws.CompareHistoryID); compareID != "" {
 		if item, ok := historyItemByID(a.history, compareID); ok {
-			if img, err := a.imageForHistoryItem(item); err == nil {
-				a.compare = resultState{
-					Image:         img,
-					SavedPath:     item.SavedPath,
-					RawPath:       item.RawPath,
-					RevisedPrompt: item.RevisedPrompt,
-					SourceEvent:   "compare",
-					Item:          item,
-					HasItem:       item.ID != "",
-					Rev:           a.compare.Rev + 1,
-				}
-				if ws.CompareSplit > 0 && ws.CompareSplit < 1 {
-					a.compareSplitSlider.Value = ws.CompareSplit
-				}
+			a.compare = resultState{
+				SavedPath:     item.SavedPath,
+				RawPath:       item.RawPath,
+				RevisedPrompt: item.RevisedPrompt,
+				SourceEvent:   "compare",
+				Item:          item,
+				HasItem:       item.ID != "",
+				Rev:           a.compare.Rev + 1,
+			}
+			compareRev = a.compare.Rev
+			if ws.CompareSplit > 0 && ws.CompareSplit < 1 {
+				a.compareSplitSlider.Value = ws.CompareSplit
 			}
 		}
 	}
+	workspaceID := a.activeWorkspaceID
+	a.mu.Lock()
+	a.pruneImageCacheLocked()
+	a.mu.Unlock()
 	a.invalidateNow()
+	a.startAsyncWorkspaceResultImageLoad(workspaceID, resultRev, a.result)
+	a.startAsyncWorkspaceCompareImageLoad(workspaceID, compareRev, a.compare)
+}
+
+func (a *App) startAsyncWorkspaceResultImageLoad(workspaceID string, rev int, state resultState) {
+	if strings.TrimSpace(state.SavedPath) == "" && state.Item.ID == "" && strings.TrimSpace(state.Item.ImageB64) == "" {
+		return
+	}
+	go func() {
+		img := a.loadCanvasDisplayImageForState(state.SavedPath, state)
+		if img == nil {
+			return
+		}
+		a.mu.Lock()
+		if a.activeWorkspaceID != workspaceID || a.result.Rev != rev || a.result.SavedPath != state.SavedPath || a.result.Item.ID != state.Item.ID {
+			a.mu.Unlock()
+			return
+		}
+		a.result.Image = img
+		a.result.Rev++
+		a.imageOpRev = 0
+		a.mu.Unlock()
+		a.invalidateSoon(33 * time.Millisecond)
+	}()
+}
+
+func (a *App) startAsyncWorkspaceCompareImageLoad(workspaceID string, rev int, state resultState) {
+	if strings.TrimSpace(state.SavedPath) == "" && state.Item.ID == "" && strings.TrimSpace(state.Item.ImageB64) == "" {
+		return
+	}
+	go func() {
+		img := a.loadCanvasDisplayImageForState(state.SavedPath, state)
+		if img == nil {
+			return
+		}
+		a.mu.Lock()
+		if a.activeWorkspaceID != workspaceID || a.compare.Rev != rev || a.compare.SavedPath != state.SavedPath || a.compare.Item.ID != state.Item.ID {
+			a.mu.Unlock()
+			return
+		}
+		a.compare.Image = img
+		a.compare.Rev++
+		a.compareImageOpRev = 0
+		a.mu.Unlock()
+		a.invalidateSoon(33 * time.Millisecond)
+	}()
 }
 
 func (a *App) createWorkspace() {
@@ -211,6 +258,8 @@ func (a *App) createWorkspace() {
 		ResultGridOpen:    false,
 	}
 	a.workspaces = append(a.workspaces, ws)
+	a.workspaceButtons = map[string]*widget.Clickable{}
+	a.closeWorkspaceButtons = map[string]*widget.Clickable{}
 	a.activeWorkspaceID = ws.ID
 	a.applyWorkspace(ws)
 }
@@ -257,10 +306,17 @@ func (a *App) closeWorkspace(id string) {
 		next = append(next, ws)
 	}
 	a.workspaces = next
+	a.workspaceButtons = map[string]*widget.Clickable{}
+	a.closeWorkspaceButtons = map[string]*widget.Clickable{}
 	if a.activeWorkspaceID == id && len(next) > 0 {
 		a.activeWorkspaceID = next[0].ID
 		a.applyWorkspace(next[0])
+		return
 	}
+	a.mu.Lock()
+	a.pruneImageCacheLocked()
+	a.mu.Unlock()
+	a.invalidateNow()
 }
 
 func (a *App) startWorkspaceRename(id string) {

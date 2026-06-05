@@ -12,8 +12,7 @@ import (
 	"gioui.org/widget/material"
 )
 
-func (a *App) layoutRawResponseModal(gtx layout.Context) layout.Dimensions {
-	snap := a.readSnapshot()
+func (a *App) layoutRawResponseModal(gtx layout.Context, snap snapshot) layout.Dimensions {
 	path := strings.TrimSpace(snap.RawResponseModalPath)
 	if path == "" && strings.TrimSpace(snap.RawResponseModalError) == "" && strings.TrimSpace(snap.RawResponseModalText) == "" {
 		return layout.Dimensions{}

@@ -38,6 +38,7 @@ type Settings struct {
 	PromptHistory        []string `json:"promptHistory,omitempty"`
 	Presets              []Preset `json:"presets,omitempty"`
 	KernelRuntimeMode    string   `json:"kernelRuntimeMode,omitempty"`
+	ReducedEffects       bool     `json:"reducedEffects,omitempty"`
 	TrustedOutputRoots   []string `json:"trustedOutputRoots,omitempty"`
 	SavePromptSuppressed bool     `json:"savePromptSuppressed,omitempty"`
 	KeepLogs             bool     `json:"keepLogs,omitempty"`
@@ -78,6 +79,7 @@ type HistoryItem struct {
 	ImageID           string   `json:"imageId,omitempty"`
 	PreviewURL        string   `json:"previewUrl,omitempty"`
 	FullURL           string   `json:"fullUrl,omitempty"`
+	PreviewPath       string   `json:"previewPath,omitempty"`
 	ThumbPath         string   `json:"thumbPath,omitempty"`
 	PreviewWidth      int      `json:"previewWidth,omitempty"`
 	PreviewHeight     int      `json:"previewHeight,omitempty"`

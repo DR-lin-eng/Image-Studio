@@ -1,4 +1,4 @@
-import type { APIMode, QualityValue, RequestPolicy } from "../../types/domain";
+import type { APIMode, QualityValue, RequestPolicy, SourceImage } from "../../types/domain";
 import {
   type AspectPreset,
   type AspectPresetOption,
@@ -33,6 +33,7 @@ export function MacComposePanel({
   onOpenCustomAspectRatioModal,
   selectSourceImage,
   clearSources,
+  viewSourceOnCanvas,
   quality,
   qualityOptions,
   Seg,
@@ -52,7 +53,7 @@ export function MacComposePanel({
   availableResolutions: ResolutionPreset[];
   batchCount: number;
   mode: string;
-  sources: Array<{ path: string }>;
+  sources: SourceImage[];
   currentImage: { savedPath?: string } | null;
   apiMode: APIMode;
   requestPolicy: RequestPolicy;
@@ -63,6 +64,7 @@ export function MacComposePanel({
   onOpenCustomAspectRatioModal: () => void;
   selectSourceImage: () => void;
   clearSources: () => void;
+  viewSourceOnCanvas: (index: number) => void;
   quality: QualityValue;
   qualityOptions: Array<{ value: QualityValue; label: string }>;
   Seg: (props: { children: React.ReactNode }) => React.ReactNode;
@@ -111,6 +113,7 @@ export function MacComposePanel({
               clearSources={clearSources}
               currentImageSavedPath={currentImage?.savedPath ?? null}
               selectSourceImage={selectSourceImage}
+              viewSourceOnCanvas={viewSourceOnCanvas}
               sources={sources}
             />
           )}

@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronRight } from "lucide-react";
-import type { APIMode, Mode, QualityValue, RequestPolicy, SizeValue } from "../../types/domain";
+import type { APIMode, Mode, QualityValue, RequestPolicy, SizeValue, SourceImage } from "../../types/domain";
 import { DesktopComposeSections } from "./DesktopComposeSections";
 import type { AspectPreset, AspectPresetOption, ResolutionPreset } from "./sizeCapabilities";
 
@@ -24,6 +24,7 @@ export function WindowsComposePanel({
   imageModelID,
   onOpenCustomAspectRatioModal,
   mode,
+  onPreviewSource,
   onRemoveSource,
   quality,
   qualityOptions,
@@ -54,6 +55,7 @@ export function WindowsComposePanel({
   imageModelID: string;
   onOpenCustomAspectRatioModal: () => void;
   mode: Mode;
+  onPreviewSource: (index: number) => void;
   onRemoveSource: (index: number) => void;
   quality: QualityValue;
   qualityOptions: Array<{ value: QualityValue; label: string }>;
@@ -61,7 +63,7 @@ export function WindowsComposePanel({
   selectSourceImage: () => void;
   setField: (key: "styleTag" | "quality" | "batchCount" | "size", value: any) => void;
   size: SizeValue;
-  sources: Array<{ path: string; name: string }>;
+  sources: SourceImage[];
   apiMode: APIMode;
 }) {
   const sourceLabel = mode === "edit"
@@ -114,6 +116,7 @@ export function WindowsComposePanel({
             imageModelID={imageModelID}
             onOpenCustomAspectRatioModal={onOpenCustomAspectRatioModal}
             mode={mode}
+            onPreviewSource={onPreviewSource}
             onRemoveSource={onRemoveSource}
             quality={quality}
             qualityOptions={qualityOptions}

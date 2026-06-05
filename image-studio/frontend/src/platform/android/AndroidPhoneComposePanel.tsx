@@ -39,7 +39,7 @@ export function AndroidPhoneComposePanel({
     isRunning, lastPayload, isOptimizingPrompt, apiMode, requestPolicy, baseURL, profiles, imageModelID,
     customAspectRatios,
     setField, clearError, pushToast, selectSourceImage,
-    removeSource, clearSources, openCustomAspectRatioModal, openUpstreamConfig, submit, cancel, retryLast, optimizePrompt,
+    removeSource, clearSources, viewSourceOnCanvas, openCustomAspectRatioModal, openUpstreamConfig, submit, cancel, retryLast, optimizePrompt,
   } = useStudioStore();
   const [templateOpen, setTemplateOpen] = useState(false);
   const [parametersOpen, setParametersOpen] = useState(false);
@@ -283,6 +283,7 @@ export function AndroidPhoneComposePanel({
           currentImage={currentImage}
           editSourceLabel={editSourceLabel}
           onSelectSource={handleSelectSource}
+          onViewSource={(index) => void viewSourceOnCanvas(index)}
           removeSource={removeSource}
           sources={sources}
         />

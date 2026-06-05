@@ -42,7 +42,7 @@ export function ControlPanel({
     apiMode, requestPolicy, baseURL, profiles, imageModelID,
     customAspectRatios,
     setField, clearError, pushToast,
-    selectSourceImage, removeSource, clearSources,
+    selectSourceImage, removeSource, clearSources, viewSourceOnCanvas,
     openCustomAspectRatioModal,
     openUpstreamConfig,
     submit, cancel, retryLast, optimizePrompt,
@@ -217,6 +217,7 @@ export function ControlPanel({
           onOpenCustomAspectRatioModal={openCustomAspectRatioModal}
           usesFluentUI={usesFluentUI}
           mode={mode}
+          onPreviewSource={(index) => void viewSourceOnCanvas(index)}
           onRemoveSource={removeSource}
           quality={normalizedQuality}
           qualityOptions={qualityOptions}
@@ -251,6 +252,7 @@ export function ControlPanel({
           allowCustomAspectRatios={allowCustomAspectRatios}
           onOpenCustomAspectRatioModal={openCustomAspectRatioModal}
           mode={mode}
+          onPreviewSource={(index) => void viewSourceOnCanvas(index)}
           onRemoveSource={removeSource}
           quality={normalizedQuality}
           qualityOptions={qualityOptions}
@@ -290,6 +292,7 @@ export function ControlPanel({
           onOpenCustomAspectRatioModal={openCustomAspectRatioModal}
           selectSourceImage={selectSourceImage}
           clearSources={clearSources}
+          viewSourceOnCanvas={(index) => void viewSourceOnCanvas(index)}
           quality={normalizedQuality}
           qualityOptions={qualityOptions}
           Seg={Seg as any}

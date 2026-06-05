@@ -36,7 +36,7 @@ export function AndroidPadComposePanel({
     apiKey, mode, prompt, background, imageStyle, inputFidelity, moderation, negativePrompt, outputCompression, size, quality, seed, styleTag, outputFormat,
     userIdentifier, partialImages,
     batchCount, loopGeneration, sources, currentImage, isRunning, isOptimizingPrompt, apiMode, requestPolicy, baseURL, imageModelID,
-    profiles, customAspectRatios, setField, selectSourceImage, removeSource, clearSources,
+    profiles, customAspectRatios, setField, selectSourceImage, removeSource, clearSources, viewSourceOnCanvas,
     openCustomAspectRatioModal,
     openUpstreamConfig, submit, cancel, optimizePrompt,
   } = useStudioStore();
@@ -245,13 +245,14 @@ export function AndroidPadComposePanel({
           <div className="android-pad-right-stack">
             {mode === "edit" ? (
               <AndroidPadSourceSection
-                clearSources={clearSources}
-                currentImage={currentImage}
-                editSourceLabel={editSourceLabel}
-                onSelectSource={handleSelectSource}
-                removeSource={removeSource}
-                sources={sources}
-              />
+              clearSources={clearSources}
+              currentImage={currentImage}
+              editSourceLabel={editSourceLabel}
+              onSelectSource={handleSelectSource}
+              onViewSource={(index) => void viewSourceOnCanvas(index)}
+              removeSource={removeSource}
+              sources={sources}
+            />
             ) : (
               <section className="platform-card android-pad-source-placeholder">
                 <ImagePlus className="h-4 w-4" />

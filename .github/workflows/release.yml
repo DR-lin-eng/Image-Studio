@@ -169,8 +169,22 @@ jobs:
             echo "artifact_path=${artifact_path}"
           } >> "$GITHUB_OUTPUT"
 
+      - name: Detect Windows signing inputs
+        id: windows_signing
+        if: matrix.goos == 'windows'
+        shell: bash
+        env:
+          IMAGE_STUDIO_WINDOWS_CERT_BASE64: ${{ secrets.IMAGE_STUDIO_WINDOWS_CERT_BASE64 }}
+          IMAGE_STUDIO_WINDOWS_CERT_PASSWORD: ${{ secrets.IMAGE_STUDIO_WINDOWS_CERT_PASSWORD }}
+        run: |
+          if [ -n "$IMAGE_STUDIO_WINDOWS_CERT_BASE64" ] && [ -n "$IMAGE_STUDIO_WINDOWS_CERT_PASSWORD" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Sign Windows artifact
-        if: matrix.goos == 'windows' && secrets.IMAGE_STUDIO_WINDOWS_CERT_BASE64 != '' && secrets.IMAGE_STUDIO_WINDOWS_CERT_PASSWORD != ''
+        if: matrix.goos == 'windows' && steps.windows_signing.outputs.available == 'true'
         shell: pwsh
         env:
           IMAGE_STUDIO_WINDOWS_CERT_BASE64: ${{ secrets.IMAGE_STUDIO_WINDOWS_CERT_BASE64 }}
@@ -180,7 +194,7 @@ jobs:
           ./scripts/sign-windows-binary.ps1 -Path "${{ steps.package.outputs.artifact_path }}"
 
       - name: Warn on unsigned Windows artifacts
-        if: matrix.goos == 'windows' && (secrets.IMAGE_STUDIO_WINDOWS_CERT_BASE64 == '' || secrets.IMAGE_STUDIO_WINDOWS_CERT_PASSWORD == '')
+        if: matrix.goos == 'windows' && steps.windows_signing.outputs.available != 'true'
         shell: bash
         run: |
           echo "::warning::Windows artifact is unsigned. Windows 11 Smart App Control / SmartScreen may block it."
@@ -238,8 +252,21 @@ jobs:
             echo "artifact_path=${artifact_path}"
           } >> "$GITHUB_OUTPUT"
 
+      - name: Detect Windows signing inputs
+        id: windows_signing
+        shell: bash
+        env:
+          IMAGE_STUDIO_WINDOWS_CERT_BASE64: ${{ secrets.IMAGE_STUDIO_WINDOWS_CERT_BASE64 }}
+          IMAGE_STUDIO_WINDOWS_CERT_PASSWORD: ${{ secrets.IMAGE_STUDIO_WINDOWS_CERT_PASSWORD }}
+        run: |
+          if [ -n "$IMAGE_STUDIO_WINDOWS_CERT_BASE64" ] && [ -n "$IMAGE_STUDIO_WINDOWS_CERT_PASSWORD" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Sign Windows installer
-        if: secrets.IMAGE_STUDIO_WINDOWS_CERT_BASE64 != '' && secrets.IMAGE_STUDIO_WINDOWS_CERT_PASSWORD != ''
+        if: steps.windows_signing.outputs.available == 'true'
         shell: pwsh
         env:
           IMAGE_STUDIO_WINDOWS_CERT_BASE64: ${{ secrets.IMAGE_STUDIO_WINDOWS_CERT_BASE64 }}
@@ -249,7 +276,7 @@ jobs:
           ./scripts/sign-windows-binary.ps1 -Path "${{ steps.package.outputs.artifact_path }}"
 
       - name: Warn on unsigned Windows installer
-        if: secrets.IMAGE_STUDIO_WINDOWS_CERT_BASE64 == '' || secrets.IMAGE_STUDIO_WINDOWS_CERT_PASSWORD == ''
+        if: steps.windows_signing.outputs.available != 'true'
         shell: bash
         run: |
           echo "::warning::Windows installer is unsigned. Windows 11 Smart App Control / SmartScreen may block it."
@@ -430,8 +457,22 @@ jobs:
             echo "artifact_path=${artifact_path}"
           } >> "$GITHUB_OUTPUT"
 
+      - name: Detect Windows signing inputs
+        id: windows_signing
+        if: matrix.goos == 'windows'
+        shell: bash
+        env:
+          IMAGE_STUDIO_WINDOWS_CERT_BASE64: ${{ secrets.IMAGE_STUDIO_WINDOWS_CERT_BASE64 }}
+          IMAGE_STUDIO_WINDOWS_CERT_PASSWORD: ${{ secrets.IMAGE_STUDIO_WINDOWS_CERT_PASSWORD }}
+        run: |
+          if [ -n "$IMAGE_STUDIO_WINDOWS_CERT_BASE64" ] && [ -n "$IMAGE_STUDIO_WINDOWS_CERT_PASSWORD" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Sign Gio Windows artifact
-        if: matrix.goos == 'windows' && secrets.IMAGE_STUDIO_WINDOWS_CERT_BASE64 != '' && secrets.IMAGE_STUDIO_WINDOWS_CERT_PASSWORD != ''
+        if: matrix.goos == 'windows' && steps.windows_signing.outputs.available == 'true'
         shell: pwsh
         env:
           IMAGE_STUDIO_WINDOWS_CERT_BASE64: ${{ secrets.IMAGE_STUDIO_WINDOWS_CERT_BASE64 }}
@@ -441,7 +482,7 @@ jobs:
           ./scripts/sign-windows-binary.ps1 -Path "${{ steps.package.outputs.artifact_path }}"
 
       - name: Warn on unsigned Gio Windows artifacts
-        if: matrix.goos == 'windows' && (secrets.IMAGE_STUDIO_WINDOWS_CERT_BASE64 == '' || secrets.IMAGE_STUDIO_WINDOWS_CERT_PASSWORD == '')
+        if: matrix.goos == 'windows' && steps.windows_signing.outputs.available != 'true'
         shell: bash
         run: |
           echo "::warning::Windows artifact is unsigned. Windows 11 Smart App Control / SmartScreen may block it."

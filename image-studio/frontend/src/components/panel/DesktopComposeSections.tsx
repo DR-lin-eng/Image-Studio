@@ -21,7 +21,9 @@ export function DesktopComposeSections({
   activeAspect,
   aspectOptions,
   activeResolution,
+  exactSizeLabel,
   allowCustomAspectRatios,
+  allowPreciseSizeControl,
   apiMode,
   batchCount,
   clearSources,
@@ -30,6 +32,7 @@ export function DesktopComposeSections({
   handleResolutionSelect,
   imageModelID,
   onOpenCustomAspectRatioModal,
+  onOpenCustomSizeModal,
   onRemoveSource,
   onPreviewSource,
   mode,
@@ -44,10 +47,12 @@ export function DesktopComposeSections({
   usesFluentUI,
   availableResolutions,
 }: {
-  activeAspect: AspectPreset;
+  activeAspect: AspectPreset | null;
   aspectOptions: AspectPresetOption[];
-  activeResolution: ResolutionPreset;
+  activeResolution: ResolutionPreset | null;
+  exactSizeLabel?: string | null;
   allowCustomAspectRatios: boolean;
+  allowPreciseSizeControl: boolean;
   apiMode: "responses" | "images";
   batchCount: number;
   clearSources: () => void;
@@ -56,6 +61,7 @@ export function DesktopComposeSections({
   handleResolutionSelect: (resolution: ResolutionPreset) => void;
   imageModelID: string;
   onOpenCustomAspectRatioModal: () => void;
+  onOpenCustomSizeModal: () => void;
   usesFluentUI: boolean;
   mode: Mode;
   onRemoveSource: (index: number) => void;
@@ -139,6 +145,17 @@ export function DesktopComposeSections({
       </Section>
 
       <Section label="分辨率">
+        {allowPreciseSizeControl ? (
+          <div className="mb-2 flex justify-end">
+            <button
+              type="button"
+              onClick={onOpenCustomSizeModal}
+              className="text-[11px] text-[var(--accent)] transition-opacity hover:opacity-80"
+            >
+              {exactSizeLabel ? "修改精确尺寸" : "精确尺寸"}
+            </button>
+          </div>
+        ) : null}
         <Seg>
           {RESOLUTION_PRESETS.filter((item) => availableResolutions.includes(item.value)).map((item) => (
             <SegItem
@@ -150,6 +167,11 @@ export function DesktopComposeSections({
             </SegItem>
           ))}
         </Seg>
+        {exactSizeLabel ? (
+          <p className="mt-1.5 text-[10px] leading-relaxed text-zinc-500 dark:text-zinc-400">
+            当前精确尺寸 {exactSizeLabel}。点击比例或分辨率预设后会切回预设档位。
+          </p>
+        ) : null}
         {sizeCapabilityHint({ apiMode, requestPolicy, imageModelID }) ? (
           <p className="mt-1.5 text-[10px] leading-relaxed text-zinc-500 dark:text-zinc-400">
             {sizeCapabilityHint({ apiMode, requestPolicy, imageModelID })}
@@ -175,20 +197,25 @@ export function DesktopComposeSections({
         label="出图张数"
         trailing={<span className="font-mono-token text-[10px] text-zinc-400">{batchCount}x</span>}
       >
-        <div className="grid grid-cols-3 gap-2">
+        <div className={`grid grid-cols-3 gap-2 ${usesFluentUI ? "windows-batch-count-grid" : ""}`}>
           {[1, 2, 4, 6, 8, 9].map((count) => (
             <button
               key={count}
               type="button"
+              aria-pressed={batchCount === count}
+              data-active={batchCount === count ? "true" : "false"}
               onClick={() => setField("batchCount", count)}
               title={`同一提示词发起 ${count} 次请求`}
-              className={`flex items-center justify-center border text-xs font-medium transition-colors ${
+              className={`windows-batch-count-button flex items-center justify-center border text-xs font-medium transition-colors ${
                 batchCount === count
                   ? "border-[color:var(--accent)]/35 bg-[var(--accent-soft)] text-[var(--accent)]"
                   : "border-black/[0.08] text-zinc-600 hover:border-[color:var(--accent)]/30 hover:text-zinc-900 dark:border-white/[0.08] dark:text-zinc-400 dark:hover:text-zinc-200"
               } ${usesFluentUI ? "h-9 rounded-[8px]" : "h-9 rounded-[12px]"}`}
             >
-              {count}
+              <span className="windows-batch-count-content">
+                <span className="windows-batch-count-value">{count}</span>
+                <span className="windows-batch-count-unit">张</span>
+              </span>
             </button>
           ))}
         </div>

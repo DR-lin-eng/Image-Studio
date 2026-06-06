@@ -15,6 +15,9 @@ func TestCompareSemver(t *testing.T) {
 		{name: "strip v prefix", a: "v1.2.0", b: "1.1.9", want: 1},
 		{name: "release beats prerelease", a: "1.2.0", b: "1.2.0-beta.1", want: 1},
 		{name: "prerelease lower than release", a: "1.2.0-beta.1", b: "1.2.0", want: -1},
+		{name: "build metadata ignored", a: "1.1.12+abc123", b: "1.1.12+def456", want: 0},
+		{name: "ci prerelease newer than old stable", a: "1.1.12-ci.37.1+f1b0c7428c17", b: "0.1.5", want: 1},
+		{name: "numeric prerelease identifiers compare numerically", a: "1.1.12-ci.10", b: "1.1.12-ci.2", want: 1},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -34,6 +37,9 @@ func TestCompareSemver(t *testing.T) {
 func TestNormalizeReleaseVersion(t *testing.T) {
 	if got := normalizeReleaseVersion(" v1.1.6 "); got != "1.1.6" {
 		t.Fatalf("normalizeReleaseVersion() = %q, want 1.1.6", got)
+	}
+	if got := normalizeReleaseVersion("1.1.12-ci.37.1+f1b0c7428c17"); got != "1.1.12-ci.37.1+f1b0c7428c17" {
+		t.Fatalf("normalizeReleaseVersion() = %q, want ci version", got)
 	}
 	if got := normalizeReleaseVersion("release-1.1.6"); got != "" {
 		t.Fatalf("normalizeReleaseVersion() = %q, want empty", got)

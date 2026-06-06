@@ -25,7 +25,7 @@ const (
 	updateRequestTimeout    = 8 * time.Second
 )
 
-var semverPattern = regexp.MustCompile(`^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$`)
+var semverPattern = regexp.MustCompile(`^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$`)
 
 type AppUpdateInfo struct {
 	CurrentVersion string `json:"currentVersion"`
@@ -195,14 +195,14 @@ func compareSemver(a, b string) int {
 		}
 		return -1
 	}
-	return compareSemverSuffix(pa.suffix, pb.suffix)
+	return compareSemverSuffix(pa.prerelease, pb.prerelease)
 }
 
 type parsedSemver struct {
-	major  int
-	minor  int
-	patch  int
-	suffix string
+	major      int
+	minor      int
+	patch      int
+	prerelease []string
 }
 
 func parseSemver(input string) (parsedSemver, bool) {
@@ -210,11 +210,15 @@ func parseSemver(input string) (parsedSemver, bool) {
 	if value == "" {
 		return parsedSemver{}, false
 	}
-	core := value
-	suffix := ""
-	if idx := strings.IndexAny(value, "-+"); idx >= 0 {
-		core = value[:idx]
-		suffix = value[idx:]
+	withoutBuild := value
+	if idx := strings.Index(withoutBuild, "+"); idx >= 0 {
+		withoutBuild = withoutBuild[:idx]
+	}
+	core := withoutBuild
+	var prerelease []string
+	if idx := strings.Index(core, "-"); idx >= 0 {
+		prerelease = strings.Split(core[idx+1:], ".")
+		core = core[:idx]
 	}
 	parts := strings.Split(core, ".")
 	if len(parts) != 3 {
@@ -233,22 +237,71 @@ func parseSemver(input string) (parsedSemver, bool) {
 		return parsedSemver{}, false
 	}
 	return parsedSemver{
-		major:  major,
-		minor:  minor,
-		patch:  patch,
-		suffix: suffix,
+		major:      major,
+		minor:      minor,
+		patch:      patch,
+		prerelease: prerelease,
 	}, true
 }
 
-func compareSemverSuffix(a, b string) int {
-	if a == b {
+func compareSemverSuffix(a, b []string) int {
+	if len(a) == 0 && len(b) == 0 {
 		return 0
 	}
-	if a == "" {
+	if len(a) == 0 {
 		return 1
 	}
-	if b == "" {
+	if len(b) == 0 {
 		return -1
 	}
-	return strings.Compare(a, b)
+	limit := len(a)
+	if len(b) < limit {
+		limit = len(b)
+	}
+	for i := 0; i < limit; i++ {
+		if a[i] == b[i] {
+			continue
+		}
+		aNum, aNumOK := parseNumericPrereleaseIdentifier(a[i])
+		bNum, bNumOK := parseNumericPrereleaseIdentifier(b[i])
+		switch {
+		case aNumOK && bNumOK:
+			if aNum > bNum {
+				return 1
+			}
+			return -1
+		case aNumOK:
+			return -1
+		case bNumOK:
+			return 1
+		default:
+			if a[i] > b[i] {
+				return 1
+			}
+			return -1
+		}
+	}
+	if len(a) > len(b) {
+		return 1
+	}
+	if len(a) < len(b) {
+		return -1
+	}
+	return 0
+}
+
+func parseNumericPrereleaseIdentifier(input string) (int, bool) {
+	if input == "" {
+		return 0, false
+	}
+	for _, ch := range input {
+		if ch < '0' || ch > '9' {
+			return 0, false
+		}
+	}
+	value, err := strconv.Atoi(input)
+	if err != nil {
+		return 0, false
+	}
+	return value, true
 }

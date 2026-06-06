@@ -1687,6 +1687,7 @@ func (a *App) createSettingsProfile(apiMode string) error {
 		ImagesNewAPICompat: false,
 		TextModelID:        client.TextModel,
 		ImageModelID:       client.ImageModel,
+		ReasoningEffort:    "xhigh",
 		CreatedAt:          now,
 		LastUsedAt:         now,
 	}
@@ -1915,6 +1916,7 @@ func (a *App) createBlankProfileWithMode(apiMode string) {
 		ImagesNewAPICompat: false,
 		TextModelID:        client.TextModel,
 		ImageModelID:       client.ImageModel,
+		ReasoningEffort:    "xhigh",
 		CreatedAt:          now,
 		LastUsedAt:         now,
 	}

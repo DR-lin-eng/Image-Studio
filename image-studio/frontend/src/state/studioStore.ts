@@ -446,6 +446,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   baseURL: "",
   textModelID: "",
   imageModelID: "",
+  reasoningEffort: "xhigh",
   proxyMode: "system",
   proxyURL: "",
   apiMode: "responses",
@@ -661,7 +662,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     // 这些字段必须走 updateProfile / setActiveProfile 这两个 action。开发期
     // 抓一下,生产期还是 set 一下顶层让 UI 不爆炸。
     if (key === "apiMode" || key === "baseURL" || key === "apiKey" ||
-        key === "textModelID" || key === "imageModelID") {
+        key === "textModelID" || key === "imageModelID" || key === "reasoningEffort") {
       if (typeof console !== "undefined") {
         console.warn(`setField("${String(key)}", ...) 不写持久化;改这个字段请用 updateProfile / setActiveProfile`);
       }
@@ -942,6 +943,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       baseURL: cleanedBaseURL,
       textModelID: s.textModelID,
       imageModelID: s.imageModelID,
+      reasoningEffort: s.reasoningEffort,
       proxyMode: s.proxyMode,
       proxyURL: s.proxyURL,
       requestPolicy: s.requestPolicy,
@@ -1070,6 +1072,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
         baseURL: preview.profile.baseURL,
         textModelID: preview.profile.textModelID,
         imageModelID: preview.profile.imageModelID,
+        reasoningEffort: preview.profile.reasoningEffort,
         proxyMode: "system",
         proxyURL: "",
         apiMode: preview.profile.apiMode,
@@ -1263,6 +1266,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
           baseURL: legacyResponses.baseURL,
           textModelID: legacyResponses.textModelID,
           imageModelID: legacyResponses.imageModelID,
+          reasoningEffort: "xhigh",
           concurrencyLimit: normalizeConcurrencyLimit(legacyResponses.concurrencyLimit),
           createdAt: Date.now(),
           lastUsedAt: legacyApiMode === "responses" ? Date.now() : undefined,
@@ -1282,6 +1286,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
           baseURL: legacyImages.baseURL,
           textModelID: legacyImages.textModelID,
           imageModelID: legacyImages.imageModelID,
+          reasoningEffort: "xhigh",
           concurrencyLimit: normalizeConcurrencyLimit(legacyImages.concurrencyLimit),
           createdAt: Date.now(),
           lastUsedAt: legacyApiMode === "images" ? Date.now() : undefined,
@@ -1317,6 +1322,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     const baseURL = activeProfile?.baseURL ?? "";
     const textModelID = activeProfile?.textModelID ?? "";
     const imageModelID = activeProfile?.imageModelID ?? "";
+    const reasoningEffort = activeProfile?.reasoningEffort ?? "xhigh";
     const activeKey = activeProfile
       ? await GetStoredAPIKey(keyringUserFor(activeProfile.id)).catch(() => "")
       : "";
@@ -1383,7 +1389,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       historyHasMore,
       historyLoading: false,
       historyCursorBeforeDayStart: initialHistoryPage.nextCursor?.beforeDayStart ?? null,
-      apiMode, requestPolicy, imagesNewAPICompat, baseURL, textModelID, imageModelID, kernelRuntimeMode, noPromptRevision,
+      apiMode, requestPolicy, imagesNewAPICompat, baseURL, textModelID, imageModelID, reasoningEffort, kernelRuntimeMode, noPromptRevision,
       proxyMode: proxyConfig.mode,
       proxyURL: proxyConfig.url,
       outputFormat,

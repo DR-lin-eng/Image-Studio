@@ -8,6 +8,7 @@ export const DEFAULT_OUTPUT_COMPRESSION = 100;
 export const DEFAULT_INPUT_FIDELITY = "auto";
 export const DEFAULT_IMAGE_STYLE = "default";
 export const DEFAULT_MODERATION = "low";
+export const DEFAULT_REASONING_EFFORT = "xhigh";
 export const DEFAULT_REQUEST_POLICY = "openai";
 export const DEFAULT_PARTIAL_IMAGES = 1;
 export const MAX_ATTEMPTS = 3;
@@ -74,6 +75,12 @@ export function normalizeImageStyle(value) {
 
 export function normalizeModeration(value) {
   return value === "auto" ? "auto" : DEFAULT_MODERATION;
+}
+
+export function normalizeReasoningEffort(value) {
+  return value === "low" || value === "medium" || value === "high" || value === "xhigh"
+    ? value
+    : DEFAULT_REASONING_EFFORT;
 }
 
 export function normalizePartialImages(value) {
@@ -203,7 +210,7 @@ export function buildResponsesPayload(payload, sourceDataURLs, options = {}) {
     input: [{ role: "user", content }],
     tools: [tool],
     tool_choice: { type: "image_generation" },
-    reasoning: { effort: "xhigh" },
+    reasoning: { effort: normalizeReasoningEffort(payload.reasoningEffort) },
     store: false,
     stream: true,
   };

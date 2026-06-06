@@ -38,6 +38,7 @@ func BuildPayload(opts Options) ([]byte, error) {
 	outputCompression := normalizeOutputCompression(opts.OutputCompression)
 	inputFidelity := normalizeInputFidelity(opts.InputFidelity)
 	moderation := normalizeModeration(opts.Moderation)
+	reasoningEffort := normalizeReasoningEffort(opts.ReasoningEffort)
 	userIdentifier := normalizeUserIdentifier(opts.UserIdentifier)
 	includeExtended := shouldSendExtendedImageParameters(opts.RequestPolicy)
 
@@ -108,7 +109,7 @@ func BuildPayload(opts Options) ([]byte, error) {
 		},
 		"tools":       []map[string]any{tool},
 		"tool_choice": map[string]any{"type": "image_generation"},
-		"reasoning":   map[string]any{"effort": "xhigh"},
+		"reasoning":   map[string]any{"effort": reasoningEffort},
 		"store":       false,
 		"stream":      true,
 	}
@@ -158,6 +159,21 @@ func normalizeModeration(value string) string {
 		return "auto"
 	}
 	return DefaultModeration
+}
+
+func normalizeReasoningEffort(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "low":
+		return "low"
+	case "medium":
+		return "medium"
+	case "high":
+		return "high"
+	case "xhigh":
+		return "xhigh"
+	default:
+		return DefaultReasoningEffort
+	}
 }
 
 func normalizeBackground(value string) string {

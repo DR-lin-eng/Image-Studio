@@ -329,6 +329,7 @@ func (a *App) applyCodexConfigSync(imported codexAPIConfig) error {
 			BaseURL:            imported.BaseURL,
 			TextModelID:        client.TextModel,
 			ImageModelID:       client.ImageModel,
+			ReasoningEffort:    "xhigh",
 			CreatedAt:          now,
 			LastUsedAt:         now,
 		})

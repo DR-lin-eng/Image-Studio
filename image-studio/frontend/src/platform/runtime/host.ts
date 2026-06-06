@@ -652,16 +652,14 @@ export async function probeCurrentUpstream(
   proxyMode = "system",
   proxyURL = "",
   signal?: AbortSignal,
-): Promise<void> {
+): Promise<ProbeUpstreamResultLike> {
   if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
   const options: ProbeUpstreamOptionsLike = { baseURL, apiKey, proxyMode, proxyURL };
   if (hasServiceMethod("ProbeUpstream")) {
-    await invokeService<ProbeUpstreamResultLike>(unsupportedMessage, "ProbeUpstream", options);
-    return;
+    return invokeService<ProbeUpstreamResultLike>(unsupportedMessage, "ProbeUpstream", options);
   }
   if (canInvokeAndroidMethod("ProbeUpstream")) {
-    await invokeAndroid<ProbeUpstreamResultLike>(unsupportedMessage, "ProbeUpstream", options);
-    return;
+    return invokeAndroid<ProbeUpstreamResultLike>(unsupportedMessage, "ProbeUpstream", options);
   }
   throw new Error(unsupportedMessage("ProbeUpstream"));
 }

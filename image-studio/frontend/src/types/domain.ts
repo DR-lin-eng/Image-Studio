@@ -7,6 +7,7 @@ export type Mode = "generate" | "edit";
 // 老代码里以前是顶层全局二选一,v0.1.6 起降级成 profile 的字段。
 export type APIMode = "responses" | "images";
 export type RequestPolicy = "openai" | "compat";
+export type ReasoningEffortValue = "low" | "medium" | "high" | "xhigh";
 
 // UpstreamProfile 是一组完整可用于生成的上游配置。用户可以保存多个,例如
 // 「gptcodex 主号 / gptcodex 备号 / OpenAI 直连」,在 UI 里下拉切换 active。
@@ -23,6 +24,7 @@ export interface UpstreamProfile {
   baseURL: string;
   textModelID: string;
   imageModelID: string;
+  reasoningEffort: ReasoningEffortValue;
   // 0 = 不限。同一 profile 跨所有 workspace 共享并发计数。
   concurrencyLimit: number;
   createdAt: number;
@@ -58,6 +60,7 @@ export interface BackgroundOption { value: BackgroundValue; label: string; }
 export interface InputFidelityOption { value: InputFidelityValue; label: string; }
 export interface ImageStyleOption { value: ImageStyleValue; label: string; }
 export interface ModerationOption { value: ModerationValue; label: string; }
+export interface ReasoningEffortOption { value: ReasoningEffortValue; label: string; }
 
 export interface CustomAspectRatio {
   id: string;
@@ -118,6 +121,13 @@ export const IMAGE_STYLE_OPTIONS: ImageStyleOption[] = [
 export const MODERATION_OPTIONS: ModerationOption[] = [
   { value: "low",  label: "宽松 low" },
   { value: "auto", label: "标准 auto" },
+];
+
+export const REASONING_EFFORT_OPTIONS: ReasoningEffortOption[] = [
+  { value: "xhigh", label: "最高 xhigh" },
+  { value: "high", label: "高 high" },
+  { value: "medium", label: "中 medium" },
+  { value: "low", label: "低 low" },
 ];
 
 export interface SourceImage {

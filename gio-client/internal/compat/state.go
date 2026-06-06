@@ -167,6 +167,7 @@ func UpsertConfig(state shared.State, cfg kernel.Config) shared.State {
 		BaseURL:            strings.TrimSpace(cfg.BaseURL),
 		TextModelID:        strings.TrimSpace(cfg.TextModelID),
 		ImageModelID:       strings.TrimSpace(cfg.ImageModelID),
+		ReasoningEffort:    "xhigh",
 		ConcurrencyLimit:   0,
 		CreatedAt:          now,
 		LastUsedAt:         now,

@@ -2,13 +2,14 @@ import { useState, useEffect, useMemo } from "react";
 import { Eye, EyeOff, HelpCircle, Info, Plug, Plus, RefreshCw, Sparkles } from "lucide-react";
 import { Modal } from "../common/Modal";
 import { useStudioStore } from "../../state/studioStore";
-import { GetStoredAPIKey, LoadCodexAPIConfig, canLoadCodexAPIConfig } from "../../platform/runtime/host";
+import { GetStoredAPIKey, LoadCodexAPIConfig, canLoadCodexAPIConfig, probeCurrentUpstream } from "../../platform/runtime/host";
 import { keyringUserFor } from "../../lib/profiles";
 import type { APIMode, RequestPolicy, UpstreamProfile } from "../../types/domain";
 import { FAQModal } from "./FAQModal";
 import { UpstreamProfileEditor } from "./UpstreamProfileEditor";
 import { UpstreamProfileList } from "./UpstreamProfileList";
 import { usePlatform } from "../../platform/context";
+import { buildUpstreamModelCatalog, type UpstreamModelCatalog } from "../../lib/upstreamModels";
 
 // v0.1.6 多 profile 配置 modal。左侧 profile 列表 + 右侧编辑表单。
 // 列表点击 = 切 active(立即生效);右侧改字段 = 编辑当前选中,点保存才落盘。
@@ -38,6 +39,9 @@ export function UpstreamConfigModal({
   const [faqOpen, setFaqOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [syncingCodexConfig, setSyncingCodexConfig] = useState(false);
+  const [loadingModels, setLoadingModels] = useState(false);
+  const [modelCatalog, setModelCatalog] = useState<UpstreamModelCatalog | null>(null);
+  const [modelCatalogError, setModelCatalogError] = useState<string | null>(null);
 
   // 打开 modal / 切 selected → 重新加载草稿与 keyring 里的 apiKey
   useEffect(() => {
@@ -50,6 +54,9 @@ export function UpstreamConfigModal({
     setDraft(p);
     setDraftKey("");
     setSavedKeyLoaded(false);
+    setLoadingModels(false);
+    setModelCatalog(null);
+    setModelCatalogError(null);
     if (p) {
       GetStoredAPIKey(keyringUserFor(p.id))
         .then((k) => { setDraftKey(k ?? ""); setSavedKeyLoaded(true); })
@@ -104,6 +111,7 @@ export function UpstreamConfigModal({
           baseURL: imported.baseURL,
           textModelID: existing.textModelID,
           imageModelID: existing.imageModelID,
+          reasoningEffort: existing.reasoningEffort,
           concurrencyLimit: existing.concurrencyLimit,
           apiKey: imported.apiKey,
         });
@@ -169,6 +177,7 @@ export function UpstreamConfigModal({
       baseURL: draft.baseURL,
       textModelID: draft.textModelID,
       imageModelID: draft.imageModelID,
+      reasoningEffort: draft.reasoningEffort,
       concurrencyLimit: draft.concurrencyLimit,
       apiKey: draftKey,
     });
@@ -189,6 +198,39 @@ export function UpstreamConfigModal({
     }
     onClose();
     setTimeout(() => { void testAPIKey(); }, 0);
+  }
+
+  async function handleLoadModels() {
+    if (!draft) return;
+    const apiKey = draftKey.trim();
+    const baseURL = draft.baseURL.trim();
+    if (!apiKey) {
+      pushToast("先填入 API Key", "warn");
+      return;
+    }
+    if (!baseURL) {
+      pushToast("先填入上游 BASE_URL", "warn");
+      return;
+    }
+    setLoadingModels(true);
+    setModelCatalogError(null);
+    try {
+      const result = await probeCurrentUpstream(baseURL, apiKey);
+      const catalog = buildUpstreamModelCatalog(result.models ?? []);
+      setModelCatalog(catalog);
+      pushToast(
+        catalog.all.length > 0
+          ? `已加载 ${catalog.all.length} 个模型`
+          : `已连接上游，共返回 ${result.modelCount} 个条目，但没有可识别的模型 ID`,
+        catalog.all.length > 0 ? "success" : "warn",
+      );
+    } catch (error: any) {
+      const message = `加载模型失败:${error?.message ?? error}`;
+      setModelCatalogError(message);
+      pushToast(message, "error", 6000);
+    } finally {
+      setLoadingModels(false);
+    }
   }
 
   if (profiles.length === 0) {
@@ -317,11 +359,15 @@ export function UpstreamConfigModal({
               baseURLError={baseURLError}
               canSave={canSave}
               isTestingKey={isTestingKey}
+              loadingModels={loadingModels}
+              modelCatalog={modelCatalog}
+              modelCatalogError={modelCatalogError}
               usesAppleUI={usesAppleUI}
               onOpenFAQ={() => setFaqOpen(true)}
               onPatchDraft={patchDraft}
               onChangeDraftKey={setDraftKey}
               onToggleShowKey={() => setShowKey((v) => !v)}
+              onLoadModels={handleLoadModels}
               onTest={handleTest}
               onClose={onClose}
               onSaveAndClose={async () => { await handleSave(); onClose(); }}

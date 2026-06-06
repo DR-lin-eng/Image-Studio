@@ -155,6 +155,7 @@ function buildPreviewProfile(now: number): UpstreamProfile {
     baseURL: "https://code1.linzefeng.top",
     textModelID: "gpt-4.1-mini",
     imageModelID: "gpt-image-1",
+    reasoningEffort: "xhigh",
     concurrencyLimit: 1,
     createdAt: now,
     lastUsedAt: now,

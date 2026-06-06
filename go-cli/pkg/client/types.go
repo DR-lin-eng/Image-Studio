@@ -14,6 +14,7 @@ const (
 	DefaultInputFidelity     = "auto"
 	DefaultImageStyle        = "default"
 	DefaultModeration        = "low"
+	DefaultReasoningEffort   = "xhigh"
 	DefaultPartialImages     = 1
 	MaxInputImageBytes       = 50 * 1024 * 1024
 	MaxAttempts              = 3
@@ -199,6 +200,8 @@ type Options struct {
 	BaseURL      string
 	TextModelID  string
 	ImageModelID string
+	// ReasoningEffort controls Responses API reasoning.effort.
+	ReasoningEffort string
 
 	// Proxy controls outbound upstream HTTP(S) requests.
 	// Empty Mode defaults to system proxy settings.

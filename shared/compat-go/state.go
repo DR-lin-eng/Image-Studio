@@ -22,26 +22,26 @@ type State struct {
 }
 
 type Settings struct {
-	ProxyMode            string   `json:"proxyMode,omitempty"`
-	ProxyURL             string   `json:"proxyURL,omitempty"`
-	Theme                string   `json:"theme,omitempty"`
-	FontScale            float64  `json:"fontScale,omitempty"`
-	OutputFormat         string   `json:"outputFormat,omitempty"`
-	Background           string   `json:"background,omitempty"`
-	OutputCompression    *int     `json:"outputCompression,omitempty"`
-	InputFidelity        string   `json:"inputFidelity,omitempty"`
-	ImageStyle           string   `json:"imageStyle,omitempty"`
-	Moderation           string   `json:"moderation,omitempty"`
-	UserIdentifier       string   `json:"userIdentifier,omitempty"`
-	PartialImages        *int     `json:"partialImages,omitempty"`
-	OutputDir            string   `json:"outputDir,omitempty"`
-	PromptHistory        []string `json:"promptHistory,omitempty"`
-	Presets              []Preset `json:"presets,omitempty"`
-	KernelRuntimeMode    string   `json:"kernelRuntimeMode,omitempty"`
-	ReducedEffects       bool     `json:"reducedEffects,omitempty"`
-	TrustedOutputRoots   []string `json:"trustedOutputRoots,omitempty"`
-	SavePromptSuppressed bool     `json:"savePromptSuppressed,omitempty"`
-	KeepLogs             bool     `json:"keepLogs,omitempty"`
+	ProxyMode            string                   `json:"proxyMode,omitempty"`
+	ProxyURL             string                   `json:"proxyURL,omitempty"`
+	Theme                string                   `json:"theme,omitempty"`
+	FontScale            float64                  `json:"fontScale,omitempty"`
+	OutputFormat         string                   `json:"outputFormat,omitempty"`
+	Background           string                   `json:"background,omitempty"`
+	OutputCompression    *int                     `json:"outputCompression,omitempty"`
+	InputFidelity        string                   `json:"inputFidelity,omitempty"`
+	ImageStyle           string                   `json:"imageStyle,omitempty"`
+	Moderation           string                   `json:"moderation,omitempty"`
+	UserIdentifier       string                   `json:"userIdentifier,omitempty"`
+	PartialImages        *int                     `json:"partialImages,omitempty"`
+	OutputDir            string                   `json:"outputDir,omitempty"`
+	PromptHistory        []string                 `json:"promptHistory,omitempty"`
+	Presets              []Preset                 `json:"presets,omitempty"`
+	KernelRuntimeMode    string                   `json:"kernelRuntimeMode,omitempty"`
+	ReducedEffects       bool                     `json:"reducedEffects,omitempty"`
+	TrustedOutputRoots   []string                 `json:"trustedOutputRoots,omitempty"`
+	SavePromptSuppressed bool                     `json:"savePromptSuppressed,omitempty"`
+	KeepLogs             bool                     `json:"keepLogs,omitempty"`
 	CompletionSound      *CompletionSoundSettings `json:"completionSound,omitempty"`
 }
 
@@ -61,6 +61,7 @@ type UpstreamProfile struct {
 	BaseURL            string `json:"baseURL"`
 	TextModelID        string `json:"textModelID"`
 	ImageModelID       string `json:"imageModelID"`
+	ReasoningEffort    string `json:"reasoningEffort"`
 	ConcurrencyLimit   int    `json:"concurrencyLimit"`
 	CreatedAt          int64  `json:"createdAt"`
 	LastUsedAt         int64  `json:"lastUsedAt,omitempty"`
@@ -196,6 +197,11 @@ func Normalize(state State) State {
 	}
 	if state.Profiles == nil {
 		state.Profiles = []UpstreamProfile{}
+	}
+	for i := range state.Profiles {
+		if state.Profiles[i].ReasoningEffort == "" {
+			state.Profiles[i].ReasoningEffort = "xhigh"
+		}
 	}
 	if state.History == nil {
 		state.History = []HistoryItem{}

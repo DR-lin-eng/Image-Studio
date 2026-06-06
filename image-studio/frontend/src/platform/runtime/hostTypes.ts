@@ -19,6 +19,7 @@ export type GenerateOptionsLike = {
   baseURL: string;
   textModelID: string;
   imageModelID: string;
+  reasoningEffort?: string;
   proxyMode?: string;
   proxyURL?: string;
   apiMode: string;
@@ -59,6 +60,14 @@ export type ProbeUpstreamOptionsLike = {
 
 export type ProbeUpstreamResultLike = {
   modelCount: number;
+  models?: UpstreamModelDescriptorLike[];
+};
+
+export type UpstreamModelDescriptorLike = {
+  id: string;
+  object?: string;
+  ownedBy?: string;
+  displayName?: string;
 };
 
 export type CodexAPIConfigLike = {

@@ -46,14 +46,15 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 			},
 		},
 		Profiles: []UpstreamProfile{{
-			ID:            "p1",
-			Name:          "配置1",
-			APIMode:       "responses",
-			RequestPolicy: "openai",
-			BaseURL:       "https://upstream.example",
-			TextModelID:   "gpt-5.5",
-			ImageModelID:  "gpt-image-2",
-			CreatedAt:     100,
+			ID:              "p1",
+			Name:            "配置1",
+			APIMode:         "responses",
+			RequestPolicy:   "openai",
+			BaseURL:         "https://upstream.example",
+			TextModelID:     "gpt-5.5",
+			ImageModelID:    "gpt-image-2",
+			ReasoningEffort: "xhigh",
+			CreatedAt:       100,
 		}},
 		ActiveProfile: "p1",
 		History: []HistoryItem{{
@@ -82,7 +83,7 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 	if loaded.Settings.CompletionSound == nil || !loaded.Settings.CompletionSound.Enabled || loaded.Settings.CompletionSound.Mode != "custom" || loaded.Settings.CompletionSound.CustomName != "ding.wav" || loaded.Settings.CompletionSound.CustomData != "data:audio/wav;base64,AAAA" {
 		t.Fatalf("completion sound not preserved: %#v", loaded.Settings.CompletionSound)
 	}
-	if len(loaded.Profiles) != 1 || loaded.Profiles[0].BaseURL != "https://upstream.example" {
+	if len(loaded.Profiles) != 1 || loaded.Profiles[0].BaseURL != "https://upstream.example" || loaded.Profiles[0].ReasoningEffort != "xhigh" {
 		t.Fatalf("profiles not preserved: %#v", loaded.Profiles)
 	}
 	if len(loaded.History) != 1 || loaded.History[0].SavedPath != "/tmp/images/cat.png" {

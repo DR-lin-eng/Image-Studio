@@ -301,6 +301,7 @@ func (s *Service) runJob(ctx context.Context, jobID string, opts GenerateOptions
 		BaseURL:            opts.BaseURL,
 		TextModelID:        opts.TextModelID,
 		ImageModelID:       opts.ImageModelID,
+		ReasoningEffort:    opts.ReasoningEffort,
 		Proxy:              client.ProxyConfig{Mode: opts.ProxyMode, URL: opts.ProxyURL},
 		APIMode:            apiMode,
 		RequestPolicy:      client.RequestPolicy(strings.TrimSpace(opts.RequestPolicy)),

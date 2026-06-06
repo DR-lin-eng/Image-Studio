@@ -83,6 +83,7 @@ export interface StudioState {
   proxyMode: ProxyMode;
   proxyURL: string;
   imageModelID: string;
+  reasoningEffort: import("../types/domain").ReasoningEffortValue;
   apiMode: APIMode;
   requestPolicy: RequestPolicy;
   imagesNewAPICompat: boolean;
@@ -153,6 +154,7 @@ export interface StudioState {
     imagesNewAPICompat?: boolean;
     textModelID?: string;
     imageModelID?: string;
+    reasoningEffort?: import("../types/domain").ReasoningEffortValue;
     concurrencyLimit?: number;
     apiKey?: string;
     setActive?: boolean;

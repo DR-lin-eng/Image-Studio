@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   DEFAULT_PARTIAL_IMAGES,
+  DEFAULT_REASONING_EFFORT,
   buildResponsesPayload,
   normalizePartialImages,
 } from "../../../shared/kernel/requestModel.js";
@@ -18,6 +19,7 @@ test("Responses payload defaults partial_images to streaming preview count", () 
     requestPolicy: "openai",
   }, []);
   assert.equal(payload.tools[0].partial_images, DEFAULT_PARTIAL_IMAGES);
+  assert.equal(payload.reasoning.effort, DEFAULT_REASONING_EFFORT);
 });
 
 test("normalizePartialImages clamps OpenAI range", () => {
@@ -25,4 +27,14 @@ test("normalizePartialImages clamps OpenAI range", () => {
   assert.equal(normalizePartialImages(-1), DEFAULT_PARTIAL_IMAGES);
   assert.equal(normalizePartialImages(2.8), 2);
   assert.equal(normalizePartialImages(9), 3);
+});
+
+test("Responses payload uses configured reasoning effort", () => {
+  const payload = buildResponsesPayload({
+    prompt: "cat",
+    imageModelID: "gpt-image-2",
+    textModelID: "gpt-5.5",
+    reasoningEffort: "high",
+  }, []);
+  assert.equal(payload.reasoning.effort, "high");
 });

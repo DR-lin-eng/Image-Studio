@@ -37,9 +37,10 @@ type GenerateOptions struct {
 	ImageStyle        string `json:"imageStyle"`    // "default" | "vivid" | "natural"
 	Moderation        string `json:"moderation"`    // "low" | "auto"
 	UserIdentifier    string `json:"userIdentifier"`
-	BaseURL           string `json:"baseURL"`       // overrides the default upstream URL
-	TextModelID       string `json:"textModelID"`   // overrides the default text model
-	ImageModelID      string `json:"imageModelID"`  // overrides the default image model
+	BaseURL           string `json:"baseURL"`      // overrides the default upstream URL
+	TextModelID       string `json:"textModelID"`  // overrides the default text model
+	ImageModelID      string `json:"imageModelID"` // overrides the default image model
+	ReasoningEffort   string `json:"reasoningEffort"`
 	APIMode           string `json:"apiMode"`       // "responses" (default) | "images"
 	RequestPolicy     string `json:"requestPolicy"` // "openai" (default) | "compat"
 	// ImagesNewAPICompat 开启后仅影响 Images API 请求:
@@ -84,6 +85,14 @@ type ProbeUpstreamOptions struct {
 
 type ProbeUpstreamResult struct {
 	ModelCount int `json:"modelCount"`
+	Models     []UpstreamModelDescriptor `json:"models,omitempty"`
+}
+
+type UpstreamModelDescriptor struct {
+	ID          string `json:"id"`
+	Object      string `json:"object,omitempty"`
+	OwnedBy     string `json:"ownedBy,omitempty"`
+	DisplayName string `json:"displayName,omitempty"`
 }
 
 // CodexAPIConfig is loaded from the local Codex desktop config/auth files so

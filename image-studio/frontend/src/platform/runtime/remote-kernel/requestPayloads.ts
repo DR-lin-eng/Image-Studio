@@ -10,6 +10,7 @@ import {
   normalizeOutputCompression,
   normalizePartialImages,
   normalizeModeration,
+  normalizeReasoningEffort,
   normalizeUserIdentifier,
   shouldSendExtendedImageParameters,
   supportsImageBackground,
@@ -30,7 +31,10 @@ export function buildResponsesPayload(
   const maskMimeType = payload.maskB64
     ? (detectImageMimeTypeFromBase64(payload.maskB64) || "image/png")
     : "image/png";
-  return buildSharedResponsesPayload(payload, sourceDataURLs, { maskMimeType });
+  return buildSharedResponsesPayload({
+    ...payload,
+    reasoningEffort: normalizeReasoningEffort(payload.reasoningEffort || ""),
+  }, sourceDataURLs, { maskMimeType });
 }
 
 export async function buildImagesRequestBody(

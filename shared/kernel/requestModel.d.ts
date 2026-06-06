@@ -8,6 +8,7 @@ export const DEFAULT_OUTPUT_COMPRESSION: number;
 export const DEFAULT_INPUT_FIDELITY: string;
 export const DEFAULT_IMAGE_STYLE: string;
 export const DEFAULT_MODERATION: string;
+export const DEFAULT_REASONING_EFFORT: string;
 export const DEFAULT_REQUEST_POLICY: string;
 export const DEFAULT_PARTIAL_IMAGES: number;
 export const MAX_ATTEMPTS: number;
@@ -15,6 +16,7 @@ export const RETRY_BACKOFF_MS: number;
 export const STATUS_INTERVAL_MS: number;
 
 export type RequestPolicy = "openai" | "compat";
+export type ReasoningEffort = "low" | "medium" | "high" | "xhigh";
 
 export type SharedImageRequestPayload = {
   size?: string;
@@ -30,6 +32,7 @@ export type SharedImageRequestPayload = {
   textModelID?: string;
   negativePrompt?: string;
   moderation?: string;
+  reasoningEffort?: ReasoningEffort;
   maskB64?: string;
   seed?: number;
   requestPolicy?: RequestPolicy;
@@ -52,6 +55,7 @@ export function normalizeOutputCompression(value: unknown): number;
 export function normalizeInputFidelity(value: string): "auto" | "low" | "high";
 export function normalizeImageStyle(value: string): "default" | "vivid" | "natural";
 export function normalizeModeration(value: string): "auto" | "low";
+export function normalizeReasoningEffort(value: string): ReasoningEffort;
 export function normalizePartialImages(value: unknown): number;
 export function isCompatRequestPolicy(requestPolicy: string): boolean;
 export function classifyImageModel(modelID: string): "gpt-image" | "dalle2" | "dalle3" | "other";

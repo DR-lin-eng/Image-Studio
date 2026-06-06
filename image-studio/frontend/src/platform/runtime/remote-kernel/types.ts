@@ -29,6 +29,7 @@ export type RemoteGeneratePayload = {
   baseURL: string;
   textModelID: string;
   imageModelID: string;
+  reasoningEffort?: string;
   proxyMode?: string;
   proxyURL?: string;
   apiMode: string;

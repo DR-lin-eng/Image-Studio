@@ -53,6 +53,10 @@ func TestBuildPayloadUsesSizeAndQuality(t *testing.T) {
 	if v["stream"] != true {
 		t.Errorf("stream = %v, want true", v["stream"])
 	}
+	reasoning := v["reasoning"].(map[string]any)
+	if reasoning["effort"] != DefaultReasoningEffort {
+		t.Errorf("reasoning.effort = %v, want %s", reasoning["effort"], DefaultReasoningEffort)
+	}
 	if tool["partial_images"] != float64(DefaultPartialImages) {
 		t.Errorf("partial_images = %v, want %d", tool["partial_images"], DefaultPartialImages)
 	}
@@ -80,6 +84,21 @@ func TestBuildPayloadAllowsModerationAuto(t *testing.T) {
 	tool := v["tools"].([]any)[0].(map[string]any)
 	if tool["moderation"] != "auto" {
 		t.Fatalf("moderation = %v, want auto", tool["moderation"])
+	}
+}
+
+func TestBuildPayloadAllowsCustomReasoningEffort(t *testing.T) {
+	raw, err := BuildPayload(Options{
+		Prompt:          "生成海报",
+		ReasoningEffort: "high",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	v := mustDecodePayload(t, raw)
+	reasoning := v["reasoning"].(map[string]any)
+	if reasoning["effort"] != "high" {
+		t.Fatalf("reasoning.effort = %v, want high", reasoning["effort"])
 	}
 }
 

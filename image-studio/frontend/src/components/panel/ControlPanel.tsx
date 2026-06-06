@@ -317,12 +317,11 @@ export function ControlPanel({
           seed={seed}
           setAdvancedOpen={setAdvancedOpen}
           setField={setField as any}
-          Seg={Seg as any}
-          SegItem={SegItem as any}
         />
       ) : (
         <DesktopAdvancedPanel
           advancedOpen={advancedOpen}
+          advancedSummary={advancedSummary}
           background={background}
           imageStyle={imageStyle}
           inputFidelity={inputFidelity}

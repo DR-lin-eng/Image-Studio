@@ -20,6 +20,7 @@ import {
   aspectPresetLabel,
   availableResolutionPresets,
   buildAspectSizeSelection,
+  buildReferenceAspectRatio,
   buildResolutionSizeSelection,
   deriveExactSizeSelection,
   deriveAspectPreset,
@@ -45,6 +46,7 @@ export function ControlPanel({
     customAspectRatios,
     setField, clearError, pushToast,
     selectSourceImage, removeSource, clearSources, viewSourceOnCanvas,
+    compareSourceOnCanvas,
     openCustomAspectRatioModal,
     openCustomSizeModal,
     openUpstreamConfig,
@@ -77,14 +79,25 @@ export function ControlPanel({
   const qualityOptions = availableQualityOptions(imageModelID);
   const allowCustomAspectRatios = supportsCustomAspectRatios(capabilityInput);
   const allowPreciseSizeControl = supportsPreciseSizeControl(capabilityInput);
+  const referenceDimensions = sources[0]?.previewWidth && sources[0]?.previewHeight
+    ? { width: sources[0].previewWidth, height: sources[0].previewHeight }
+    : currentImage?.previewWidth && currentImage?.previewHeight
+      ? { width: currentImage.previewWidth, height: currentImage.previewHeight }
+      : null;
+  const referenceAspectRatio = referenceDimensions
+    ? buildReferenceAspectRatio(referenceDimensions.width, referenceDimensions.height, customAspectRatios)
+    : null;
+  const sizingAspectRatios = referenceAspectRatio && !customAspectRatios.some((item) => item.id === referenceAspectRatio.id)
+    ? [...customAspectRatios, referenceAspectRatio]
+    : customAspectRatios;
   const activeStyleLabel = STYLE_CHIPS.find((item) => item.id === styleTag)?.label ?? styleTag;
-  const aspectOptions = listAspectPresetOptions(capabilityInput, customAspectRatios);
-  const exactSize = deriveExactSizeSelection(normalizedSize, capabilityInput, customAspectRatios);
-  const derivedAspect = deriveAspectPreset(normalizedSize, customAspectRatios);
+  const aspectOptions = listAspectPresetOptions(capabilityInput, sizingAspectRatios);
+  const exactSize = deriveExactSizeSelection(normalizedSize, capabilityInput, sizingAspectRatios);
+  const derivedAspect = deriveAspectPreset(normalizedSize, sizingAspectRatios);
   const derivedResolution = deriveResolutionPreset(normalizedSize);
   const activeAspect = exactSize ? null : derivedAspect;
   const activeResolution = exactSize ? null : derivedResolution;
-  const activeAspectLabel = exactSize ? "精确尺寸" : aspectPresetLabel(derivedAspect, customAspectRatios);
+  const activeAspectLabel = exactSize ? "精确尺寸" : aspectPresetLabel(derivedAspect, sizingAspectRatios);
   const activeResolutionLabel = exactSize
     ? exactSize.label
     : (RESOLUTION_PRESETS.find((item) => item.value === derivedResolution)?.label ?? derivedResolution);
@@ -121,11 +134,18 @@ export function ControlPanel({
   }
 
   function handleResolutionSelect(resolution: typeof activeResolution) {
+    const referenceAspectPreset = referenceDimensions
+      ? deriveAspectPreset(
+          `${referenceDimensions.width}x${referenceDimensions.height}` as SizeValue,
+          sizingAspectRatios,
+        )
+      : null;
     setField("size", buildResolutionSizeSelection(
       derivedAspect,
       resolution ?? derivedResolution,
       capabilityInput,
-      customAspectRatios,
+      sizingAspectRatios,
+      referenceAspectPreset,
     ));
   }
 
@@ -281,7 +301,7 @@ export function ControlPanel({
       ) : null}
 
       {compactMacCompose && (
-        <MacComposePanel
+          <MacComposePanel
           macComposeOpen={macComposeOpen}
           setMacComposeOpen={setMacComposeOpen}
           styleTag={styleTag}
@@ -309,8 +329,9 @@ export function ControlPanel({
           onOpenCustomAspectRatioModal={openCustomAspectRatioModal}
           onOpenCustomSizeModal={openCustomSizeModal}
           selectSourceImage={selectSourceImage}
-          clearSources={clearSources}
-          viewSourceOnCanvas={(index) => void viewSourceOnCanvas(index)}
+            clearSources={clearSources}
+            compareSourceOnCanvas={(index) => void compareSourceOnCanvas(index)}
+            viewSourceOnCanvas={(index) => void viewSourceOnCanvas(index)}
           quality={normalizedQuality}
           qualityOptions={qualityOptions}
           Seg={Seg as any}

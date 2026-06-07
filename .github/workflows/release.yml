@@ -304,6 +304,135 @@ jobs:
           path: ${{ steps.package.outputs.artifact_path }}
           retention-days: 14
 
+  build-windows-msix:
+    name: Build windows msix
+    runs-on: windows-latest
+    needs:
+      - prepare-version
+      - build-desktop
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: x64
+            artifact_suffix: windows-x64.msix
+            input_artifact: windows-amd64.exe
+            input_binary: image-studio-amd64.exe
+            package_arch: x64
+          - id: arm64
+            artifact_suffix: windows-arm64.msix
+            input_artifact: windows-arm64.exe
+            input_binary: image-studio-arm64.exe
+            package_arch: arm64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python packaging dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pillow
+
+      - name: Download desktop artifact
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: image-studio-${{ needs.prepare-version.outputs.app_version }}-${{ matrix.input_artifact }}
+
+      - name: Prepare msix input
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path image-studio/build/bin | Out-Null
+          Copy-Item "dist/image-studio-${{ needs.prepare-version.outputs.app_version }}-${{ matrix.input_artifact }}/image-studio-${{ needs.prepare-version.outputs.app_version }}-${{ matrix.input_artifact }}" "image-studio/build/bin/${{ matrix.input_binary }}"
+
+      - name: Validate MSIX identity configuration
+        shell: pwsh
+        env:
+          IMAGE_STUDIO_MSIX_IDENTITY_NAME: ${{ vars.IMAGE_STUDIO_MSIX_IDENTITY_NAME }}
+          IMAGE_STUDIO_MSIX_PUBLISHER: ${{ vars.IMAGE_STUDIO_MSIX_PUBLISHER }}
+          IMAGE_STUDIO_MSIX_PUBLISHER_DISPLAY_NAME: ${{ vars.IMAGE_STUDIO_MSIX_PUBLISHER_DISPLAY_NAME }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:IMAGE_STUDIO_MSIX_IDENTITY_NAME)) {
+            throw "Missing repository variable IMAGE_STUDIO_MSIX_IDENTITY_NAME."
+          }
+          if ([string]::IsNullOrWhiteSpace($env:IMAGE_STUDIO_MSIX_PUBLISHER)) {
+            throw "Missing repository variable IMAGE_STUDIO_MSIX_PUBLISHER."
+          }
+          if ([string]::IsNullOrWhiteSpace($env:IMAGE_STUDIO_MSIX_PUBLISHER_DISPLAY_NAME)) {
+            throw "Missing repository variable IMAGE_STUDIO_MSIX_PUBLISHER_DISPLAY_NAME."
+          }
+
+      - name: Build MSIX package
+        shell: pwsh
+        env:
+          IMAGE_STUDIO_MSIX_IDENTITY_NAME: ${{ vars.IMAGE_STUDIO_MSIX_IDENTITY_NAME }}
+          IMAGE_STUDIO_MSIX_PUBLISHER: ${{ vars.IMAGE_STUDIO_MSIX_PUBLISHER }}
+          IMAGE_STUDIO_MSIX_PUBLISHER_DISPLAY_NAME: ${{ vars.IMAGE_STUDIO_MSIX_PUBLISHER_DISPLAY_NAME }}
+        run: |
+          ./scripts/build-msix.ps1 `
+            -Architecture "${{ matrix.package_arch }}" `
+            -Version "${{ needs.prepare-version.outputs.product_version }}" `
+            -Publisher "$env:IMAGE_STUDIO_MSIX_PUBLISHER" `
+            -IdentityName "$env:IMAGE_STUDIO_MSIX_IDENTITY_NAME" `
+            -PublisherDisplayName "$env:IMAGE_STUDIO_MSIX_PUBLISHER_DISPLAY_NAME" `
+            -SourceExe "image-studio/build/bin/${{ matrix.input_binary }}" `
+            -OutputPath "dist/msix/image-studio-${{ needs.prepare-version.outputs.app_version }}-${{ matrix.artifact_suffix }}"
+
+      - name: Upload MSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-studio-${{ needs.prepare-version.outputs.app_version }}-${{ matrix.artifact_suffix }}
+          path: dist/msix/image-studio-${{ needs.prepare-version.outputs.app_version }}-${{ matrix.artifact_suffix }}
+          retention-days: 14
+
+  build-windows-msixbundle:
+    name: Build windows msixbundle
+    runs-on: windows-latest
+    needs:
+      - prepare-version
+      - build-windows-msix
+    steps:
+      - name: Download MSIX artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist/msix
+          pattern: image-studio-${{ needs.prepare-version.outputs.app_version }}-windows-*.msix
+
+      - name: Build MSIX bundle
+        shell: pwsh
+        run: |
+          $makeAppx = Get-ChildItem -Path (Join-Path ${env:ProgramFiles(x86)} "Windows Kits\10\bin") -Filter makeappx.exe -Recurse -ErrorAction Stop |
+            Where-Object { $_.FullName -match "\\x64\\makeappx\.exe$" } |
+            Sort-Object FullName -Descending |
+            Select-Object -First 1
+          if (-not $makeAppx) {
+            throw "makeappx.exe not found."
+          }
+          New-Item -ItemType Directory -Force -Path dist/msixbundle | Out-Null
+          $mapping = @"
+[Files]
+"dist/msix/image-studio-${{ needs.prepare-version.outputs.app_version }}-windows-x64.msix\\image-studio-${{ needs.prepare-version.outputs.app_version }}-windows-x64.msix" "image-studio-${{ needs.prepare-version.outputs.app_version }}-windows-x64.msix"
+"dist/msix/image-studio-${{ needs.prepare-version.outputs.app_version }}-windows-arm64.msix\\image-studio-${{ needs.prepare-version.outputs.app_version }}-windows-arm64.msix" "image-studio-${{ needs.prepare-version.outputs.app_version }}-windows-arm64.msix"
+"@
+          Set-Content -LiteralPath dist/msixbundle/bundle.map -Value $mapping -Encoding ASCII
+          & $makeAppx.FullName bundle /f dist/msixbundle/bundle.map /p "dist/msixbundle/image-studio-${{ needs.prepare-version.outputs.app_version }}-windows.msixbundle" /o
+          if ($LASTEXITCODE -ne 0) {
+            throw "makeappx bundle failed with exit code $LASTEXITCODE."
+          }
+
+      - name: Upload MSIX bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-studio-${{ needs.prepare-version.outputs.app_version }}-windows.msixbundle
+          path: dist/msixbundle/image-studio-${{ needs.prepare-version.outputs.app_version }}-windows.msixbundle
+          retention-days: 14
+
   build-android-apk:
     name: Build android apk
     runs-on: ubuntu-24.04
@@ -517,6 +646,8 @@ jobs:
       - prepare-version
       - build-desktop
       - build-windows-installer
+      - build-windows-msix
+      - build-windows-msixbundle
       - build-android-apk
       - build-gio-desktop
     if: startsWith(github.ref, 'refs/tags/v')

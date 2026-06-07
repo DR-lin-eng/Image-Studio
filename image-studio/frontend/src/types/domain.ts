@@ -27,10 +27,20 @@ export interface UpstreamProfile {
   reasoningEffort: ReasoningEffortValue;
   // 0 = 不限。同一 profile 跨所有 workspace 共享并发计数。
   concurrencyLimit: number;
+  // 失败重试路由到的备用 profile。空 = 不自动切备用上游。
+  fallbackProfileId?: string;
   createdAt: number;
   // 最近一次被 setActive / 提交生成 时更新;用于把最近使用过的 profile 在
   // 下拉里排到前面,以及下次启动默认 active。
   lastUsedAt?: number;
+}
+
+export interface PromptTemplate {
+  id: string;
+  label: string;
+  text: string;
+  createdAt: number;
+  updatedAt: number;
 }
 
 export type SizeValue = "auto" | `${number}x${number}`;
@@ -136,6 +146,8 @@ export interface SourceImage {
   name: string;
   size: number;       // bytes; 0 when unknown (e.g. reused-from-history)
   previewUrl?: string;
+  previewWidth?: number;
+  previewHeight?: number;
   imageBlob?: Blob | null;
   // Legacy/browser fallback for canvas preview. Wails source previews should
   // prefer previewUrl so selected files do not cross the bridge as base64.

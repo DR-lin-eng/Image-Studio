@@ -15,6 +15,7 @@ import {
   SetKeepLogsEnabled,
   SetOutputDir,
   CheckForAppUpdate,
+  WriteAppUpdateProbe,
   probeCurrentUpstream,
   setKernelRuntimeMode,
 } from "../platform/runtime/host";
@@ -33,6 +34,7 @@ import {
   OutputFormatValue,
   Preset,
   ProgressInfo,
+  PromptTemplate,
   QualityValue,
   RequestPolicy,
   SizeValue,
@@ -60,6 +62,12 @@ import {
   scheduleCompatibilityExport,
   writeIgnoredReleaseTag,
 } from "../lib/compatState";
+import { normalizeAppUpdateInfo } from "../lib/appUpdate.ts";
+import { appVersion } from "../lib/version.ts";
+import {
+  readSavePromptSuppressed,
+  writeSavePromptSuppressed,
+} from "../lib/savePromptPreference";
 import {
   normalizeCompletionSoundConfig,
   playCompletionSound,
@@ -67,6 +75,10 @@ import {
   readCompletionSoundConfig,
   shouldPlayCompletionSound,
 } from "../lib/completionSound";
+import {
+  persistPromptTemplates,
+  readStoredPromptTemplates,
+} from "../lib/promptTemplates";
 import {
   loadCustomAspectRatios,
   makeCustomAspectRatio,
@@ -101,6 +113,7 @@ import {
   type RunningJobMeta,
   type WorkspacePatch,
 } from "./workspaceRuntime";
+import { getStreamPreviewDisableReason } from "./streamPreviewPolicy";
 import {
   buildAspectSizeSelection,
   buildExactSizeValue,
@@ -241,29 +254,13 @@ function launchQueuedLoopJobs(controller: LoopRunController): void {
   }
 }
 
-const SAVE_PROMPT_SUPPRESSED_KEY = "gptcodex.savePromptSuppressed";
 const KEEP_LOGS_KEY = "gptcodex.keepLogs";
+const AUTO_RETRY_ENABLED_KEY = "gptcodex.autoRetryEnabled";
+const PROTECT_STREAM_PREVIEW_KEY = "gptcodex.protectStreamPreview";
 const INITIAL_HISTORY_LOAD = 18;
 const HISTORY_MEDIA_HYDRATE_CONCURRENCY = 4;
 
 let deferredHistoryLoadPromise: Promise<void> | null = null;
-
-function readSavePromptSuppressed(): boolean {
-  try {
-    return localStorage.getItem(SAVE_PROMPT_SUPPRESSED_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
-
-function writeSavePromptSuppressed(value: boolean): void {
-  try {
-    if (value) localStorage.setItem(SAVE_PROMPT_SUPPRESSED_KEY, "1");
-    else localStorage.removeItem(SAVE_PROMPT_SUPPRESSED_KEY);
-  } catch {
-    // localStorage can be unavailable in tests/previews.
-  }
-}
 
 function readKeepLogs(): boolean {
   try {
@@ -282,25 +279,38 @@ function writeKeepLogs(value: boolean): void {
   }
 }
 
-function normalizeAppUpdate(raw: unknown): AppUpdateInfo | null {
-  if (!raw || typeof raw !== "object") return null;
-  const source = raw as Record<string, unknown>;
-  const currentVersion = typeof source.currentVersion === "string" ? source.currentVersion.trim() : "";
-  const latestVersion = typeof source.latestVersion === "string" ? source.latestVersion.trim() : "";
-  const releaseTag = typeof source.releaseTag === "string" ? source.releaseTag.trim() : "";
-  const releaseURL = typeof source.releaseURL === "string" ? source.releaseURL.trim() : "";
-  const hasUpdate = source.hasUpdate === true;
-  if (!currentVersion || !latestVersion || !releaseTag || !releaseURL) return null;
-  return {
-    currentVersion,
-    latestVersion,
-    releaseTag,
-    releaseURL,
-    hasUpdate,
-    releaseName: typeof source.releaseName === "string" ? source.releaseName.trim() : "",
-    publishedAt: typeof source.publishedAt === "string" ? source.publishedAt.trim() : "",
-    body: typeof source.body === "string" ? source.body.trim() : "",
-  };
+function readProtectStreamPreview(): boolean {
+  try {
+    return localStorage.getItem(PROTECT_STREAM_PREVIEW_KEY) !== "0";
+  } catch {
+    return true;
+  }
+}
+
+function readAutoRetryEnabled(): boolean {
+  try {
+    return localStorage.getItem(AUTO_RETRY_ENABLED_KEY) !== "0";
+  } catch {
+    return true;
+  }
+}
+
+function writeAutoRetryEnabled(value: boolean): void {
+  try {
+    if (value) localStorage.removeItem(AUTO_RETRY_ENABLED_KEY);
+    else localStorage.setItem(AUTO_RETRY_ENABLED_KEY, "0");
+  } catch {
+    // localStorage can be unavailable in tests/previews.
+  }
+}
+
+function writeProtectStreamPreview(value: boolean): void {
+  try {
+    if (value) localStorage.removeItem(PROTECT_STREAM_PREVIEW_KEY);
+    else localStorage.setItem(PROTECT_STREAM_PREVIEW_KEY, "0");
+  } catch {
+    // localStorage can be unavailable in tests/previews.
+  }
 }
 
 function normalizeBackgroundValue(value: unknown): BackgroundValue {
@@ -470,6 +480,8 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   moderation: "low",
   userIdentifier: "",
   partialImages: 1,
+  protectStreamPreview: true,
+  autoRetryEnabled: true,
   kernelRuntimeMode: "auto",
   baseURL: "",
   textModelID: "",
@@ -540,6 +552,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   appUpdate: null,
   appUpdateModalOpen: false,
   promptHistory: [],
+  promptTemplates: [],
   batchCount: 1,
   loopGeneration: defaultLoopGenerationConfig(),
   presets: [],
@@ -612,7 +625,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     }
     const nextSize = buildExactSizeValue(width, height);
     if (!nextSize) {
-      state.pushToast("请输入 64 到 8192 之间的整数尺寸", "warn");
+      state.pushToast("请输入 64 到 3840 之间的整数尺寸，并满足最长边 3840、宽高比不超过 3:1、总像素不超过 8294400", "warn");
       return false;
     }
     set({ size: nextSize, customSizeModalOpen: false });
@@ -747,8 +760,12 @@ export const useStudioStore = create<StudioState>((set, get) => ({
               ? normalizeImageStyleValue(value)
               : key === "userIdentifier"
                 ? normalizeUserIdentifierValue(value)
-                : key === "partialImages"
-                  ? normalizePartialImagesValue(value)
+                  : key === "partialImages"
+                    ? normalizePartialImagesValue(value)
+                    : key === "protectStreamPreview"
+                      ? value !== false
+                    : key === "autoRetryEnabled"
+                      ? value !== false
       : key === "loopGeneration"
         ? normalizeLoopGenerationConfig(value)
         : value;
@@ -771,6 +788,11 @@ export const useStudioStore = create<StudioState>((set, get) => ({
           w.id === get().activeWorkspaceId ? { ...w, batchCount: value } : w
         )),
       });
+    } else if (key === "mode") {
+      const value = normalizedValue as Mode;
+      if (value === "edit" && get().sources.length === 0 && get().currentImage?.savedPath && get().size !== "auto") {
+        set({ size: "auto" });
+      }
     } else if (key === "loopGeneration") {
       const value = normalizedValue as LoopGenerationConfig;
       set({
@@ -806,6 +828,10 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       try { localStorage.setItem("gptcodex.userIdentifier", String(value)); } catch {}
     } else if (key === "partialImages") {
       try { localStorage.setItem("gptcodex.partialImages", String(value)); } catch {}
+    } else if (key === "protectStreamPreview") {
+      writeProtectStreamPreview(value !== false);
+    } else if (key === "autoRetryEnabled") {
+      writeAutoRetryEnabled(value !== false);
     }
   },
   setFullscreen: async (value) => {
@@ -890,12 +916,19 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     const requestedConcurrency = loopEnabled
       ? Math.min(requestedJobCount, normalizeLoopGenerationConcurrency(loopGeneration.concurrency))
       : batchCount;
+    const runtimePlatform = readRuntimePlatformState();
     if (loopEnabled && loopGeneration.autoSave && !loopGeneration.autoSaveDir.trim()) {
       set({ errorMessage: "请先为循环出图配置自动另存为路径", errorCanRetry: false, errorRawPath: null });
       return;
     }
     const activeProfile = s.profiles.find((p) => p.id === s.activeProfileId);
     const concurrencyLimit = normalizeConcurrencyLimit(activeProfile?.concurrencyLimit ?? 0);
+    const fallbackProfile = activeProfile?.fallbackProfileId
+      ? s.profiles.find((profile) => profile.id === activeProfile.fallbackProfileId) ?? null
+      : null;
+    const fallbackProfileKey = fallbackProfile
+      ? await GetStoredAPIKey(keyringUserFor(fallbackProfile.id)).catch(() => "")
+      : "";
     if (concurrencyLimit > 0) {
       const activeCount = workspaceRunningCount(s, s.apiMode);
       const available = concurrencyLimit - activeCount;
@@ -922,9 +955,8 @@ export const useStudioStore = create<StudioState>((set, get) => ({
         }
       }
       if (editSourcePaths.length === 0) {
-        const platform = readRuntimePlatformState();
         set({
-          errorMessage: platform.isAndroid
+          errorMessage: runtimePlatform.isAndroid
             ? "图生图模式需要先从相册或历史添加源图"
             : "图生图模式需要先添加源图(或从文件管理器拖图到画板)",
           errorCanRetry: false,
@@ -985,6 +1017,13 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       imageModelID: s.imageModelID,
     }, s.customAspectRatios);
     const resolvedQuality = normalizeQualitySelection(s.quality, s.imageModelID);
+    const streamPreviewDisableReason = getStreamPreviewDisableReason({
+      enabled: s.protectStreamPreview,
+      isAndroid: runtimePlatform.isAndroid,
+      requestedConcurrency,
+      resolvedSize,
+    });
+    const forceDisableStreamPreview = streamPreviewDisableReason !== null;
 
     const basePayload: backend.GenerateOptions = {
       apiKey: s.apiKey,
@@ -1017,7 +1056,20 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       noPromptRevision: true,
       concurrencyLimit,
       partialImages: s.partialImages,
-      disablePreview: s.partialImages === 0 || (loopEnabled && !loopGeneration.livePreview),
+      fallbackProfile: fallbackProfile && fallbackProfileKey.trim() && fallbackProfile.baseURL.trim()
+        ? {
+            baseURL: cleanBaseURL(fallbackProfile.baseURL),
+            apiKey: fallbackProfileKey.trim(),
+            textModelID: fallbackProfile.textModelID,
+            imageModelID: fallbackProfile.imageModelID,
+            reasoningEffort: fallbackProfile.reasoningEffort,
+            apiMode: fallbackProfile.apiMode,
+            requestPolicy: fallbackProfile.requestPolicy,
+            imagesNewAPICompat: fallbackProfile.imagesNewAPICompat === true,
+          }
+        : undefined,
+      autoRetryEnabled: s.autoRetryEnabled,
+      disablePreview: s.partialImages === 0 || (loopEnabled && !loopGeneration.livePreview) || forceDisableStreamPreview,
     };
     const remotePayload: RuntimeGenerateOptions = {
       ...basePayload,
@@ -1034,6 +1086,17 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       lastPayload: persistedPayload,
       workspaces: patchWorkspaceRuntime(get().workspaces, workspaceId, { lastPayload: persistedPayload }),
     });
+    if (forceDisableStreamPreview && s.partialImages > 0 && (!loopEnabled || loopGeneration.livePreview)) {
+      get().pushToast(
+        streamPreviewDisableReason === "android_large_size"
+          ? `当前大尺寸任务已自动关闭流式预览，优先保证最终图完整。`
+          : runtimePlatform.isAndroid
+            ? `并发 ${requestedConcurrency} 路任务已自动关闭流式预览，优先保证最终图完整。`
+            : `高并发(${requestedConcurrency})已自动关闭流式预览，优先保证最终图完整。`,
+        "info",
+        5000,
+      );
+    }
 
     const snapshotBase = {
       workspaceId,
@@ -1104,6 +1167,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   applyHistoryParams: (item) => imageActions.applyHistoryParams(item),
   regenerateFromHistory: async (item) => imageActions.regenerateFromHistory(item),
   viewSourceOnCanvas: async (index) => imageActions.viewSourceOnCanvas(index),
+  compareSourceOnCanvas: async (index) => imageActions.compareSourceOnCanvas(index),
   reuseAsSource: async (item) => imageActions.reuseAsSource(item),
   deleteHistoryItem: async (id) => imageActions.deleteHistoryItem(id),
   saveCurrentImageAs: async () => imageActions.saveCurrentImageAs(),
@@ -1184,6 +1248,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
         canvasViewResetTick: 0,
         fullscreen: false,
         promptHistory: [],
+        promptTemplates: [],
         batchCount: 1,
         loopGeneration: normalizeLoopGenerationConfig(preview.workspace.loopGeneration),
         presets: [],
@@ -1205,6 +1270,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
         upstreamReturnTarget: "app",
         starPromptOpen: false,
         starPromptSource: "auto",
+        autoRetryEnabled: readAutoRetryEnabled(),
         savePromptItem: null,
         savePromptQueue: [],
         savePromptSuppressed: readSavePromptSuppressed(),
@@ -1225,6 +1291,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     const items = trimHistory(initialHistoryPage.items);
     const historyHasMore = !!initialHistoryPage.nextCursor;
     let promptHistory: string[] = [];
+    let promptTemplates: PromptTemplate[] = [];
     let presets: Preset[] = [];
     const customAspectRatios = loadCustomAspectRatios();
     let theme: ThemeMode = "system";
@@ -1237,6 +1304,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       const raw = localStorage.getItem("gptcodex.presets");
       if (raw) presets = JSON.parse(raw);
     } catch {}
+    promptTemplates = readStoredPromptTemplates();
     try {
       const raw = localStorage.getItem("gptcodex.theme");
       if (raw === "system" || raw === "light" || raw === "dark") theme = raw;
@@ -1254,7 +1322,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     const keepLogs = readKeepLogs();
     const completionSound = readCompletionSoundConfig();
     const ignoredReleaseTag = readIgnoredReleaseTag();
-    const updateInfo = normalizeAppUpdate(await CheckForAppUpdate().catch(() => null));
+    const updateInfo = normalizeAppUpdateInfo(await CheckForAppUpdate().catch(() => null));
     const shouldShowUpdate = !!updateInfo?.hasUpdate && updateInfo.releaseTag !== ignoredReleaseTag;
     const noPromptRevision = true;
     const proxyConfig = loadProxyConfig();
@@ -1292,6 +1360,8 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     try {
       partialImages = normalizePartialImagesValue(localStorage.getItem("gptcodex.partialImages"));
     } catch {}
+    const protectStreamPreview = readProtectStreamPreview();
+    const autoRetryEnabled = readAutoRetryEnabled();
     // ---- v0.1.6 profile 列表加载 / 迁移 -----------------------------------
     // 1) 优先读新格式 gptcodex.profiles。
     // 2) 缺失时尝试从老 gptcodex.{responses,images}.* + 老 keyring 项合成 0-2
@@ -1457,7 +1527,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       ? false
       : !activeProfile || !activeKey.trim() || !baseURL.trim();
     set({
-      apiKey: activeKey, history: items, promptHistory, presets, customAspectRatios, theme, fontScale,
+      apiKey: activeKey, history: items, promptHistory, promptTemplates, presets, customAspectRatios, theme, fontScale,
       historyHasMore,
       historyLoading: false,
       historyCursorBeforeDayStart: initialHistoryPage.nextCursor?.beforeDayStart ?? null,
@@ -1472,6 +1542,8 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       moderation,
       userIdentifier,
       partialImages,
+      protectStreamPreview,
+      autoRetryEnabled,
       profiles,
       activeProfileId,
       workspaces: [initialWorkspace],
@@ -1492,6 +1564,18 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       appUpdate: shouldShowUpdate ? updateInfo : null,
       appUpdateModalOpen: shouldShowUpdate,
     });
+    void WriteAppUpdateProbe({
+      appVersion,
+      currentVersion: updateInfo?.currentVersion ?? appVersion,
+      latestVersion: updateInfo?.latestVersion ?? "",
+      releaseTag: updateInfo?.releaseTag ?? "",
+      releaseURL: updateInfo?.releaseURL ?? "",
+      ignoredReleaseTag,
+      updateInfoAvailable: !!updateInfo,
+      hasUpdate: updateInfo?.hasUpdate === true,
+      shouldShowUpdate,
+      appUpdateModalOpen: shouldShowUpdate,
+    }).catch(() => undefined);
     enableCompatibilityExport();
     void backfillHistoryPreviewRefs(items);
   },
@@ -1608,6 +1692,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   openResultGrid: () => mediaActions.openResultGrid(),
   closeResultGrid: () => mediaActions.closeResultGrid(),
   selectBatchResult: async (item) => mediaActions.selectBatchResult(item),
+  stepBatchResult: async (delta) => mediaActions.stepBatchResult(delta),
   pushToast: (text, kind = "info", ttl = 3500, action) => mediaActions.pushToast(text, kind, ttl, action),
   dismissToast: (id) => mediaActions.dismissToast(id),
   resultDetail: null,
@@ -1775,6 +1860,48 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   renameWorkspace: (id, name) => workspaceActions.renameWorkspace(id, name),
 
   importHistory: async () => mediaActions.importHistory(),
+
+  addPromptTemplate: (label, text) => {
+    const trimmedLabel = label.trim().slice(0, 40);
+    const trimmedText = text.trim();
+    if (!trimmedLabel || !trimmedText) return null;
+    const next: PromptTemplate = {
+      id: genId(),
+      label: trimmedLabel,
+      text: trimmedText,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+    const list = [...get().promptTemplates, next];
+    persistPromptTemplates(list);
+    set({ promptTemplates: list });
+    return next.id;
+  },
+
+  updatePromptTemplate: (id, patch) => {
+    const index = get().promptTemplates.findIndex((item) => item.id === id);
+    if (index < 0) return false;
+    const current = get().promptTemplates[index];
+    const label = patch.label !== undefined ? patch.label.trim().slice(0, 40) : current.label;
+    const text = patch.text !== undefined ? patch.text.trim() : current.text;
+    if (!label || !text) return false;
+    const list = get().promptTemplates.map((item, itemIndex) => itemIndex === index ? {
+      ...item,
+      label,
+      text,
+      updatedAt: Date.now(),
+    } : item);
+    persistPromptTemplates(list);
+    set({ promptTemplates: list });
+    return true;
+  },
+
+  deletePromptTemplate: (id) => {
+    const list = get().promptTemplates.filter((item) => item.id !== id);
+    if (list.length === get().promptTemplates.length) return;
+    persistPromptTemplates(list);
+    set({ promptTemplates: list });
+  },
 
   retryLast: async () => {
     const s = get();

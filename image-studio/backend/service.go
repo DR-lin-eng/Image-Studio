@@ -66,6 +66,36 @@ func NewService() *Service {
 func (s *Service) Startup(ctx context.Context) {
 	s.ctx = ctx
 	s.loadCompatibilitySettings()
+	if strings.TrimSpace(os.Getenv(appUpdateProbePathEnv)) != "" || commandLineArgValue(os.Args[1:], appUpdateProbePathArg) != "" {
+		go s.captureAppUpdateProbe()
+	}
+}
+
+func (s *Service) captureAppUpdateProbe() {
+	appVersion, err := currentDesktopAppVersion()
+	if err != nil || strings.TrimSpace(appVersion) == "" {
+		appVersion = defaultAppVersion
+	}
+	result := AppUpdateProbeResult{
+		AppVersion:          appVersion,
+		CurrentVersion:      appVersion,
+		UpdateInfoAvailable: false,
+		HasUpdate:           false,
+		ShouldShowUpdate:    false,
+		AppUpdateModalOpen:  false,
+	}
+	updateInfo, err := s.CheckForAppUpdate()
+	if err == nil {
+		result.CurrentVersion = updateInfo.CurrentVersion
+		result.LatestVersion = updateInfo.LatestVersion
+		result.ReleaseTag = updateInfo.ReleaseTag
+		result.ReleaseURL = updateInfo.ReleaseURL
+		result.UpdateInfoAvailable = true
+		result.HasUpdate = updateInfo.HasUpdate
+		result.ShouldShowUpdate = updateInfo.HasUpdate
+		result.AppUpdateModalOpen = updateInfo.HasUpdate
+	}
+	_ = s.WriteAppUpdateProbe(result)
 }
 
 // resolvedOutputDir 返回当前生效的输出目录:用户自定义优先,否则默认。
@@ -281,6 +311,13 @@ func (s *Service) runJob(ctx context.Context, jobID string, opts GenerateOptions
 	if apiMode == "" {
 		apiMode = client.APIModeResponses
 	}
+	fallbackAPIMode := client.APIModeResponses
+	if opts.FallbackProfile != nil && strings.TrimSpace(opts.FallbackProfile.APIMode) != "" {
+		fallbackAPIMode = client.APIMode(strings.TrimSpace(opts.FallbackProfile.APIMode))
+		if fallbackAPIMode == "" {
+			fallbackAPIMode = client.APIModeResponses
+		}
+	}
 
 	clientOpts := client.Options{
 		APIKey:             opts.APIKey,
@@ -308,10 +345,46 @@ func (s *Service) runJob(ctx context.Context, jobID string, opts GenerateOptions
 		ImagesNewAPICompat: opts.ImagesNewAPICompat,
 		NoPromptRevision:   opts.NoPromptRevision,
 		DisablePreview:     opts.DisablePreview,
+		AutoRetryEnabled:   &opts.AutoRetryEnabled,
 		PartialImages:      client.DefaultPartialImages,
 	}
 	if opts.PartialImages > 0 {
 		clientOpts.PartialImages = opts.PartialImages
+	}
+	var fallbackClientOpts *client.Options
+	if opts.AutoRetryEnabled &&
+		opts.FallbackProfile != nil &&
+		strings.TrimSpace(opts.FallbackProfile.APIKey) != "" &&
+		strings.TrimSpace(opts.FallbackProfile.BaseURL) != "" {
+		fallbackClientOpts = &client.Options{
+			APIKey:             strings.TrimSpace(opts.FallbackProfile.APIKey),
+			Prompt:             opts.Prompt,
+			Mode:               mode,
+			Size:               opts.Size,
+			Quality:            opts.Quality,
+			OutputFormat:       opts.OutputFormat,
+			MaskB64:            opts.MaskB64,
+			Seed:               opts.Seed,
+			NegativePrompt:     opts.NegativePrompt,
+			Background:         opts.Background,
+			OutputCompression:  opts.OutputCompression,
+			InputFidelity:      opts.InputFidelity,
+			ImageStyle:         opts.ImageStyle,
+			Moderation:         opts.Moderation,
+			UserIdentifier:     opts.UserIdentifier,
+			BaseURL:            strings.TrimSpace(opts.FallbackProfile.BaseURL),
+			TextModelID:        strings.TrimSpace(opts.FallbackProfile.TextModelID),
+			ImageModelID:       strings.TrimSpace(opts.FallbackProfile.ImageModelID),
+			ReasoningEffort:    strings.TrimSpace(opts.FallbackProfile.ReasoningEffort),
+			Proxy:              client.ProxyConfig{Mode: opts.ProxyMode, URL: opts.ProxyURL},
+			APIMode:            fallbackAPIMode,
+			RequestPolicy:      client.RequestPolicy(strings.TrimSpace(opts.FallbackProfile.RequestPolicy)),
+			ImagesNewAPICompat: opts.FallbackProfile.ImagesNewAPICompat,
+			NoPromptRevision:   opts.NoPromptRevision,
+			DisablePreview:     opts.DisablePreview,
+			AutoRetryEnabled:   &opts.AutoRetryEnabled,
+			PartialImages:      clientOpts.PartialImages,
+		}
 	}
 	if mode == client.ModeEdit {
 		paths, cleanup, prepErr := prepareUploadSourcePaths(opts.collectPaths())
@@ -321,9 +394,12 @@ func (s *Service) runJob(ctx context.Context, jobID string, opts GenerateOptions
 		}
 		defer cleanup()
 		clientOpts.ImagePaths = paths
+		if fallbackClientOpts != nil {
+			fallbackClientOpts.ImagePaths = paths
+		}
 		// Responses API 仍需 data URL(走 input_image 形态);
 		// Images API 直接 multipart 上传文件,跳过 base64 编码节省往返开销。
-		if apiMode == client.APIModeResponses {
+		if apiMode == client.APIModeResponses || (fallbackClientOpts != nil && fallbackClientOpts.APIMode == client.APIModeResponses) {
 			urls := make([]string, 0, len(paths))
 			for _, p := range paths {
 				dataURL, err := client.ImageFileToDataURL(p)
@@ -334,6 +410,9 @@ func (s *Service) runJob(ctx context.Context, jobID string, opts GenerateOptions
 				urls = append(urls, dataURL)
 			}
 			clientOpts.ImageDataURLs = urls
+			if fallbackClientOpts != nil && fallbackClientOpts.APIMode == client.APIModeResponses {
+				fallbackClientOpts.ImageDataURLs = urls
+			}
 		}
 	}
 
@@ -428,6 +507,13 @@ func (s *Service) runJob(ctx context.Context, jobID string, opts GenerateOptions
 	result, rawPath, err := client.RequestAndExtractWithRetriesAndPartial(
 		ctx, transport, clientOpts, logDir, timestamp, logFn, progressFn, previewFn,
 	)
+	if err != nil && fallbackClientOpts != nil && shouldRouteFallbackAttempt(err, rawPath) {
+		logFn("主上游自动重试失败，切换到备用上游再试一次...")
+		fallbackTimestamp := timestamp + "-fallback"
+		result, rawPath, err = client.RequestAndExtractWithRetriesAndPartial(
+			ctx, transport, *fallbackClientOpts, logDir, fallbackTimestamp, logFn, progressFn, previewFn,
+		)
+	}
 	if err != nil {
 		// 即使失败也把 rawPath 透给前端,「查看日志」按钮直接打开它。
 		s.emitErrorWithRaw(jobID, err, rawPath)
@@ -512,6 +598,34 @@ func apiModeLabel(mode string) string {
 		return "Images API"
 	}
 	return "Responses API"
+}
+
+func shouldRouteFallbackAttempt(err error, rawPath string) bool {
+	if err == nil {
+		return false
+	}
+	if rawPath != "" {
+		if rawBytes, readErr := os.ReadFile(rawPath); readErr == nil && client.IsRetryable(string(rawBytes)) {
+			return true
+		}
+	}
+	lower := strings.ToLower(err.Error())
+	for _, marker := range []string{
+		"connection reset",
+		"eof",
+		"timeout",
+		"deadline exceeded",
+		"i/o timeout",
+		"tls handshake",
+		"no such host",
+		"upstream connect error",
+		"gateway",
+	} {
+		if strings.Contains(lower, marker) {
+			return true
+		}
+	}
+	return false
 }
 
 func newJobID() (string, error) {

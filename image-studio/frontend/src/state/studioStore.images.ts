@@ -81,8 +81,11 @@ export function createImageActions(store: StateAdapter) {
             imageB64: res.imageB64 || undefined,
             imageBlob: res.imageB64 ? base64ToBlob(res.imageB64) : null,
             previewUrl: res.previewUrl,
+            previewWidth: res.previewWidth,
+            previewHeight: res.previewHeight,
           }],
           mode: "edit",
+          size: existing.length === 0 ? "auto" : store.getState().size,
           errorMessage: null,
           errorCanRetry: false,
           errorRawPath: null,
@@ -118,6 +121,24 @@ export function createImageActions(store: StateAdapter) {
       store.getState().setField("currentImage", item);
     },
 
+    async compareSourceOnCanvas(index: number) {
+      const state = store.getState();
+      const source = state.sources[index];
+      if (!source) return;
+      if (!state.currentImage) {
+        state.pushToast("先在画布显示结果图后再对比参考图", "warn");
+        return;
+      }
+      if (state.compareB?.savedPath === source.path) {
+        state.setCompareB(null);
+        return;
+      }
+      const ref = await RegisterImportedImageAsset(source.path).catch(() => null);
+      const item = buildSourceCanvasItem(source, ref);
+      store.setState({ mode: "edit", errorMessage: null, errorCanRetry: false, errorRawPath: null });
+      await state.setCompareB(item);
+    },
+
     async reuseAsSource(item: HistoryItem) {
       let localItem = await materializeHistoryItem(item, {
         setState: (fn) => store.setState((state) => fn(state)),
@@ -147,7 +168,10 @@ export function createImageActions(store: StateAdapter) {
               imageBlob: localItem.previewUrl ? null : (localItem.previewBlob ?? localItem.imageBlob ?? null),
               imageB64: localItem.previewUrl ? undefined : localItem.imageB64,
               previewUrl: localItem.previewUrl,
+              previewWidth: localItem.previewWidth,
+              previewHeight: localItem.previewHeight,
             }],
+        size: alreadyIn || existing.length > 0 ? store.getState().size : "auto",
       });
     },
 

@@ -311,11 +311,51 @@ func (s *Service) ExportHistoryToFile(jsonContent string) (string, error) {
 	return dst, nil
 }
 
+// ExportUpstreamConfigToFile writes an upstream-config JSON dump to a
+// user-selected path so profile metadata and API keys can survive upgrades or
+// manual reinstalls.
+func (s *Service) ExportUpstreamConfigToFile(jsonContent string) (string, error) {
+	dst, err := runtime.SaveFileDialog(s.ctx, runtime.SaveDialogOptions{
+		Title:           "导出上游配置",
+		DefaultFilename: fmt.Sprintf("image-studio-upstream-config-%s.json", time.Now().Format("20060102-150405")),
+		Filters: []runtime.FileFilter{
+			{DisplayName: "JSON (*.json)", Pattern: "*.json"},
+		},
+	})
+	if err != nil || dst == "" {
+		return "", err
+	}
+	if err := os.WriteFile(dst, []byte(jsonContent), secureFileMode); err != nil {
+		return "", err
+	}
+	return dst, nil
+}
+
 // ImportHistoryFromFile opens a file picker and returns the JSON content as a
 // string. The frontend then parses and merges the entries into IndexedDB.
 func (s *Service) ImportHistoryFromFile() (string, error) {
 	src, err := runtime.OpenFileDialog(s.ctx, runtime.OpenDialogOptions{
 		Title: "选择历史 JSON 文件",
+		Filters: []runtime.FileFilter{
+			{DisplayName: "JSON (*.json)", Pattern: "*.json"},
+		},
+	})
+	if err != nil || src == "" {
+		return "", err
+	}
+	data, err := os.ReadFile(src)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
+// ImportUpstreamConfigFromFile opens a JSON file picker and returns the file
+// contents so the frontend can merge the imported upstream profiles and
+// restore any bundled API keys into the system credential store.
+func (s *Service) ImportUpstreamConfigFromFile() (string, error) {
+	src, err := runtime.OpenFileDialog(s.ctx, runtime.OpenDialogOptions{
+		Title: "选择上游配置 JSON 文件",
 		Filters: []runtime.FileFilter{
 			{DisplayName: "JSON (*.json)", Pattern: "*.json"},
 		},

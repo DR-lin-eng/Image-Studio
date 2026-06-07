@@ -28,6 +28,8 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
   const {
     kernelRuntimeMode,
     proxyMode, proxyURL,
+    autoRetryEnabled,
+    protectStreamPreview,
     theme, fontScale,
     setField, setAPIKey, setProxyConfig,
     history,
@@ -148,6 +150,8 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
       historyCount={history.length}
       importHistory={() => void importHistory()}
       isTestingKey={isTestingKey}
+      autoRetryEnabled={autoRetryEnabled}
+      protectStreamPreview={protectStreamPreview}
       kernelRuntimeMode={kernelRuntimeMode}
       onOpenAbout={() => setAboutOpen(true)}
       onOpenFeedback={() => openExternal(ISSUES_URL)}
@@ -172,6 +176,16 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
       }}
       onSetFontScale={setFontScale}
       onSetKernelRuntimeMode={(value) => setField("kernelRuntimeMode", value)}
+      onSetAutoRetryEnabled={(value) => {
+        setField("autoRetryEnabled", value);
+        scheduleCompatibilityExport(useStudioStore.getState());
+        pushToast(value ? "已开启自动重试" : "已关闭自动重试", "success");
+      }}
+      onSetProtectStreamPreview={(value) => {
+        setField("protectStreamPreview", value);
+        scheduleCompatibilityExport(useStudioStore.getState());
+        pushToast(value ? "已开启流式预览保护" : "已关闭流式预览保护", "success");
+      }}
       onSetProxyConfig={setProxyConfig}
       onSetSavePromptSuppressed={updateSavePromptSuppressed}
       onSetTheme={setTheme}
@@ -241,6 +255,50 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
             ) : null}
             <p className="mt-1 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-300">
               默认使用系统配置；自定义地址支持 http:// 和 https://。
+            </p>
+          </SettingsRow>
+
+          <SettingsRow label="失败自动重试">
+            <div className={`platform-seg flex flex-wrap gap-1 bg-black/[0.04] p-0.5 ring-1 ring-black/[0.05] dark:bg-white/[0.06] dark:ring-white/[0.06] ${usesFluentUI ? "rounded-[10px]" : "rounded-[18px]"}`}>
+              <SettingsSegButton active={autoRetryEnabled} onClick={() => {
+                setField("autoRetryEnabled", true);
+                scheduleCompatibilityExport(useStudioStore.getState());
+                pushToast("已开启自动重试", "success");
+              }}>
+                开启
+              </SettingsSegButton>
+              <SettingsSegButton active={!autoRetryEnabled} onClick={() => {
+                setField("autoRetryEnabled", false);
+                scheduleCompatibilityExport(useStudioStore.getState());
+                pushToast("已关闭自动重试", "success");
+              }}>
+                关闭
+              </SettingsSegButton>
+            </div>
+            <p className="mt-1 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-300">
+              默认开启。关闭后，504/524 或可重试的网络错误不会自动再发请求，适合排查问题或避免按次计费上游重复扣费。
+            </p>
+          </SettingsRow>
+
+          <SettingsRow label="流式预览保护">
+            <div className={`platform-seg flex flex-wrap gap-1 bg-black/[0.04] p-0.5 ring-1 ring-black/[0.05] dark:bg-white/[0.06] dark:ring-white/[0.06] ${usesFluentUI ? "rounded-[10px]" : "rounded-[18px]"}`}>
+              <SettingsSegButton active={protectStreamPreview} onClick={() => {
+                setField("protectStreamPreview", true);
+                scheduleCompatibilityExport(useStudioStore.getState());
+                pushToast("已开启流式预览保护", "success");
+              }}>
+                开启
+              </SettingsSegButton>
+              <SettingsSegButton active={!protectStreamPreview} onClick={() => {
+                setField("protectStreamPreview", false);
+                scheduleCompatibilityExport(useStudioStore.getState());
+                pushToast("已关闭流式预览保护", "success");
+              }}>
+                关闭
+              </SettingsSegButton>
+            </div>
+            <p className="mt-1 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-300">
+              默认开启。高并发或 Android 大尺寸任务时，会自动关闭流式预览，优先保证最终图完整；关闭后严格按你设置的预览帧数请求。
             </p>
           </SettingsRow>
 

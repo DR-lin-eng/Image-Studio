@@ -3,12 +3,14 @@ import type { SourceImage } from "../../types/domain";
 import { useBlobURL } from "../../lib/images";
 
 export function MacComposeSources({
+  compareSourceOnCanvas,
   clearSources,
   currentImageSavedPath,
   selectSourceImage,
   viewSourceOnCanvas,
   sources,
 }: {
+  compareSourceOnCanvas: (index: number) => void;
   clearSources: () => void;
   currentImageSavedPath?: string | null;
   selectSourceImage: () => void;
@@ -51,6 +53,14 @@ export function MacComposeSources({
           >
             <ImagePlus className="w-3.5 h-3.5" /> 添加图片
           </button>
+          {sources.length > 0 ? (
+            <button
+              onClick={() => compareSourceOnCanvas(0)}
+              className="platform-action-btn inline-flex items-center gap-1 rounded-full border border-black/[0.08] px-3 py-2 text-xs text-zinc-700 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] dark:border-white/[0.08] dark:text-zinc-300"
+            >
+              对比主参考
+            </button>
+          ) : null}
           {sources.length > 0 ? (
             <button
               onClick={clearSources}

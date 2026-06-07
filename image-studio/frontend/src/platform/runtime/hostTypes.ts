@@ -1,3 +1,5 @@
+import type { RequestPolicy } from "../../types/domain";
+
 export type GenerateOptionsLike = {
   apiKey: string;
   mode: string;
@@ -28,6 +30,17 @@ export type GenerateOptionsLike = {
   noPromptRevision: boolean;
   concurrencyLimit?: number;
   partialImages?: number;
+  fallbackProfile?: {
+    baseURL: string;
+    apiKey: string;
+    textModelID: string;
+    imageModelID: string;
+    reasoningEffort?: string;
+    apiMode: string;
+    requestPolicy: RequestPolicy;
+    imagesNewAPICompat?: boolean;
+  };
+  autoRetryEnabled?: boolean;
   disablePreview?: boolean;
   requestedJobId?: string;
   sourceImages?: Array<{
@@ -115,6 +128,19 @@ export type AppUpdateInfoLike = {
   publishedAt?: string;
   body?: string;
   hasUpdate: boolean;
+};
+
+export type AppUpdateProbeResultLike = {
+  appVersion?: string;
+  currentVersion?: string;
+  latestVersion?: string;
+  releaseTag?: string;
+  releaseURL?: string;
+  ignoredReleaseTag?: string;
+  updateInfoAvailable: boolean;
+  hasUpdate: boolean;
+  shouldShowUpdate: boolean;
+  appUpdateModalOpen: boolean;
 };
 export type HostKind = "wails-desktop" | "android-shell" | "browser";
 

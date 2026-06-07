@@ -36,6 +36,7 @@ export function MacComposePanel({
   onOpenCustomSizeModal,
   selectSourceImage,
   clearSources,
+  compareSourceOnCanvas,
   viewSourceOnCanvas,
   quality,
   qualityOptions,
@@ -70,6 +71,7 @@ export function MacComposePanel({
   onOpenCustomSizeModal: () => void;
   selectSourceImage: () => void;
   clearSources: () => void;
+  compareSourceOnCanvas: (index: number) => void;
   viewSourceOnCanvas: (index: number) => void;
   quality: QualityValue;
   qualityOptions: Array<{ value: QualityValue; label: string }>;
@@ -120,6 +122,7 @@ export function MacComposePanel({
           {mode === "edit" && (
             <MacComposeSources
               clearSources={clearSources}
+              compareSourceOnCanvas={compareSourceOnCanvas}
               currentImageSavedPath={currentImage?.savedPath ?? null}
               selectSourceImage={selectSourceImage}
               viewSourceOnCanvas={viewSourceOnCanvas}

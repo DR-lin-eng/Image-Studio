@@ -34,6 +34,9 @@ type Settings struct {
 	Moderation           string                   `json:"moderation,omitempty"`
 	UserIdentifier       string                   `json:"userIdentifier,omitempty"`
 	PartialImages        *int                     `json:"partialImages,omitempty"`
+	ProtectStreamPreview *bool                    `json:"protectStreamPreview,omitempty"`
+	AutoRetryEnabled     *bool                    `json:"autoRetryEnabled,omitempty"`
+	PromptTemplates      []PromptTemplate         `json:"promptTemplates,omitempty"`
 	OutputDir            string                   `json:"outputDir,omitempty"`
 	PromptHistory        []string                 `json:"promptHistory,omitempty"`
 	Presets              []Preset                 `json:"presets,omitempty"`
@@ -64,6 +67,7 @@ type UpstreamProfile struct {
 	ImageModelID       string `json:"imageModelID"`
 	ReasoningEffort    string `json:"reasoningEffort"`
 	ConcurrencyLimit   int    `json:"concurrencyLimit"`
+	FallbackProfileID  string `json:"fallbackProfileId,omitempty"`
 	CreatedAt          int64  `json:"createdAt"`
 	LastUsedAt         int64  `json:"lastUsedAt,omitempty"`
 }
@@ -82,6 +86,14 @@ type Preset struct {
 	Moderation        string `json:"moderation,omitempty"`
 	KernelRuntimeMode string `json:"kernelRuntimeMode,omitempty"`
 	BatchCount        int    `json:"batchCount"`
+}
+
+type PromptTemplate struct {
+	ID        string `json:"id"`
+	Label     string `json:"label"`
+	Text      string `json:"text"`
+	CreatedAt int64  `json:"createdAt"`
+	UpdatedAt int64  `json:"updatedAt"`
 }
 
 type HistoryItem struct {

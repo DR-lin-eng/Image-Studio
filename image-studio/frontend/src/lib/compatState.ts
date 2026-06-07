@@ -10,6 +10,7 @@ import type {
   ModerationValue,
   OutputFormatValue,
   Preset,
+  PromptTemplate,
   ProxyMode,
   ThemeMode,
   UpstreamProfile,
@@ -30,6 +31,7 @@ import {
   normalizeCompletionSoundConfig,
   persistCompletionSoundConfig,
 } from "./completionSound";
+import { normalizePromptTemplates } from "./promptTemplates";
 
 const SCHEMA_VERSION = 1;
 const MARKER_KEY = "gptcodex.compatStateUpdatedAt";
@@ -51,6 +53,9 @@ export type CompatibilityState = {
     moderation?: ModerationValue;
     userIdentifier?: string;
     partialImages?: number;
+    protectStreamPreview?: boolean;
+    autoRetryEnabled?: boolean;
+    promptTemplates?: PromptTemplate[];
     outputDir?: string;
     promptHistory?: string[];
     presets?: Preset[];
@@ -84,6 +89,9 @@ export type CompatibilityExportInput = {
   moderation: ModerationValue;
   userIdentifier: string;
   partialImages: number;
+  protectStreamPreview: boolean;
+  autoRetryEnabled: boolean;
+  promptTemplates: PromptTemplate[];
   promptHistory: string[];
   presets: Preset[];
   customAspectRatios: CustomAspectRatio[];
@@ -139,6 +147,9 @@ export function compatibilityExportFingerprint(input: CompatibilityExportInput):
     moderation: input.moderation,
     userIdentifier: input.userIdentifier,
     partialImages: input.partialImages,
+    protectStreamPreview: input.protectStreamPreview,
+    autoRetryEnabled: input.autoRetryEnabled,
+    promptTemplates: input.promptTemplates,
     promptHistory: input.promptHistory,
     presets: input.presets,
     customAspectRatios: input.customAspectRatios,
@@ -172,6 +183,9 @@ function buildCompatibilityState(input: CompatibilityExportInput): Compatibility
       moderation: normalizeModeration(input.moderation),
       userIdentifier: normalizeUserIdentifier(input.userIdentifier),
       partialImages: normalizePartialImages(input.partialImages),
+      protectStreamPreview: input.protectStreamPreview !== false,
+      autoRetryEnabled: input.autoRetryEnabled !== false,
+      promptTemplates: normalizePromptTemplates(input.promptTemplates),
       outputDir: readLocalStorageString("gptcodex.outputDir"),
       promptHistory: cleanStringList(input.promptHistory, 50),
       presets: normalizePresets(input.presets),
@@ -210,6 +224,11 @@ function applyCompatibilityLocalStorage(state: CompatibilityState): void {
   if (settings.moderation) writeLocalStorageString("gptcodex.moderation", normalizeModeration(settings.moderation));
   if (settings.userIdentifier !== undefined) writeLocalStorageString("gptcodex.userIdentifier", normalizeUserIdentifier(settings.userIdentifier));
   if (typeof settings.partialImages === "number") writeLocalStorageString("gptcodex.partialImages", String(normalizePartialImages(settings.partialImages)));
+  if (settings.protectStreamPreview === false) writeLocalStorageString("gptcodex.protectStreamPreview", "0");
+  else removeLocalStorage("gptcodex.protectStreamPreview");
+  if (settings.autoRetryEnabled === false) writeLocalStorageString("gptcodex.autoRetryEnabled", "0");
+  else removeLocalStorage("gptcodex.autoRetryEnabled");
+  writeLocalStorageJSON("gptcodex.promptTemplates", normalizePromptTemplates(settings.promptTemplates ?? []));
   if (settings.outputDir?.trim()) writeLocalStorageString("gptcodex.outputDir", settings.outputDir.trim());
   else removeLocalStorage("gptcodex.outputDir");
   if (settings.kernelRuntimeMode) writeLocalStorageString("gptcodex.kernelRuntimeMode", normalizeKernelRuntimeMode(settings.kernelRuntimeMode));
@@ -279,6 +298,9 @@ function normalizeSettings(raw: unknown): CompatibilityState["settings"] {
     moderation: normalizeModeration(source.moderation),
     userIdentifier: normalizeUserIdentifier(source.userIdentifier),
     partialImages: normalizePartialImages(source.partialImages),
+    protectStreamPreview: source.protectStreamPreview !== false,
+    autoRetryEnabled: source.autoRetryEnabled !== false,
+    promptTemplates: normalizePromptTemplates(source.promptTemplates ?? []),
     outputDir: typeof source.outputDir === "string" ? source.outputDir : "",
     promptHistory: cleanStringList(source.promptHistory ?? [], 50),
     presets: normalizePresets(source.presets ?? []),
@@ -383,6 +405,9 @@ function cloneExportInput(input: CompatibilityExportInput): CompatibilityExportI
     moderation: input.moderation,
     userIdentifier: input.userIdentifier,
     partialImages: input.partialImages,
+    protectStreamPreview: input.protectStreamPreview,
+    autoRetryEnabled: input.autoRetryEnabled,
+    promptTemplates: input.promptTemplates.map((item) => ({ ...item })),
     promptHistory: [...input.promptHistory],
     presets: input.presets.map((preset) => ({ ...preset })),
     customAspectRatios: input.customAspectRatios.map((ratio) => ({ ...ratio })),

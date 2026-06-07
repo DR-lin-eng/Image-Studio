@@ -46,6 +46,7 @@ import type {
   HostKind,
   CompatibilityStateLike,
   AppUpdateInfoLike,
+  AppUpdateProbeResultLike,
   ImageTransformResultLike,
   ImportedImageLike,
   JobStartedLike,
@@ -550,6 +551,20 @@ export function ImportHistoryFromFile(): Promise<string> {
   return importHistoryFallback();
 }
 
+export function ExportUpstreamConfigToFile(jsonContent: string): Promise<string> {
+  if (hasServiceMethod("ExportUpstreamConfigToFile")) {
+    return invokeService<string>(unsupportedMessage, "ExportUpstreamConfigToFile", jsonContent);
+  }
+  return Promise.resolve(saveByDownload(new Blob([jsonContent], { type: "application/json" }), `image-studio-upstream-config-${Date.now()}.json`));
+}
+
+export function ImportUpstreamConfigFromFile(): Promise<string> {
+  if (hasServiceMethod("ImportUpstreamConfigFromFile")) {
+    return invokeService<string>(unsupportedMessage, "ImportUpstreamConfigFromFile");
+  }
+  return importHistoryFallback();
+}
+
 export function LoadCompatibilityState(): Promise<CompatibilityStateLike | null> {
   if (hasServiceMethod("LoadCompatibilityState")) {
     return invokeService<CompatibilityStateLike>(unsupportedMessage, "LoadCompatibilityState")
@@ -571,6 +586,13 @@ export function CheckForAppUpdate(): Promise<AppUpdateInfoLike | null> {
       .catch(() => null);
   }
   return Promise.resolve(null);
+}
+
+export function WriteAppUpdateProbe(result: AppUpdateProbeResultLike): Promise<void> {
+  if (hasServiceMethod("WriteAppUpdateProbe")) {
+    return invokeService<void>(unsupportedMessage, "WriteAppUpdateProbe", result);
+  }
+  return Promise.resolve();
 }
 
 export function RegisterTrustedOutputDir(root: string): Promise<void> {

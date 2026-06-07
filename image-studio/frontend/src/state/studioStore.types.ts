@@ -16,6 +16,7 @@ import type {
   CompletionSoundConfig,
   Preset,
   ProgressInfo,
+  PromptTemplate,
   ProxyMode,
   QualityValue,
   RequestPolicy,
@@ -78,6 +79,8 @@ export interface StudioState {
   moderation: ModerationValue;
   userIdentifier: string;
   partialImages: number;
+  protectStreamPreview: boolean;
+  autoRetryEnabled: boolean;
   kernelRuntimeMode: KernelRuntimeMode;
   baseURL: string;
   textModelID: string;
@@ -131,6 +134,7 @@ export interface StudioState {
   canvasViewResetTick: number;
   fullscreen: boolean;
   promptHistory: string[];
+  promptTemplates: PromptTemplate[];
   batchCount: number;
   loopGeneration: LoopGenerationConfig;
   presets: Preset[];
@@ -166,6 +170,7 @@ export interface StudioState {
   setActiveProfile: (id: string) => Promise<void>;
   selectSourceImage: () => Promise<void>;
   viewSourceOnCanvas: (index: number) => Promise<void>;
+  compareSourceOnCanvas: (index: number) => Promise<void>;
   removeSource: (index: number) => void;
   clearSources: () => void;
   reorderSources: (from: number, to: number) => void;
@@ -191,6 +196,7 @@ export interface StudioState {
   openResultGrid: () => void;
   closeResultGrid: () => void;
   selectBatchResult: (item: HistoryItem) => Promise<void>;
+  stepBatchResult: (delta: -1 | 1) => Promise<void>;
   importImageFile: (file: File) => Promise<void>;
   pushToast: (text: string, kind?: Toast["kind"], ttl?: number, action?: Toast["action"]) => void;
   dismissToast: (id: string) => void;
@@ -228,6 +234,9 @@ export interface StudioState {
   updatePreset: (id: string, patch: Partial<Omit<Preset, "id">>) => boolean;
   applyPreset: (id: string) => void;
   deletePreset: (id: string) => void;
+  addPromptTemplate: (label: string, text: string) => string | null;
+  updatePromptTemplate: (id: string, patch: Partial<Pick<PromptTemplate, "label" | "text">>) => boolean;
+  deletePromptTemplate: (id: string) => void;
   exportHistory: () => Promise<void>;
   importHistory: () => Promise<void>;
   setTheme: (t: ThemeMode) => void;

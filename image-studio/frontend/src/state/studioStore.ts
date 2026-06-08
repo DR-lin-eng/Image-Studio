@@ -303,7 +303,7 @@ function launchQueuedLoopJobs(controller: LoopRunController): void {
       onSettled: (status) => {
         const current = loopRunControllers.get(controller.workspaceId);
         if (!current || current !== controller) return;
-        if (status === "error") {
+        if (status === "error" && !batchQueueMode) {
           stopLoopRun(controller.workspaceId);
           return;
         }

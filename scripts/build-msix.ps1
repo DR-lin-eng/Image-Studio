@@ -55,6 +55,24 @@ function Expand-Version([string]$version) {
     return "$($Matches[1]).$($Matches[2]).$($Matches[3]).0"
 }
 
+function Test-MsixManifest([string]$manifest) {
+    if ($manifest -match '<uap:Extension\s+Category="windows\.fullTrustProcess"') {
+        throw "MSIX manifest must declare windows.fullTrustProcess with desktop:Extension, not uap:Extension."
+    }
+    if ($manifest -notmatch 'xmlns:desktop="http://schemas\.microsoft\.com/appx/manifest/desktop/windows10"') {
+        throw "MSIX manifest is missing the desktop namespace required by windows.fullTrustProcess."
+    }
+    if ($manifest -notmatch '<desktop:Extension\s+Category="windows\.fullTrustProcess"') {
+        throw "MSIX manifest is missing the desktop full-trust extension declaration."
+    }
+    if ($manifest -notmatch '<desktop:FullTrustProcess\s*/?>') {
+        throw "MSIX manifest is missing desktop:FullTrustProcess."
+    }
+    if ($manifest -match 'unvirtualizedResources') {
+        throw "MSIX manifest should not request unvirtualizedResources unless virtualization exclusions are intentionally configured."
+    }
+}
+
 $root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $packageVersion = Expand-Version $Version
 $makeAppx = Get-WindowsSdkTool "makeappx.exe"
@@ -84,6 +102,7 @@ try {
     $manifest = $manifest.Replace("{{DISPLAY_NAME}}", "Image Studio")
     $manifest = $manifest.Replace("{{PUBLISHER_DISPLAY_NAME}}", $PublisherDisplayName)
     $manifest = $manifest.Replace("{{DESCRIPTION}}", "Open-source image generation and editing desktop app")
+    Test-MsixManifest $manifest
     Set-Content -LiteralPath $manifestPath -Value $manifest -Encoding UTF8
 
     New-Item -ItemType Directory -Force -Path ([IO.Path]::GetDirectoryName($outputFile)) | Out-Null

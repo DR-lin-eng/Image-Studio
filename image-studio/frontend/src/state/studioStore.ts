@@ -256,7 +256,8 @@ function launchQueuedLoopJobs(controller: LoopRunController): void {
     return;
   }
   const runtime = workspaceRuntimeFromState(state, controller.workspaceId);
-  if (runtime.jobsTotal === 0) {
+  const batchQueueMode = Array.isArray(controller.batchSources) && controller.batchSources.length > 0;
+  if (!batchQueueMode && runtime.jobsTotal === 0) {
     stopLoopRun(controller.workspaceId);
     return;
   }
@@ -264,7 +265,7 @@ function launchQueuedLoopJobs(controller: LoopRunController): void {
   while (!controller.stopped && controller.launchedJobs < controller.totalJobs) {
     const latestState = useStudioStore.getState();
     const latestRuntime = workspaceRuntimeFromState(latestState, controller.workspaceId);
-    if (latestRuntime.jobsTotal === 0 || latestRuntime.runningJobs.length >= controller.maxConcurrent) break;
+    if ((!batchQueueMode && latestRuntime.jobsTotal === 0) || latestRuntime.runningJobs.length >= controller.maxConcurrent) break;
     const batchIndex = controller.launchedJobs;
     controller.launchedJobs += 1;
     const payloadSeed = controller.payload.seed ? controller.payload.seed + batchIndex : 0;
@@ -308,7 +309,12 @@ function launchQueuedLoopJobs(controller: LoopRunController): void {
         }
         const currentState = useStudioStore.getState();
         const currentRuntime = workspaceRuntimeFromState(currentState, controller.workspaceId);
-        if (currentRuntime.jobsTotal === 0) {
+        if (batchQueueMode) {
+          if (current.launchedJobs >= current.totalJobs && currentRuntime.runningJobs.length === 0) {
+            stopLoopRun(controller.workspaceId);
+            return;
+          }
+        } else if (currentRuntime.jobsTotal === 0) {
           stopLoopRun(controller.workspaceId);
           return;
         }
@@ -1061,6 +1067,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
 
   selectSourceImage: async () => imageActions.selectSourceImage(),
   chooseBatchInputDir: async () => imageActions.chooseBatchInputDir(),
+  chooseBatchInputFiles: async () => imageActions.chooseBatchInputFiles(),
   refreshBatchInputDir: async () => imageActions.refreshBatchInputDir(),
   removeSource: (index) => imageActions.removeSource(index),
   clearSources: () => imageActions.clearSources(),
@@ -1108,12 +1115,8 @@ export const useStudioStore = create<StudioState>((set, get) => ({
         set({ errorMessage: "批处理模式暂仅支持桌面端", errorCanRetry: false, errorRawPath: null });
         return;
       }
-      if (!batchProcess.inputDir.trim()) {
-        set({ errorMessage: "请先选择批处理输入目录", errorCanRetry: false, errorRawPath: null });
-        return;
-      }
       if (batchProcess.discoveredSources.length === 0) {
-        set({ errorMessage: "批处理目录中没有可处理的图片", errorCanRetry: false, errorRawPath: null });
+        set({ errorMessage: "请先选择批处理输入目录，或直接选择多张图片加入队列", errorCanRetry: false, errorRawPath: null });
         return;
       }
       if (batchProcess.outputMode === "custom_dir" && !batchProcess.outputDir.trim()) {

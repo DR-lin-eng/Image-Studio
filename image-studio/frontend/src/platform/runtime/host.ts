@@ -57,6 +57,7 @@ import type {
   ProbeUpstreamResultLike,
   PromptOptimizeOptionsLike,
   SelectFileResponseLike,
+  SelectFilesResponseLike,
 } from "./hostTypes.ts";
 
 const remoteJobControllers = new Map<string, AbortController>();
@@ -354,6 +355,13 @@ export function OpenImageDialog(): Promise<SelectFileResponseLike> {
     return invokeAndroid<SelectFileResponseLike>(unsupportedMessage, "OpenImageDialog").catch(() => openImageDialogFallback());
   }
   return openImageDialogFallback();
+}
+
+export function OpenImagesDialog(): Promise<SelectFilesResponseLike> {
+  if (hasServiceMethod("OpenImagesDialog")) {
+    return invokeService<SelectFilesResponseLike>(unsupportedMessage, "OpenImagesDialog");
+  }
+  return Promise.reject(new Error(unsupportedMessage("OpenImagesDialog")));
 }
 
 export function ChooseBatchInputDir(): Promise<BatchInputDirectoryLike> {

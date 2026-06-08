@@ -1,4 +1,4 @@
-import { FolderOpen, RefreshCw } from "lucide-react";
+import { FolderOpen, Images, RefreshCw } from "lucide-react";
 import type { BatchProcessConfig, EditSourceMode } from "../../types/domain";
 import { Section, Seg, SegItem } from "./panelChrome";
 
@@ -16,6 +16,7 @@ export function BatchProcessSection({
   setEditSourceMode,
   setBatchProcess,
   onChooseInputDir,
+  onChooseInputFiles,
   onChooseOutputDir,
   onRefreshInputDir,
   usesFluentUI = false,
@@ -26,6 +27,7 @@ export function BatchProcessSection({
   setEditSourceMode: (mode: EditSourceMode) => void;
   setBatchProcess: (next: BatchProcessConfig) => void;
   onChooseInputDir: () => void;
+  onChooseInputFiles?: () => void;
   onChooseOutputDir?: () => void;
   onRefreshInputDir: () => void;
   usesFluentUI?: boolean;
@@ -86,6 +88,15 @@ export function BatchProcessSection({
               >
                 <FolderOpen className="h-3.5 w-3.5" /> 选择目录
               </button>
+              {onChooseInputFiles ? (
+                <button
+                  type="button"
+                  onClick={onChooseInputFiles}
+                  className={`inline-flex min-h-[36px] items-center gap-1.5 border border-black/[0.08] px-3 text-[12px] font-medium text-zinc-700 transition-colors hover:border-[color:var(--accent)]/35 hover:text-[var(--accent)] dark:border-white/[0.08] dark:text-zinc-300 ${usesFluentUI ? "rounded-[8px]" : "rounded-full"}`}
+                >
+                  <Images className="h-3.5 w-3.5" /> 选择多张图片
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={onRefreshInputDir}
@@ -97,7 +108,7 @@ export function BatchProcessSection({
             </div>
 
             <div className={`border border-black/[0.06] bg-[var(--surface)] px-3 py-2 text-[11px] text-zinc-500 dark:border-white/[0.04] dark:text-zinc-400 ${usesFluentUI ? "rounded-[10px]" : "rounded-[14px]"}`}>
-              已扫描 {batchProcess.discoveredSources.length} 张
+              当前队列 {batchProcess.discoveredSources.length} 张
               <div className="mt-1 truncate">{sampleNames(batchProcess)}</div>
             </div>
 

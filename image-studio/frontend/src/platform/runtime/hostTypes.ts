@@ -113,6 +113,9 @@ export type BatchInputDirectoryLike = {
   directory: string;
   images: BatchInputImageLike[];
 };
+export type SelectFilesResponseLike = {
+  files: BatchInputImageLike[];
+};
 export type ImageTransformResultLike = { path: string; acceleration?: string };
 export type SelectFileResponseLike = {
   path: string;

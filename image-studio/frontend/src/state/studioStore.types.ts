@@ -178,6 +178,7 @@ export interface StudioState {
   setActiveProfile: (id: string) => Promise<void>;
   selectSourceImage: () => Promise<void>;
   chooseBatchInputDir: () => Promise<void>;
+  chooseBatchInputFiles: () => Promise<void>;
   refreshBatchInputDir: () => Promise<void>;
   viewSourceOnCanvas: (index: number) => Promise<void>;
   compareSourceOnCanvas: (index: number) => Promise<void>;

@@ -215,6 +215,10 @@ type BatchInputDirectory struct {
 	Images    []BatchInputImage `json:"images"`
 }
 
+type SelectFilesResponse struct {
+	Files []BatchInputImage `json:"files"`
+}
+
 // ImportedImage describes a freshly imported (drag-dropped or pasted) image.
 type ImportedImage struct {
 	Path          string `json:"path"`

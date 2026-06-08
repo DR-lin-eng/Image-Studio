@@ -30,6 +30,7 @@ export function DesktopComposeSections({
   batchCount,
   batchProcess,
   chooseBatchInputDir,
+  chooseBatchInputFiles,
   chooseBatchOutputDir,
   clearSources,
   currentImageSavedPath,
@@ -64,6 +65,7 @@ export function DesktopComposeSections({
   batchCount: number;
   batchProcess: BatchProcessConfig;
   chooseBatchInputDir: () => void;
+  chooseBatchInputFiles: () => void;
   chooseBatchOutputDir: () => void;
   clearSources: () => void;
   currentImageSavedPath?: string | null;
@@ -245,6 +247,7 @@ export function DesktopComposeSections({
             setEditSourceMode={(next) => setField("editSourceMode" as any, next)}
             setBatchProcess={(next) => setField("batchProcess" as any, next)}
             onChooseInputDir={chooseBatchInputDir}
+            onChooseInputFiles={chooseBatchInputFiles}
             onChooseOutputDir={chooseBatchOutputDir}
             onRefreshInputDir={onRefreshBatchInputDir}
             usesFluentUI={usesFluentUI}

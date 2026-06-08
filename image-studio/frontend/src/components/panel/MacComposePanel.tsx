@@ -25,6 +25,7 @@ export function MacComposePanel({
   batchCount,
   batchProcess,
   chooseBatchInputDir,
+  chooseBatchInputFiles,
   chooseBatchOutputDir,
   mode,
   sources,
@@ -65,6 +66,7 @@ export function MacComposePanel({
   batchCount: number;
   batchProcess: BatchProcessConfig;
   chooseBatchInputDir: () => void;
+  chooseBatchInputFiles: () => void;
   chooseBatchOutputDir: () => void;
   mode: string;
   sources: SourceImage[];
@@ -133,6 +135,7 @@ export function MacComposePanel({
             <MacComposeSources
               batchProcess={batchProcess}
               chooseBatchInputDir={chooseBatchInputDir}
+              chooseBatchInputFiles={chooseBatchInputFiles}
               chooseBatchOutputDir={chooseBatchOutputDir}
               clearSources={clearSources}
               compareSourceOnCanvas={compareSourceOnCanvas}

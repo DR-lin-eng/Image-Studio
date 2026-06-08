@@ -68,6 +68,8 @@ export function createImageActions(store: StateAdapter) {
     path: string;
     name: string;
     size: number;
+    width?: number;
+    height?: number;
     previewUrl?: string;
     previewWidth?: number;
     previewHeight?: number;
@@ -76,6 +78,8 @@ export function createImageActions(store: StateAdapter) {
       path: source.path,
       name: source.name,
       size: source.size,
+      width: source.width,
+      height: source.height,
       previewUrl: source.previewUrl,
       previewWidth: source.previewWidth,
       previewHeight: source.previewHeight,

@@ -121,6 +121,10 @@ func (s *Service) ListBatchInputImages(directory string) (BatchInputDirectory, e
 			Name: entry.Name(),
 			Size: info.Size(),
 		}
+		if cfg, cfgErr := imageConfig(path); cfgErr == nil {
+			item.Width = cfg.Width
+			item.Height = cfg.Height
+		}
 		if info.Size() > 0 && info.Size() <= maxDialogReadBytes {
 			if preview, previewErr := s.registerImportedPreview(path); previewErr == nil {
 				item.PreviewURL = preview.PreviewURL

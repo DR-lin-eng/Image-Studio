@@ -184,6 +184,7 @@ function buildWorkspace(
     outputDir: "",
     concurrency: 2,
     fileNamePrefix: "processed-",
+    autoAspectResolution: "",
     discoveredSources: [],
   };
   return {

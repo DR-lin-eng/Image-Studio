@@ -1,4 +1,5 @@
 import type {
+  BatchProcessAutoAspectResolution,
   BatchProcessSourceImage,
   BatchProcessConfig,
   LoopGenerationConfig,
@@ -97,8 +98,15 @@ export function defaultBatchProcessConfig(): BatchProcessConfig {
     outputDir: "",
     concurrency: DEFAULT_BATCH_PROCESS_CONCURRENCY,
     fileNamePrefix: "processed-",
+    autoAspectResolution: "",
     discoveredSources: [],
   };
+}
+
+export function normalizeBatchProcessAutoAspectResolution(value: unknown): BatchProcessAutoAspectResolution {
+  return value === "256" || value === "512" || value === "1k" || value === "2k" || value === "4k"
+    ? value
+    : "";
 }
 
 export function normalizeBatchProcessConcurrency(value: unknown): number {
@@ -119,6 +127,8 @@ export function normalizeBatchProcessConfig(value: unknown): BatchProcessConfig 
         path?: unknown;
         name?: unknown;
         size?: unknown;
+        width?: unknown;
+        height?: unknown;
         previewUrl?: unknown;
         previewWidth?: unknown;
         previewHeight?: unknown;
@@ -130,6 +140,8 @@ export function normalizeBatchProcessConfig(value: unknown): BatchProcessConfig 
         path,
         name,
         size: Number.isFinite(Number(candidate.size)) ? Math.max(0, Math.floor(Number(candidate.size))) : 0,
+        width: Number.isFinite(Number(candidate.width)) ? Math.floor(Number(candidate.width)) : undefined,
+        height: Number.isFinite(Number(candidate.height)) ? Math.floor(Number(candidate.height)) : undefined,
         previewUrl: typeof candidate.previewUrl === "string" ? candidate.previewUrl : undefined,
         previewWidth: Number.isFinite(Number(candidate.previewWidth)) ? Math.floor(Number(candidate.previewWidth)) : undefined,
         previewHeight: Number.isFinite(Number(candidate.previewHeight)) ? Math.floor(Number(candidate.previewHeight)) : undefined,
@@ -145,6 +157,7 @@ export function normalizeBatchProcessConfig(value: unknown): BatchProcessConfig 
     fileNamePrefix: typeof source.fileNamePrefix === "string" && source.fileNamePrefix.trim()
       ? source.fileNamePrefix.trim()
       : "processed-",
+    autoAspectResolution: normalizeBatchProcessAutoAspectResolution(source.autoAspectResolution),
     discoveredSources,
   };
 }

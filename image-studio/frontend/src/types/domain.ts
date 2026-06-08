@@ -57,6 +57,7 @@ export type ThemeMode = "system" | "light" | "dark";
 export type CompletionSoundMode = "default" | "custom";
 export type EditSourceMode = "manual" | "batch";
 export type BatchProcessOutputMode = "source_dir" | "custom_dir";
+export type BatchProcessAutoAspectResolution = "" | "256" | "512" | "1k" | "2k" | "4k";
 export type SystemNotificationPermissionState = "default" | "granted" | "denied" | "unsupported";
 
 export interface CompletionSoundConfig {
@@ -165,6 +166,8 @@ export interface BatchProcessSourceImage {
   path: string;
   name: string;
   size: number;
+  width?: number;
+  height?: number;
   previewUrl?: string;
   previewWidth?: number;
   previewHeight?: number;
@@ -177,6 +180,7 @@ export interface BatchProcessConfig {
   outputDir: string;
   concurrency: number;
   fileNamePrefix: string;
+  autoAspectResolution: BatchProcessAutoAspectResolution;
   discoveredSources: BatchProcessSourceImage[];
 }
 

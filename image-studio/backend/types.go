@@ -203,6 +203,8 @@ type BatchInputImage struct {
 	Path          string `json:"path"`
 	Name          string `json:"name"`
 	Size          int64  `json:"size"`
+	Width         int    `json:"width,omitempty"`
+	Height        int    `json:"height,omitempty"`
 	PreviewURL    string `json:"previewUrl,omitempty"`
 	PreviewWidth  int    `json:"previewWidth,omitempty"`
 	PreviewHeight int    `json:"previewHeight,omitempty"`

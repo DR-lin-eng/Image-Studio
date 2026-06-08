@@ -135,6 +135,7 @@ import { getStreamPreviewDisableReason } from "./streamPreviewPolicy";
 import {
   buildAspectSizeSelection,
   buildExactSizeValue,
+  buildReferenceResolutionSizeSelection,
   buildCustomAspectValue,
   deriveAspectPreset,
   deriveResolutionPreset,
@@ -221,6 +222,13 @@ type LoopRunController = {
   batchSources?: BatchProcessSourceImage[];
   batchOutputDir?: string;
   batchOutputPrefix?: string;
+  batchAutoAspectResolution?: Exclude<import("../types/domain").BatchProcessAutoAspectResolution, ""> | "";
+  batchCapabilityInput?: {
+    apiMode: APIMode;
+    requestPolicy: RequestPolicy;
+    imageModelID?: string;
+  };
+  batchCustomAspectRatios?: import("../types/domain").CustomAspectRatio[];
   stopped: boolean;
 };
 
@@ -261,9 +269,21 @@ function launchQueuedLoopJobs(controller: LoopRunController): void {
     controller.launchedJobs += 1;
     const payloadSeed = controller.payload.seed ? controller.payload.seed + batchIndex : 0;
     const batchSource = controller.batchSources?.[batchIndex];
+    const batchPayloadSize = batchSource
+      && controller.snapshotBase.editSourceMode === "batch"
+      && controller.batchAutoAspectResolution
+      && controller.batchCapabilityInput
+      ? buildReferenceResolutionSizeSelection(
+          controller.batchAutoAspectResolution,
+          batchSource.width && batchSource.height ? { width: batchSource.width, height: batchSource.height } : null,
+          controller.batchCapabilityInput,
+          controller.batchCustomAspectRatios ?? [],
+        )
+      : controller.payload.size;
     const nextPayload: RuntimeGenerateOptions = {
       ...controller.payload,
       seed: payloadSeed,
+      size: batchPayloadSize,
       imagePaths: batchSource ? [batchSource.path] : controller.payload.imagePaths,
       sourceImages: batchSource ? [batchSource] : controller.payload.sourceImages,
     };
@@ -1304,6 +1324,13 @@ export const useStudioStore = create<StudioState>((set, get) => ({
         batchSources: batchProcess.discoveredSources,
         batchOutputDir: batchProcess.outputMode === "custom_dir" ? batchProcess.outputDir : "",
         batchOutputPrefix: batchProcess.fileNamePrefix,
+        batchAutoAspectResolution: batchProcess.autoAspectResolution,
+        batchCapabilityInput: {
+          apiMode: s.apiMode,
+          requestPolicy: s.requestPolicy,
+          imageModelID: s.imageModelID,
+        },
+        batchCustomAspectRatios: s.customAspectRatios,
         stopped: false,
       };
       loopRunControllers.set(workspaceId, controller);

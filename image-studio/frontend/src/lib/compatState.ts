@@ -575,6 +575,9 @@ export function normalizeBatchProcess(value: unknown): BatchProcessConfig {
     outputDir: typeof source.outputDir === "string" ? source.outputDir.trim() : "",
     concurrency: Number.isFinite(Number(source.concurrency)) ? Math.max(1, Math.min(9, Math.floor(Number(source.concurrency)))) : 2,
     fileNamePrefix: typeof source.fileNamePrefix === "string" && source.fileNamePrefix.trim() ? source.fileNamePrefix.trim() : "processed-",
+    autoAspectResolution: source.autoAspectResolution === "256" || source.autoAspectResolution === "512" || source.autoAspectResolution === "1k" || source.autoAspectResolution === "2k" || source.autoAspectResolution === "4k"
+      ? source.autoAspectResolution
+      : "",
     discoveredSources,
   };
 }

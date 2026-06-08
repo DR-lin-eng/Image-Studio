@@ -103,6 +103,8 @@ export type BatchInputImageLike = {
   path: string;
   name: string;
   size: number;
+  width?: number;
+  height?: number;
   previewUrl?: string;
   previewWidth?: number;
   previewHeight?: number;

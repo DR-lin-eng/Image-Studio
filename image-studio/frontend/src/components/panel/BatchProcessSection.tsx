@@ -140,6 +140,51 @@ export function BatchProcessSection({
               />
             </label>
 
+            <div className="space-y-1.5">
+              <span className="block text-[12px] font-medium text-zinc-700 dark:text-zinc-200">不同源图比例处理</span>
+              <Seg>
+                <SegItem
+                  active={batchProcess.autoAspectResolution === ""}
+                  onClick={() => setBatchProcess({ ...batchProcess, autoAspectResolution: "" })}
+                >
+                  沿用当前比例
+                </SegItem>
+                <SegItem
+                  active={batchProcess.autoAspectResolution !== ""}
+                  onClick={() => setBatchProcess({ ...batchProcess, autoAspectResolution: batchProcess.autoAspectResolution || "1k" })}
+                >
+                  按源图比例自动适配
+                </SegItem>
+              </Seg>
+              {batchProcess.autoAspectResolution !== "" ? (
+                <>
+                  <div className="grid grid-cols-5 gap-2">
+                    {(["256", "512", "1k", "2k", "4k"] as const).map((value) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setBatchProcess({ ...batchProcess, autoAspectResolution: value })}
+                        className={`border px-2 py-2 text-[11px] font-medium transition-colors ${
+                          batchProcess.autoAspectResolution === value
+                            ? "border-[color:var(--accent)]/35 bg-[var(--accent-soft)] text-[var(--accent)]"
+                            : "border-black/[0.08] text-zinc-600 hover:border-[color:var(--accent)]/30 hover:text-zinc-900 dark:border-white/[0.08] dark:text-zinc-300"
+                        } ${usesFluentUI ? "rounded-[8px]" : "rounded-[12px]"}`}
+                      >
+                        {value.toUpperCase()}
+                      </button>
+                    ))}
+                  </div>
+                  <div className={`border border-black/[0.06] bg-[var(--surface)] px-3 py-2 text-[11px] text-zinc-500 dark:border-white/[0.04] dark:text-zinc-400 ${usesFluentUI ? "rounded-[10px]" : "rounded-[14px]"}`}>
+                    开启后，批处理会按每张源图自身宽高比自动适配尺寸，同时统一使用这里选定的分辨率档位。适合同一提示词但源图比例不同的目录批处理。
+                  </div>
+                </>
+              ) : (
+                <div className={`border border-black/[0.06] bg-[var(--surface)] px-3 py-2 text-[11px] text-zinc-500 dark:border-white/[0.04] dark:text-zinc-400 ${usesFluentUI ? "rounded-[10px]" : "rounded-[14px]"}`}>
+                  关闭时仍沿用当前控制面板的比例和尺寸语义。
+                </div>
+              )}
+            </div>
+
             <div className={`border border-black/[0.06] bg-[var(--surface)] px-3 py-2 text-[11px] text-zinc-500 dark:border-white/[0.04] dark:text-zinc-400 ${usesFluentUI ? "rounded-[10px]" : "rounded-[14px]"}`}>
               结果文件名前缀固定为 <code>processed-</code>，遇到同名会自动追加 <code>-2</code>、<code>-3</code>。
             </div>

@@ -1085,7 +1085,8 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     const batchCount = normalizeBatchCount(s.batchCount);
     const batchProcess = normalizeBatchProcessConfig(s.batchProcess);
     const loopGeneration = normalizeLoopGenerationConfig(s.loopGeneration);
-    const batchProcessEnabled = s.mode === "edit" && s.editSourceMode === "batch" && batchProcess.enabled;
+    const batchProcessActive = batchProcess.enabled || !!batchProcess.inputDir.trim() || batchProcess.discoveredSources.length > 0;
+    const batchProcessEnabled = s.mode === "edit" && s.editSourceMode === "batch" && batchProcessActive;
     const loopEnabled = !batchProcessEnabled && loopGeneration.enabled;
     const requestedJobCount = loopEnabled
       ? normalizeLoopGenerationCount(loopGeneration.totalCount)

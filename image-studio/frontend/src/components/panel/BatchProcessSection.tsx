@@ -36,10 +36,22 @@ export function BatchProcessSection({
     <Section label="源图片 / 参考图">
       <div className="space-y-3">
         <Seg>
-          <SegItem active={!batchMode} onClick={() => setEditSourceMode("manual")}>
+          <SegItem
+            active={!batchMode}
+            onClick={() => {
+              setEditSourceMode("manual");
+              setBatchProcess({ ...batchProcess, enabled: false });
+            }}
+          >
             普通图生图
           </SegItem>
-          <SegItem active={batchMode} onClick={() => setEditSourceMode("batch")}>
+          <SegItem
+            active={batchMode}
+            onClick={() => {
+              setEditSourceMode("batch");
+              setBatchProcess({ ...batchProcess, enabled: true });
+            }}
+          >
             批处理
           </SegItem>
         </Seg>

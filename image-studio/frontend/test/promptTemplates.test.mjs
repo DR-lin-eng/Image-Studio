@@ -21,3 +21,34 @@ test("nextDefaultPromptTemplateLabel uses first available numeric slot", () => {
   ]);
   assert.equal(label, "模板2");
 });
+
+test("resolvePromptTemplateManagerSelection keeps explicit new mode", () => {
+  const resolved = promptTemplates.resolvePromptTemplateManagerSelection([
+    { id: "1", label: "模板1", text: "a", createdAt: 1, updatedAt: 1 },
+  ], promptTemplates.NEW_PROMPT_TEMPLATE_ID);
+  assert.deepEqual(resolved, {
+    mode: "new",
+    selectedId: promptTemplates.NEW_PROMPT_TEMPLATE_ID,
+    initializeDraft: false,
+  });
+});
+
+test("resolvePromptTemplateManagerSelection falls back to first template", () => {
+  const first = { id: "1", label: "模板1", text: "a", createdAt: 1, updatedAt: 1 };
+  const resolved = promptTemplates.resolvePromptTemplateManagerSelection([first], "");
+  assert.deepEqual(resolved, {
+    mode: "selected",
+    selectedId: "1",
+    template: first,
+    initializeDraft: true,
+  });
+});
+
+test("resolvePromptTemplateManagerSelection initializes new mode when empty", () => {
+  const resolved = promptTemplates.resolvePromptTemplateManagerSelection([], "");
+  assert.deepEqual(resolved, {
+    mode: "new",
+    selectedId: promptTemplates.NEW_PROMPT_TEMPLATE_ID,
+    initializeDraft: true,
+  });
+});

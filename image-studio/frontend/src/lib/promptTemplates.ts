@@ -1,6 +1,20 @@
 import type { PromptTemplate } from "../types/domain";
 
 export const PROMPT_TEMPLATES_LS_KEY = "gptcodex.promptTemplates";
+export const NEW_PROMPT_TEMPLATE_ID = "__new_prompt_template__";
+
+export type PromptTemplateManagerSelection =
+  | {
+    mode: "new";
+    selectedId: typeof NEW_PROMPT_TEMPLATE_ID;
+    initializeDraft: boolean;
+  }
+  | {
+    mode: "selected";
+    selectedId: string;
+    template: PromptTemplate;
+    initializeDraft: true;
+  };
 
 export function parsePromptTemplate(raw: unknown): PromptTemplate | null {
   if (!raw || typeof raw !== "object") return null;
@@ -36,6 +50,41 @@ export function nextDefaultPromptTemplateLabel(templates: PromptTemplate[]): str
   let i = 1;
   while (used.has(i)) i += 1;
   return `模板${i}`;
+}
+
+export function resolvePromptTemplateManagerSelection(
+  templates: PromptTemplate[],
+  selectedId: string,
+): PromptTemplateManagerSelection {
+  if (selectedId === NEW_PROMPT_TEMPLATE_ID) {
+    return {
+      mode: "new",
+      selectedId: NEW_PROMPT_TEMPLATE_ID,
+      initializeDraft: false,
+    };
+  }
+  const selectedTemplate = templates.find((item) => item.id === selectedId);
+  if (selectedTemplate) {
+    return {
+      mode: "selected",
+      selectedId,
+      template: selectedTemplate,
+      initializeDraft: true,
+    };
+  }
+  if (templates.length > 0) {
+    return {
+      mode: "selected",
+      selectedId: templates[0].id,
+      template: templates[0],
+      initializeDraft: true,
+    };
+  }
+  return {
+    mode: "new",
+    selectedId: NEW_PROMPT_TEMPLATE_ID,
+    initializeDraft: true,
+  };
 }
 
 export function readStoredPromptTemplates(): PromptTemplate[] {

@@ -2,7 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { Edit3, Plus, Save, Trash2 } from "lucide-react";
 import { Modal } from "../common/Modal";
 import { useStudioStore } from "../../state/studioStore";
-import { nextDefaultPromptTemplateLabel } from "../../lib/promptTemplates";
+import {
+  NEW_PROMPT_TEMPLATE_ID,
+  nextDefaultPromptTemplateLabel,
+  resolvePromptTemplateManagerSelection,
+} from "../../lib/promptTemplates";
 import { usePlatform } from "../../platform/context";
 
 export function PromptTemplateManagerModal({
@@ -25,44 +29,29 @@ export function PromptTemplateManagerModal({
   const [draftLabel, setDraftLabel] = useState("");
   const [draftText, setDraftText] = useState("");
 
-  const selectedTemplate = useMemo(
-    () => promptTemplates.find((item) => item.id === selectedId) ?? null,
+  const selection = useMemo(
+    () => resolvePromptTemplateManagerSelection(promptTemplates, selectedId),
     [promptTemplates, selectedId],
   );
+  const selectedTemplate = selection.mode === "selected" ? selection.template : null;
 
   useEffect(() => {
     if (!open) return;
-    if (!selectedId) {
-      if (promptTemplates.length > 0) {
-        const first = promptTemplates[0];
-        setSelectedId(first.id);
-        setDraftLabel(first.label);
-        setDraftText(first.text);
-        return;
-      }
-      setDraftLabel(nextDefaultPromptTemplateLabel(promptTemplates));
-      setDraftText("");
+    if (selection.selectedId !== selectedId) {
+      setSelectedId(selection.selectedId);
+    }
+    if (!selection.initializeDraft) return;
+    if (selection.mode === "selected") {
+      setDraftLabel(selection.template.label);
+      setDraftText(selection.template.text);
       return;
     }
-    if (selectedTemplate) {
-      setDraftLabel(selectedTemplate.label);
-      setDraftText(selectedTemplate.text);
-      return;
-    }
-    if (promptTemplates.length > 0) {
-      const first = promptTemplates[0];
-      setSelectedId(first.id);
-      setDraftLabel(first.label);
-      setDraftText(first.text);
-      return;
-    }
-    setSelectedId("");
     setDraftLabel(nextDefaultPromptTemplateLabel(promptTemplates));
     setDraftText("");
-  }, [open, promptTemplates, selectedId, selectedTemplate]);
+  }, [open, promptTemplates, selectedId, selection]);
 
   function startCreate(fromCurrentPrompt: boolean) {
-    setSelectedId("");
+    setSelectedId(NEW_PROMPT_TEMPLATE_ID);
     setDraftLabel(nextDefaultPromptTemplateLabel(promptTemplates));
     setDraftText(fromCurrentPrompt ? prompt.trim() : "");
   }

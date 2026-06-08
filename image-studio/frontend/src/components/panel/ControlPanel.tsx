@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useStudioStore } from "../../state/studioStore";
 import { SizeValue, QualityValue, Mode } from "../../types/domain";
 import { usePlatform } from "../../platform/context";
+import { ChooseDirectory } from "../../platform/runtime/host";
 import { AndroidPhoneComposePanel } from "../../platform/android/AndroidPhoneComposePanel";
 import { AndroidPadComposePanel } from "../../platform/android/AndroidPadComposePanel";
 import { DesktopAdvancedPanel } from "./DesktopAdvancedPanel";
@@ -39,13 +40,13 @@ export function ControlPanel({
   const {
     apiKey, mode, prompt, background, imageStyle, inputFidelity, moderation, negativePrompt, outputCompression, size, quality, seed, styleTag,
     userIdentifier, partialImages,
-    outputFormat, batchCount, loopGeneration,
+    outputFormat, batchCount, editSourceMode, batchProcess, loopGeneration,
     sources, currentImage,
     errorMessage, errorCanRetry, errorRawPath, isRunning, lastPayload, isTestingKey, isOptimizingPrompt,
     apiMode, requestPolicy, baseURL, profiles, imageModelID,
     customAspectRatios,
     setField, clearError, pushToast,
-    selectSourceImage, removeSource, clearSources, viewSourceOnCanvas,
+    selectSourceImage, chooseBatchInputDir, refreshBatchInputDir, removeSource, clearSources, viewSourceOnCanvas,
     compareSourceOnCanvas,
     openCustomAspectRatioModal,
     openCustomSizeModal,
@@ -149,6 +150,12 @@ export function ControlPanel({
     ));
   }
 
+  async function chooseBatchOutputDir() {
+    const chosen = await ChooseDirectory("选择批处理输出目录").catch(() => "");
+    if (!chosen) return;
+    setField("batchProcess" as any, { ...batchProcess, outputDir: chosen, outputMode: "custom_dir" });
+  }
+
   return (
     <div className={`control-panel box-border flex shrink-0 flex-col overflow-y-auto border-r border-[var(--border)] bg-[var(--sidebar)] backdrop-blur-2xl ${usesAppleUI ? "liquid-sidebar" : ""} ${usesAndroidUI ? "android-surface-pane" : ""} ${isMac ? "w-[408px] gap-5 px-6 py-5" : "w-[372px] gap-4 px-5 py-4"} ${usesFluentUI ? "pt-3" : ""}`}>
       <section className={`platform-card ${isMac ? "px-5 py-5" : "px-4 py-4"}`}>
@@ -238,8 +245,12 @@ export function ControlPanel({
           apiMode={apiMode}
           availableResolutions={availableResolutions}
           batchCount={batchCount}
+          batchProcess={batchProcess}
+          chooseBatchInputDir={chooseBatchInputDir}
+          chooseBatchOutputDir={chooseBatchOutputDir}
           clearSources={clearSources}
           currentImageSavedPath={currentImage?.savedPath ?? null}
+          editSourceMode={editSourceMode}
           handleAspectSelect={handleAspectSelect}
           handleResolutionSelect={handleResolutionSelect}
           imageModelID={imageModelID}
@@ -247,6 +258,7 @@ export function ControlPanel({
           allowPreciseSizeControl={allowPreciseSizeControl}
           onOpenCustomAspectRatioModal={openCustomAspectRatioModal}
           onOpenCustomSizeModal={openCustomSizeModal}
+          onRefreshBatchInputDir={refreshBatchInputDir}
           usesFluentUI={usesFluentUI}
           mode={mode}
           onPreviewSource={(index) => void viewSourceOnCanvas(index)}
@@ -277,8 +289,12 @@ export function ControlPanel({
           activeQualityLabel={activeQualityLabel}
           availableResolutions={availableResolutions}
           batchCount={batchCount}
+          batchProcess={batchProcess}
+          chooseBatchInputDir={chooseBatchInputDir}
+          chooseBatchOutputDir={chooseBatchOutputDir}
           clearSources={clearSources}
           currentImageSavedPath={currentImage?.savedPath ?? null}
+          editSourceMode={editSourceMode}
           handleAspectSelect={handleAspectSelect}
           handleResolutionSelect={handleResolutionSelect}
           imageModelID={imageModelID}
@@ -286,6 +302,7 @@ export function ControlPanel({
           allowPreciseSizeControl={allowPreciseSizeControl}
           onOpenCustomAspectRatioModal={openCustomAspectRatioModal}
           onOpenCustomSizeModal={openCustomSizeModal}
+          onRefreshBatchInputDir={refreshBatchInputDir}
           mode={mode}
           onPreviewSource={(index) => void viewSourceOnCanvas(index)}
           onRemoveSource={removeSource}
@@ -315,9 +332,13 @@ export function ControlPanel({
           activeQualityLabel={activeQualityLabel}
           availableResolutions={availableResolutions}
           batchCount={batchCount}
+          batchProcess={batchProcess}
+          chooseBatchInputDir={chooseBatchInputDir}
+          chooseBatchOutputDir={chooseBatchOutputDir}
           mode={mode}
           sources={sources}
           currentImage={currentImage}
+          editSourceMode={editSourceMode}
           apiMode={apiMode}
           requestPolicy={requestPolicy}
           imageModelID={imageModelID}
@@ -329,6 +350,7 @@ export function ControlPanel({
           onOpenCustomAspectRatioModal={openCustomAspectRatioModal}
           onOpenCustomSizeModal={openCustomSizeModal}
           selectSourceImage={selectSourceImage}
+          refreshBatchInputDir={refreshBatchInputDir}
             clearSources={clearSources}
             compareSourceOnCanvas={(index) => void compareSourceOnCanvas(index)}
             viewSourceOnCanvas={(index) => void viewSourceOnCanvas(index)}

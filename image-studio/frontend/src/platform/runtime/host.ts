@@ -40,6 +40,7 @@ import {
   invokeService,
 } from "./hostBindings.ts";
 import type {
+  BatchInputDirectoryLike,
   CodexAPIConfigLike,
   GenerateOptionsLike,
   HostCapabilities,
@@ -355,6 +356,20 @@ export function OpenImageDialog(): Promise<SelectFileResponseLike> {
   return openImageDialogFallback();
 }
 
+export function ChooseBatchInputDir(): Promise<BatchInputDirectoryLike> {
+  if (hasServiceMethod("ChooseBatchInputDir")) {
+    return invokeService<BatchInputDirectoryLike>(unsupportedMessage, "ChooseBatchInputDir");
+  }
+  return Promise.reject(new Error(unsupportedMessage("ChooseBatchInputDir")));
+}
+
+export function ListBatchInputImages(directory: string): Promise<BatchInputDirectoryLike> {
+  if (hasServiceMethod("ListBatchInputImages")) {
+    return invokeService<BatchInputDirectoryLike>(unsupportedMessage, "ListBatchInputImages", directory);
+  }
+  return Promise.reject(new Error(unsupportedMessage("ListBatchInputImages")));
+}
+
 export function GetOutputDir(): Promise<string> {
   if (hasServiceMethod("GetOutputDir")) {
     return invokeService<string>(unsupportedMessage, "GetOutputDir");
@@ -627,6 +642,20 @@ export function ChooseOutputDir(): Promise<string> {
     return invokeAndroid<string>(unsupportedMessage, "ChooseOutputDir");
   }
   return GetOutputDir();
+}
+
+export function ChooseDirectory(title: string): Promise<string> {
+  if (hasServiceMethod("ChooseDirectory")) {
+    return invokeService<string>(unsupportedMessage, "ChooseDirectory", title);
+  }
+  return Promise.reject(new Error(unsupportedMessage("ChooseDirectory")));
+}
+
+export function BuildBatchOutputPath(sourcePath: string, outputDir: string, prefix: string): Promise<string> {
+  if (hasServiceMethod("BuildBatchOutputPath")) {
+    return invokeService<string>(unsupportedMessage, "BuildBatchOutputPath", sourcePath, outputDir, prefix);
+  }
+  return Promise.reject(new Error(unsupportedMessage("BuildBatchOutputPath")));
 }
 
 export function OpenOutputDir(): Promise<void> {

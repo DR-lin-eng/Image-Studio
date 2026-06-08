@@ -199,6 +199,20 @@ type SelectFileResponse struct {
 	PreviewHeight int    `json:"previewHeight,omitempty"`
 }
 
+type BatchInputImage struct {
+	Path          string `json:"path"`
+	Name          string `json:"name"`
+	Size          int64  `json:"size"`
+	PreviewURL    string `json:"previewUrl,omitempty"`
+	PreviewWidth  int    `json:"previewWidth,omitempty"`
+	PreviewHeight int    `json:"previewHeight,omitempty"`
+}
+
+type BatchInputDirectory struct {
+	Directory string            `json:"directory"`
+	Images    []BatchInputImage `json:"images"`
+}
+
 // ImportedImage describes a freshly imported (drag-dropped or pasted) image.
 type ImportedImage struct {
 	Path          string `json:"path"`

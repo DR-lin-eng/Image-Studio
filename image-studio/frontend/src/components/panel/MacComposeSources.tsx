@@ -1,31 +1,49 @@
 import { ImagePlus, Trash2 } from "lucide-react";
-import type { SourceImage } from "../../types/domain";
+import type { BatchProcessConfig, EditSourceMode, SourceImage } from "../../types/domain";
 import { useBlobURL } from "../../lib/images";
+import { BatchProcessSection } from "./BatchProcessSection";
 
 export function MacComposeSources({
+  batchProcess,
+  chooseBatchInputDir,
+  chooseBatchOutputDir,
   compareSourceOnCanvas,
   clearSources,
   currentImageSavedPath,
+  editSourceMode,
+  refreshBatchInputDir,
+  setField,
   selectSourceImage,
   viewSourceOnCanvas,
   sources,
 }: {
+  batchProcess: BatchProcessConfig;
+  chooseBatchInputDir: () => void;
+  chooseBatchOutputDir: () => void;
   compareSourceOnCanvas: (index: number) => void;
   clearSources: () => void;
   currentImageSavedPath?: string | null;
+  editSourceMode: EditSourceMode;
+  refreshBatchInputDir: () => void;
+  setField: (key: string, value: any) => void;
   selectSourceImage: () => void;
   viewSourceOnCanvas: (index: number) => void;
   sources: SourceImage[];
 }) {
   return (
     <div>
-      <div className="mb-1.5 flex items-center justify-between">
-        <span className="text-[12px] text-zinc-500">源图片 / 参考图</span>
-        <span className="text-[10px] text-zinc-400">
-          {sources.length > 0 ? `${sources.length} 张` : currentImageSavedPath ? "已就绪" : "未添加"}
-        </span>
-      </div>
-      <div className="flex flex-col gap-1.5">
+      <BatchProcessSection
+        currentImageSavedPath={currentImageSavedPath}
+        editSourceMode={editSourceMode}
+        batchProcess={batchProcess}
+        setEditSourceMode={(next) => setField("editSourceMode", next)}
+        setBatchProcess={(next) => setField("batchProcess", next)}
+        onChooseInputDir={chooseBatchInputDir}
+        onChooseOutputDir={chooseBatchOutputDir}
+        onRefreshInputDir={refreshBatchInputDir}
+      />
+      {editSourceMode === "manual" ? (
+        <div className="mt-3 flex flex-col gap-1.5">
         <div className="rounded-[14px] border border-black/[0.06] bg-[var(--surface)] px-3 py-2 text-[11px] text-zinc-500 dark:border-white/[0.04] dark:text-zinc-400">
           {sources.length > 0
             ? "已添加显式参考图，可继续追加、替换或拖入更多图片。"
@@ -70,7 +88,8 @@ export function MacComposeSources({
             </button>
           ) : null}
         </div>
-      </div>
+        </div>
+      ) : null}
     </div>
   );
 }

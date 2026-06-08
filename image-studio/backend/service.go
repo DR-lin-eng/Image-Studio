@@ -162,6 +162,35 @@ func (s *Service) ChooseOutputDir() (string, error) {
 	return chosen, nil
 }
 
+func (s *Service) ChooseDirectory(title string) (string, error) {
+	if s.ctx == nil {
+		return "", errors.New("服务未启动")
+	}
+	chosen, err := runtime.OpenDirectoryDialog(s.ctx, runtime.OpenDialogOptions{
+		Title: strings.TrimSpace(title),
+	})
+	if err != nil {
+		return "", err
+	}
+	return chosen, nil
+}
+
+func (s *Service) BuildBatchOutputPath(sourcePath, outputDir, prefix string) (string, error) {
+	cleanSource := strings.TrimSpace(sourcePath)
+	if cleanSource == "" {
+		return "", errors.New("源文件不能为空")
+	}
+	targetRoot := strings.TrimSpace(outputDir)
+	if targetRoot == "" {
+		targetRoot = filepath.Dir(cleanSource)
+	}
+	root, err := ensureTargetDirectory(targetRoot)
+	if err != nil {
+		return "", err
+	}
+	return uniquePrefixedTargetPath(root, filepath.Base(cleanSource), prefix)
+}
+
 // --- Generation entry points -----------------------------------------------
 
 // Generate starts a text-to-image job and returns its ID immediately. Progress

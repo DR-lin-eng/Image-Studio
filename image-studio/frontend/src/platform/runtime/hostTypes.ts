@@ -99,6 +99,18 @@ export type ImportedImageLike = {
   previewWidth?: number;
   previewHeight?: number;
 };
+export type BatchInputImageLike = {
+  path: string;
+  name: string;
+  size: number;
+  previewUrl?: string;
+  previewWidth?: number;
+  previewHeight?: number;
+};
+export type BatchInputDirectoryLike = {
+  directory: string;
+  images: BatchInputImageLike[];
+};
 export type ImageTransformResultLike = { path: string; acceleration?: string };
 export type SelectFileResponseLike = {
   path: string;

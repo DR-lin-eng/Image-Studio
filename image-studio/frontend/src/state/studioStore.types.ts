@@ -3,7 +3,10 @@ import type {
   Annotation,
   AppUpdateInfo,
   APIMode,
+  BatchProcessConfig,
   BackgroundValue,
+  BatchProcessSourceImage,
+  EditSourceMode,
   HistoryItem,
   ImageStyleValue,
   InputFidelityValue,
@@ -95,6 +98,8 @@ export interface StudioState {
   profiles: UpstreamProfile[];
   activeProfileId: string;
   sources: SourceImage[];
+  editSourceMode: EditSourceMode;
+  batchProcess: BatchProcessConfig;
   runningJobs: string[];
   jobsTotal: number;
   jobsCompleted: number;
@@ -169,6 +174,8 @@ export interface StudioState {
   duplicateProfile: (id: string) => Promise<string | null>;
   setActiveProfile: (id: string) => Promise<void>;
   selectSourceImage: () => Promise<void>;
+  chooseBatchInputDir: () => Promise<void>;
+  refreshBatchInputDir: () => Promise<void>;
   viewSourceOnCanvas: (index: number) => Promise<void>;
   compareSourceOnCanvas: (index: number) => Promise<void>;
   removeSource: (index: number) => void;

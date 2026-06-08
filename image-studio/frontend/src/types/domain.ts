@@ -55,6 +55,8 @@ export type ImageStyleValue = "default" | "vivid" | "natural";
 export type ModerationValue = "low" | "auto";
 export type ThemeMode = "system" | "light" | "dark";
 export type CompletionSoundMode = "default" | "custom";
+export type EditSourceMode = "manual" | "batch";
+export type BatchProcessOutputMode = "source_dir" | "custom_dir";
 
 export interface CompletionSoundConfig {
   enabled: boolean;
@@ -154,6 +156,25 @@ export interface SourceImage {
   imageB64?: string;
 }
 
+export interface BatchProcessSourceImage {
+  path: string;
+  name: string;
+  size: number;
+  previewUrl?: string;
+  previewWidth?: number;
+  previewHeight?: number;
+}
+
+export interface BatchProcessConfig {
+  enabled: boolean;
+  inputDir: string;
+  outputMode: BatchProcessOutputMode;
+  outputDir: string;
+  concurrency: number;
+  fileNamePrefix: string;
+  discoveredSources: BatchProcessSourceImage[];
+}
+
 export interface HistoryItem {
   id: string;
   imageId?: string;
@@ -224,6 +245,12 @@ export interface LoopGenerationConfig {
   livePreview: boolean;
 }
 
+export interface BatchProcessResultLink {
+  sourcePath: string;
+  outputDir: string;
+  outputNamePrefix: string;
+}
+
 export interface Workspace {
   id: string;
   name: string;
@@ -243,6 +270,8 @@ export interface Workspace {
   userIdentifier: string;
   partialImages: number;
   batchCount: number;
+  editSourceMode: EditSourceMode;
+  batchProcess: BatchProcessConfig;
   loopGeneration: LoopGenerationConfig;
   sources: SourceImage[];
   // We store currentImageId rather than the full HistoryItem so we don't

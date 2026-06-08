@@ -13,6 +13,13 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
+var supportedBatchInputExtensions = map[string]struct{}{
+	".png":  {},
+	".jpg":  {},
+	".jpeg": {},
+	".webp": {},
+}
+
 func (s *Service) BeginNativeFileDrag(path string) error {
 	allowed, err := s.ensureManagedReadablePath(path, managedImageFile)
 	if err != nil {
@@ -57,6 +64,76 @@ func (s *Service) OpenImageDialog() (SelectFileResponse, error) {
 		}
 	}
 	return resp, nil
+}
+
+func (s *Service) ChooseBatchInputDir() (BatchInputDirectory, error) {
+	if s.ctx == nil {
+		return BatchInputDirectory{}, errors.New("服务未启动")
+	}
+	chosen, err := runtime.OpenDirectoryDialog(s.ctx, runtime.OpenDialogOptions{
+		Title: "选择批处理输入目录",
+	})
+	if err != nil {
+		return BatchInputDirectory{}, err
+	}
+	if chosen == "" {
+		return BatchInputDirectory{}, nil
+	}
+	return s.ListBatchInputImages(chosen)
+}
+
+func (s *Service) ListBatchInputImages(directory string) (BatchInputDirectory, error) {
+	clean := strings.TrimSpace(directory)
+	if clean == "" {
+		return BatchInputDirectory{}, errors.New("目标目录不能为空")
+	}
+	root, err := filepath.Abs(clean)
+	if err != nil {
+		return BatchInputDirectory{}, err
+	}
+	info, err := os.Stat(root)
+	if err != nil {
+		return BatchInputDirectory{}, fmt.Errorf("读取目录失败: %w", err)
+	}
+	if !info.IsDir() {
+		return BatchInputDirectory{}, fmt.Errorf("不是目录: %s", root)
+	}
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		return BatchInputDirectory{}, fmt.Errorf("读取目录失败: %w", err)
+	}
+	images := make([]BatchInputImage, 0, len(entries))
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		ext := strings.ToLower(filepath.Ext(entry.Name()))
+		if _, ok := supportedBatchInputExtensions[ext]; !ok {
+			continue
+		}
+		path := filepath.Join(root, entry.Name())
+		info, err := entry.Info()
+		if err != nil {
+			continue
+		}
+		item := BatchInputImage{
+			Path: path,
+			Name: entry.Name(),
+			Size: info.Size(),
+		}
+		if info.Size() > 0 && info.Size() <= maxDialogReadBytes {
+			if preview, previewErr := s.registerImportedPreview(path); previewErr == nil {
+				item.PreviewURL = preview.PreviewURL
+				item.PreviewWidth = preview.PreviewWidth
+				item.PreviewHeight = preview.PreviewHeight
+			}
+		}
+		images = append(images, item)
+	}
+	return BatchInputDirectory{
+		Directory: root,
+		Images:    images,
+	}, nil
 }
 
 // SaveImageAs prompts the user for a destination and writes the base64 PNG to disk.
@@ -206,6 +283,15 @@ func uniqueTargetPath(dir, fileName string) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("目标目录中同名文件过多:%s", fileName)
+}
+
+func uniquePrefixedTargetPath(dir, sourceName, prefix string) (string, error) {
+	base := ensureTargetFileName(sourceName, "image.png")
+	trimmedPrefix := strings.TrimSpace(prefix)
+	if trimmedPrefix == "" {
+		return uniqueTargetPath(dir, base)
+	}
+	return uniqueTargetPath(dir, trimmedPrefix+base)
 }
 
 // OpenOutputDir reveals the output directory in the OS file explorer.

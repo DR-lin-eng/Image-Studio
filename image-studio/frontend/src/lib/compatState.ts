@@ -1,7 +1,9 @@
 import { LoadCompatibilityState, SaveCompatibilityState } from "../platform/runtime/host";
 import type {
+  BatchProcessConfig,
   BackgroundValue,
   CustomAspectRatio,
+  EditSourceMode,
   CompletionSoundConfig,
   HistoryItem,
   ImageStyleValue,
@@ -522,6 +524,39 @@ function normalizeFontScale(value: unknown): number {
 function normalizeBatchCount(value: unknown): number {
   const n = typeof value === "number" ? value : Number(value);
   return Number.isFinite(n) && n > 0 ? Math.min(9, Math.floor(n)) : 1;
+}
+
+export function normalizeEditSourceMode(value: unknown): EditSourceMode {
+  return value === "batch" ? "batch" : "manual";
+}
+
+export function normalizeBatchProcess(value: unknown): BatchProcessConfig {
+  const source = value && typeof value === "object" ? value as Record<string, any> : {};
+  const discoveredSources: BatchProcessConfig["discoveredSources"] = [];
+  if (Array.isArray(source.discoveredSources)) {
+    for (const item of source.discoveredSources) {
+      const path = typeof item?.path === "string" ? item.path.trim() : "";
+      const name = typeof item?.name === "string" ? item.name.trim() : "";
+      if (!path || !name) continue;
+      discoveredSources.push({
+        path,
+        name,
+        size: Number.isFinite(Number(item?.size)) ? Math.max(0, Math.floor(Number(item.size))) : 0,
+        previewUrl: typeof item?.previewUrl === "string" ? item.previewUrl : undefined,
+        previewWidth: Number.isFinite(Number(item?.previewWidth)) ? Math.floor(Number(item.previewWidth)) : undefined,
+        previewHeight: Number.isFinite(Number(item?.previewHeight)) ? Math.floor(Number(item.previewHeight)) : undefined,
+      });
+    }
+  }
+  return {
+    enabled: source.enabled === true,
+    inputDir: typeof source.inputDir === "string" ? source.inputDir.trim() : "",
+    outputMode: source.outputMode === "custom_dir" ? "custom_dir" : "source_dir",
+    outputDir: typeof source.outputDir === "string" ? source.outputDir.trim() : "",
+    concurrency: Number.isFinite(Number(source.concurrency)) ? Math.max(1, Math.min(9, Math.floor(Number(source.concurrency)))) : 2,
+    fileNamePrefix: typeof source.fileNamePrefix === "string" && source.fileNamePrefix.trim() ? source.fileNamePrefix.trim() : "processed-",
+    discoveredSources,
+  };
 }
 
 function cleanStringList(raw: unknown, max: number): string[] {

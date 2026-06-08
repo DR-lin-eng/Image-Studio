@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import {
+  BuildBatchOutputPath,
   EventsOn,
   EventsOff,
   Generate as wailsGenerate,
@@ -23,7 +24,10 @@ import type { backend } from "../../wailsjs/go/models";
 import {
   APIMode,
   AppUpdateInfo,
+  BatchProcessResultLink,
+  BatchProcessSourceImage,
   BackgroundValue,
+  EditSourceMode,
   HistoryItem,
   ImageStyleValue,
   InputFidelityValue,
@@ -100,8 +104,11 @@ import { dispatchFullscreenResize, setNativeFullscreen } from "../platform/nativ
 import {
   activeRuntimePatch,
   apiModeLabel,
+  defaultBatchProcessConfig,
   defaultLoopGenerationConfig,
   normalizeBatchCount,
+  normalizeBatchProcessConcurrency,
+  normalizeBatchProcessConfig,
   normalizeConcurrencyLimit,
   normalizeLoopGenerationConcurrency,
   normalizeLoopGenerationConfig,
@@ -159,7 +166,7 @@ import { createMediaActions } from "./studioStore.media";
 import { createProfileActions } from "./studioStore.profiles";
 import { createWorkspaceActions } from "./studioStore.workspaces";
 import { createImageActions } from "./studioStore.images";
-import { saveHistoryItemToDirectory } from "../lib/saveResultImage";
+import { saveHistoryItemToDirectory, saveHistoryItemToDirectoryAs } from "../lib/saveResultImage";
 import {
   currentImageIdForWorkspaceSnapshot,
   removeStreamPreview,
@@ -170,7 +177,7 @@ import {
 import type { GenerateOptionsLike } from "../platform/runtime/hostTypes";
 
 type RuntimeGenerateOptions = GenerateOptionsLike & {
-  sourceImages?: SourceImage[];
+  sourceImages?: Array<SourceImage | BatchProcessSourceImage>;
 };
 
 type JobSnapshot = {
@@ -184,6 +191,8 @@ type JobSnapshot = {
   currentImage: HistoryItem | null;
   styleTag: string;
   loopGeneration: LoopGenerationConfig;
+  editSourceMode: EditSourceMode;
+  batchProcessLink?: BatchProcessResultLink;
 };
 
 type LaunchOneJobHooks = {
@@ -198,6 +207,9 @@ type LoopRunController = {
   mode: Mode;
   payload: RuntimeGenerateOptions;
   snapshotBase: Omit<JobSnapshot, "batchIndex">;
+  batchSources?: BatchProcessSourceImage[];
+  batchOutputDir?: string;
+  batchOutputPrefix?: string;
   stopped: boolean;
 };
 
@@ -207,6 +219,12 @@ function stopLoopRun(workspaceId: string): void {
   const controller = loopRunControllers.get(workspaceId);
   if (controller) controller.stopped = true;
   loopRunControllers.delete(workspaceId);
+}
+
+function directoryFromPath(path: string): string {
+  const normalized = path.trim();
+  const idx = Math.max(normalized.lastIndexOf("/"), normalized.lastIndexOf("\\"));
+  return idx >= 0 ? normalized.slice(0, idx) : "";
 }
 
 function launchQueuedLoopJobs(controller: LoopRunController): void {
@@ -231,10 +249,24 @@ function launchQueuedLoopJobs(controller: LoopRunController): void {
     const batchIndex = controller.launchedJobs;
     controller.launchedJobs += 1;
     const payloadSeed = controller.payload.seed ? controller.payload.seed + batchIndex : 0;
-    const nextPayload: RuntimeGenerateOptions = { ...controller.payload, seed: payloadSeed };
+    const batchSource = controller.batchSources?.[batchIndex];
+    const nextPayload: RuntimeGenerateOptions = {
+      ...controller.payload,
+      seed: payloadSeed,
+      imagePaths: batchSource ? [batchSource.path] : controller.payload.imagePaths,
+      sourceImages: batchSource ? [batchSource] : controller.payload.sourceImages,
+    };
     void launchOneJob(controller.mode, nextPayload, {
       ...controller.snapshotBase,
       batchIndex,
+      sources: batchSource ? [batchSource as SourceImage] : controller.snapshotBase.sources,
+      batchProcessLink: batchSource
+        ? {
+            sourcePath: batchSource.path,
+            outputDir: controller.batchOutputDir || "",
+            outputNamePrefix: controller.batchOutputPrefix || "processed-",
+          }
+        : undefined,
     }, {
       onSettled: (status) => {
         const current = loopRunControllers.get(controller.workspaceId);
@@ -555,6 +587,8 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   promptHistory: [],
   promptTemplates: [],
   batchCount: 1,
+  editSourceMode: "manual",
+  batchProcess: defaultBatchProcessConfig(),
   loopGeneration: defaultLoopGenerationConfig(),
   presets: [],
   customAspectRatios: [],
@@ -751,6 +785,8 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     // 其他全局偏好字段
     const normalizedValue = key === "batchCount"
       ? normalizeBatchCount(value)
+      : key === "batchProcess"
+        ? normalizeBatchProcessConfig(value)
       : key === "background"
         ? normalizeBackgroundValue(value)
         : key === "outputCompression"
@@ -799,6 +835,20 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       set({
         workspaces: get().workspaces.map((w) => (
           w.id === get().activeWorkspaceId ? { ...w, loopGeneration: value } : w
+        )),
+      });
+    } else if (key === "editSourceMode") {
+      const value = normalizedValue as EditSourceMode;
+      set({
+        workspaces: get().workspaces.map((w) => (
+          w.id === get().activeWorkspaceId ? { ...w, editSourceMode: value } : w
+        )),
+      });
+    } else if (key === "batchProcess") {
+      const value = normalizedValue as StudioState["batchProcess"];
+      set({
+        workspaces: get().workspaces.map((w) => (
+          w.id === get().activeWorkspaceId ? { ...w, batchProcess: value } : w
         )),
       });
     } else if (key === "errorMessage") {
@@ -890,6 +940,8 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   },
 
   selectSourceImage: async () => imageActions.selectSourceImage(),
+  chooseBatchInputDir: async () => imageActions.chooseBatchInputDir(),
+  refreshBatchInputDir: async () => imageActions.refreshBatchInputDir(),
   removeSource: (index) => imageActions.removeSource(index),
   clearSources: () => imageActions.clearSources(),
   reorderSources: (from, to) => imageActions.reorderSources(from, to),
@@ -911,16 +963,42 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     }
     const cleanedBaseURL = cleanBaseURL(s.baseURL);
     const batchCount = normalizeBatchCount(s.batchCount);
+    const batchProcess = normalizeBatchProcessConfig(s.batchProcess);
     const loopGeneration = normalizeLoopGenerationConfig(s.loopGeneration);
-    const loopEnabled = loopGeneration.enabled;
-    const requestedJobCount = loopEnabled ? normalizeLoopGenerationCount(loopGeneration.totalCount) : batchCount;
+    const batchProcessEnabled = s.mode === "edit" && s.editSourceMode === "batch" && batchProcess.enabled;
+    const loopEnabled = !batchProcessEnabled && loopGeneration.enabled;
+    const requestedJobCount = loopEnabled
+      ? normalizeLoopGenerationCount(loopGeneration.totalCount)
+      : batchProcessEnabled
+        ? batchProcess.discoveredSources.length
+        : batchCount;
     const requestedConcurrency = loopEnabled
       ? Math.min(requestedJobCount, normalizeLoopGenerationConcurrency(loopGeneration.concurrency))
-      : batchCount;
+      : batchProcessEnabled
+        ? Math.min(requestedJobCount, normalizeBatchProcessConcurrency(batchProcess.concurrency))
+        : batchCount;
     const runtimePlatform = readRuntimePlatformState();
     if (loopEnabled && loopGeneration.autoSave && !loopGeneration.autoSaveDir.trim()) {
       set({ errorMessage: "请先为循环出图配置自动另存为路径", errorCanRetry: false, errorRawPath: null });
       return;
+    }
+    if (batchProcessEnabled) {
+      if (runtimePlatform.isAndroid) {
+        set({ errorMessage: "批处理模式暂仅支持桌面端", errorCanRetry: false, errorRawPath: null });
+        return;
+      }
+      if (!batchProcess.inputDir.trim()) {
+        set({ errorMessage: "请先选择批处理输入目录", errorCanRetry: false, errorRawPath: null });
+        return;
+      }
+      if (batchProcess.discoveredSources.length === 0) {
+        set({ errorMessage: "批处理目录中没有可处理的图片", errorCanRetry: false, errorRawPath: null });
+        return;
+      }
+      if (batchProcess.outputMode === "custom_dir" && !batchProcess.outputDir.trim()) {
+        set({ errorMessage: "请先选择独立输出路径", errorCanRetry: false, errorRawPath: null });
+        return;
+      }
     }
     const activeProfile = s.profiles.find((p) => p.id === s.activeProfileId);
     const concurrencyLimit = normalizeConcurrencyLimit(activeProfile?.concurrencyLimit ?? 0);
@@ -933,11 +1011,13 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     if (concurrencyLimit > 0) {
       const activeCount = workspaceRunningCount(s, s.apiMode);
       const available = concurrencyLimit - activeCount;
-      const requiredConcurrency = loopEnabled ? requestedConcurrency : batchCount;
+      const requiredConcurrency = requestedConcurrency;
       if (available < requiredConcurrency) {
         const apiLabel = s.apiMode === "responses" ? "Responses API" : "Images API";
         set({
-          errorMessage: loopEnabled
+          errorMessage: batchProcessEnabled
+            ? `${apiLabel} 并发限制 ${concurrencyLimit},当前还可提交 ${Math.max(0, available)} 个,批处理并发需要 ${requiredConcurrency} 个。`
+            : loopEnabled
             ? `${apiLabel} 并发限制 ${concurrencyLimit},当前还可提交 ${Math.max(0, available)} 个,循环模式并发需要 ${requiredConcurrency} 个。`
             : `${apiLabel} 并发限制 ${concurrencyLimit},当前还可提交 ${Math.max(0, available)} 个,本次需要 ${batchCount} 个。`,
           errorCanRetry: false,
@@ -947,7 +1027,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       }
     }
     let editSourcePaths: string[] = [];
-    if (s.mode === "edit") {
+    if (s.mode === "edit" && !batchProcessEnabled) {
       editSourcePaths = s.sources.map((src) => src.path).filter(Boolean);
       if (editSourcePaths.length === 0 && s.currentImage) {
         const materialized = await materializeHistoryItem(s.currentImage).catch(() => null);
@@ -1074,7 +1154,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     };
     const remotePayload: RuntimeGenerateOptions = {
       ...basePayload,
-      sourceImages: s.mode === "edit" ? s.sources : undefined,
+      sourceImages: s.mode === "edit" && !batchProcessEnabled ? s.sources : undefined,
     };
     const persistedPayload = basePayload;
 
@@ -1109,7 +1189,27 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       currentImage: s.currentImage,
       styleTag: s.styleTag,
       loopGeneration,
+      editSourceMode: s.editSourceMode,
     } as const;
+
+    if (batchProcessEnabled) {
+      const controller: LoopRunController = {
+        workspaceId,
+        totalJobs: batchProcess.discoveredSources.length,
+        maxConcurrent: requestedConcurrency,
+        launchedJobs: 0,
+        mode: s.mode,
+        payload: remotePayload,
+        snapshotBase,
+        batchSources: batchProcess.discoveredSources,
+        batchOutputDir: batchProcess.outputMode === "custom_dir" ? batchProcess.outputDir : "",
+        batchOutputPrefix: batchProcess.fileNamePrefix,
+        stopped: false,
+      };
+      loopRunControllers.set(workspaceId, controller);
+      launchQueuedLoopJobs(controller);
+      return;
+    }
 
     if (loopEnabled) {
       const controller: LoopRunController = {
@@ -1251,6 +1351,8 @@ export const useStudioStore = create<StudioState>((set, get) => ({
         promptHistory: [],
         promptTemplates: [],
         batchCount: 1,
+        editSourceMode: "manual",
+        batchProcess: defaultBatchProcessConfig(),
         loopGeneration: normalizeLoopGenerationConfig(preview.workspace.loopGeneration),
         presets: [],
         customAspectRatios: [],
@@ -1507,6 +1609,8 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       userIdentifier,
       partialImages,
       batchCount: 1,
+      editSourceMode: "manual",
+      batchProcess: defaultBatchProcessConfig(),
       loopGeneration: defaultLoopGenerationConfig(),
       sources: [],
       currentImageId: null,
@@ -1549,6 +1653,8 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       activeProfileId,
       workspaces: [initialWorkspace],
       activeWorkspaceId: wsId,
+      editSourceMode: initialWorkspace.editSourceMode,
+      batchProcess: normalizeBatchProcessConfig(initialWorkspace.batchProcess),
       loopGeneration: normalizeLoopGenerationConfig(initialWorkspace.loopGeneration),
       // Android 走首页 hero 引导，不用启动即弹设置；桌面仍保留首次引导。
       settingsOpen: shouldAutoOpenSettings,
@@ -2145,6 +2251,20 @@ async function launchOneJob(
             );
           }
           settle("success");
+          if (snapshot.batchProcessLink?.sourcePath) {
+            const targetDirectory = snapshot.batchProcessLink.outputDir.trim()
+              || directoryFromPath(snapshot.batchProcessLink.sourcePath);
+            void BuildBatchOutputPath(
+              snapshot.batchProcessLink.sourcePath,
+              targetDirectory,
+              snapshot.batchProcessLink.outputNamePrefix,
+            ).then((targetPath) => {
+              const suggestedName = targetPath.split(/[\\/]/).pop() || `${snapshot.batchProcessLink?.outputNamePrefix || "processed-"}image.png`;
+              return saveHistoryItemToDirectoryAs(historyItem, targetDirectory, suggestedName);
+            }).catch((error: any) => {
+              store.getState().pushToast(`批处理保存失败:${error?.message ?? error}`, "warn", 6000);
+            });
+          }
           if (loopMode && snapshot.loopGeneration.autoSave && snapshot.loopGeneration.autoSaveDir.trim()) {
             void saveHistoryItemToDirectory(historyItem, snapshot.loopGeneration.autoSaveDir).catch((error: any) => {
               store.getState().pushToast(`自动另存为失败:${error?.message ?? error}`, "warn", 6000);

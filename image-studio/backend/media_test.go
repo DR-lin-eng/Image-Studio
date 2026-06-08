@@ -15,6 +15,77 @@ import (
 	"testing"
 )
 
+func TestListBatchInputImagesOnlyScansCurrentDirectoryImages(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	root := t.TempDir()
+	nested := filepath.Join(root, "nested")
+	if err := os.MkdirAll(nested, secureDirMode); err != nil {
+		t.Fatal(err)
+	}
+	makePNG := func(path string) {
+		t.Helper()
+		f, err := os.OpenFile(path, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, secureFileMode)
+		if err != nil {
+			t.Fatal(err)
+		}
+		img := image.NewRGBA(image.Rect(0, 0, 32, 16))
+		if err := png.Encode(f, img); err != nil {
+			t.Fatal(err)
+		}
+		if err := f.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	makePNG(filepath.Join(root, "a.png"))
+	makePNG(filepath.Join(root, "b.webp"))
+	makePNG(filepath.Join(nested, "c.png"))
+	if err := os.WriteFile(filepath.Join(root, "notes.txt"), []byte("x"), secureFileMode); err != nil {
+		t.Fatal(err)
+	}
+
+	svc := NewService()
+	result, err := svc.ListBatchInputImages(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Directory != root {
+		t.Fatalf("directory = %q, want %q", result.Directory, root)
+	}
+	if len(result.Images) != 2 {
+		t.Fatalf("images len = %d, want 2", len(result.Images))
+	}
+	got := []string{result.Images[0].Name, result.Images[1].Name}
+	if !(got[0] == "a.png" && got[1] == "b.webp" || got[0] == "b.webp" && got[1] == "a.png") {
+		t.Fatalf("unexpected files: %#v", got)
+	}
+}
+
+func TestBuildBatchOutputPathAppliesPrefixAndAvoidsCollisions(t *testing.T) {
+	root := t.TempDir()
+	src := filepath.Join(root, "sample.png")
+	if err := os.WriteFile(src, []byte("png"), secureFileMode); err != nil {
+		t.Fatal(err)
+	}
+	svc := NewService()
+	first, err := svc.BuildBatchOutputPath(src, root, "processed-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := filepath.Join(root, "processed-sample.png"); first != want {
+		t.Fatalf("first path = %q, want %q", first, want)
+	}
+	if err := os.WriteFile(first, []byte("done"), secureFileMode); err != nil {
+		t.Fatal(err)
+	}
+	second, err := svc.BuildBatchOutputPath(src, root, "processed-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := filepath.Join(root, "processed-sample-2.png"); second != want {
+		t.Fatalf("second path = %q, want %q", second, want)
+	}
+}
+
 func TestMediaHandlerServesRegisteredFullAndAVIFThumb(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	root, err := defaultOutputDir()

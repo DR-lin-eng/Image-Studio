@@ -85,6 +85,14 @@ cd image-studio
 wails build -platform windows/amd64 -clean
 ```
 
+如果你要生成“用户直接解压双击 `exe` 也能运行”的 Windows 便携包，不要复用普通 release 的裸 `exe`。仓库提供了独立 workflow：
+
+- GitHub Actions 工作流：`Windows Portable Fixed WebView2`
+- 触发方式：手动 `workflow_dispatch`
+- 产物：`image-studio-<version>-windows-amd64-portable-fixed-webview.zip` 与 `image-studio-<version>-windows-arm64-portable-fixed-webview.zip`
+
+这两个 zip 会把 `image-studio.exe` 和微软 Fixed Version WebView2 Runtime 一起打包，并在应用启动时优先使用同目录下的 `WebView2FixedRuntime/`。
+
 Linux Ubuntu 24.04 / Debian 新版本：
 
 ```bash

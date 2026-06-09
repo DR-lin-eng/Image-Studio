@@ -52,6 +52,7 @@ type snapshot struct {
 	SettingsSelectedProfileID string
 	SelectedHistoryID         string
 	PromptHistory             []string
+	PromptTemplates           []sharedCompat.PromptTemplate
 	Presets                   []sharedCompat.Preset
 	OptimizingPrompt          bool
 	TestingUpstream           bool
@@ -171,6 +172,8 @@ type App struct {
 	proxyURLInput             widget.Editor
 	userIdentifierInput       widget.Editor
 	savePromptPathInput       widget.Editor
+	promptTemplateLabelInput  widget.Editor
+	promptTemplateTextInput   widget.Editor
 	rawResponseViewerInput    widget.Editor
 	historyQueryInput         widget.Editor
 	historyTimelineQueryInput widget.Editor
@@ -242,7 +245,13 @@ type App struct {
 	emptyStateImportButton                   widget.Clickable
 	promptHelperButton                       widget.Clickable
 	promptHelperTemplatesButton              widget.Clickable
+	promptHelperPresetsButton                widget.Clickable
 	promptHelperHistoryButton                widget.Clickable
+	openPromptTemplateManagerButton          widget.Clickable
+	newPromptTemplateButton                  widget.Clickable
+	savePromptTemplateButton                 widget.Clickable
+	deletePromptTemplateButton               widget.Clickable
+	promptTemplateListButtons                map[string]*widget.Clickable
 	closePromptHelperButton                  widget.Clickable
 	optimizePromptButton                     widget.Clickable
 	testUpstreamButton                       widget.Clickable
@@ -341,6 +350,7 @@ type App struct {
 	history                      []sharedCompat.HistoryItem
 	profiles                     []sharedCompat.UpstreamProfile
 	promptHistory                []string
+	promptTemplates              []sharedCompat.PromptTemplate
 	promptHistoryRev             int
 	presets                      []sharedCompat.Preset
 	historyThumbBackfillInFlight map[string]struct{}
@@ -462,6 +472,8 @@ type App struct {
 	expandedPromptGroups          map[string]bool
 	promptHelperOpen              bool
 	promptHelperTab               string
+	promptTemplateManagerOpen     bool
+	selectedPromptTemplateID      string
 	activePromptGroup             historyPromptGroup
 	generalSettingsOpen           bool
 	generalRuntimePickerOpen      bool
@@ -564,6 +576,7 @@ func New() *App {
 		history:                    append([]sharedCompat.HistoryItem(nil), compatState.History...),
 		profiles:                   append([]sharedCompat.UpstreamProfile(nil), compatState.Profiles...),
 		promptHistory:              append([]string(nil), compatState.Settings.PromptHistory...),
+		promptTemplates:            append([]sharedCompat.PromptTemplate(nil), compatState.Settings.PromptTemplates...),
 		promptHistoryRev:           1,
 		presets:                    append([]sharedCompat.Preset(nil), compatState.Settings.Presets...),
 		savePromptSuppressed:       gioCompat.SavePromptSuppressed(compatState),
@@ -582,6 +595,7 @@ func New() *App {
 		settingsProfileButtons:     map[string]*widget.Clickable{},
 		historyButtons:             map[string]*widget.Clickable{},
 		promptButtons:              map[string]*widget.Clickable{},
+		promptTemplateListButtons:  map[string]*widget.Clickable{},
 		sourceButtons:              map[string]*widget.Clickable{},
 		historyActionButtons:       map[string]*widget.Clickable{},
 		workspaceButtons:           map[string]*widget.Clickable{},
@@ -647,6 +661,7 @@ func (a *App) configureEditors(cfg kernel.Config) {
 		&a.proxyURLInput,
 		&a.userIdentifierInput,
 		&a.savePromptPathInput,
+		&a.promptTemplateLabelInput,
 		&a.historyQueryInput,
 		&a.historyTimelineQueryInput,
 		&a.workspaceNameInput,

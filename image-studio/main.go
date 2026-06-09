@@ -63,11 +63,21 @@ func main() {
 		if err := backend.MigrateWindowsWebviewDataDirs(webviewUserDataPath, legacyWebviewUserDataPaths); err != nil {
 			println("Warning:", err.Error())
 		}
+		fixedWebviewBrowserPath, err := backend.WindowsPortableWebviewBrowserPath()
+		if err != nil {
+			println("Warning:", err.Error())
+		}
+		if fixedWebviewBrowserPath != "" {
+			if err := backend.EnsureWindowsFixedWebviewRuntimePermissions(fixedWebviewBrowserPath); err != nil {
+				println("Warning:", err.Error())
+			}
+		}
 		appOptions.Windows = &wailswindows.Options{
 			Theme:                wailswindows.SystemDefault,
 			BackdropType:         wailswindows.Mica,
 			WebviewIsTransparent: false,
 			WindowIsTranslucent:  true,
+			WebviewBrowserPath:   fixedWebviewBrowserPath,
 			WebviewUserDataPath:  webviewUserDataPath,
 			CustomTheme: &wailswindows.ThemeSettings{
 				DarkModeTitleBar:           wailswindows.RGB(32, 32, 32),

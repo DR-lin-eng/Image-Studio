@@ -268,6 +268,7 @@ func (a *App) readSnapshot() snapshot {
 	batchResults := a.batchResultsSnapshotLocked(history)
 	profiles := a.profiles
 	promptHistory := a.promptHistory
+	promptTemplates := a.promptTemplates
 	presets := a.presets
 	todayCount := a.todayHistoryCountLocked()
 	snap := snapshot{
@@ -288,6 +289,7 @@ func (a *App) readSnapshot() snapshot {
 		SettingsSelectedProfileID: a.settingsSelectedProfileID,
 		SelectedHistoryID:         a.selectedHistoryID,
 		PromptHistory:             promptHistory,
+		PromptTemplates:           promptTemplates,
 		Presets:                   presets,
 		OptimizingPrompt:          a.optimizingPrompt,
 		TestingUpstream:           a.testingUpstream,
@@ -358,6 +360,16 @@ func (a *App) setProfilesLocked(items []sharedCompat.UpstreamProfile) {
 func (a *App) setPromptHistoryLocked(items []string) {
 	a.promptHistory = append([]string(nil), items...)
 	a.promptHistoryRev++
+	a.promptButtons = map[string]*widget.Clickable{}
+}
+
+func (a *App) setPromptTemplatesLocked(items []sharedCompat.PromptTemplate) {
+	a.promptTemplates = append([]sharedCompat.PromptTemplate(nil), items...)
+	a.promptButtons = map[string]*widget.Clickable{}
+}
+
+func (a *App) setPresetsLocked(items []sharedCompat.Preset) {
+	a.presets = append([]sharedCompat.Preset(nil), items...)
 	a.promptButtons = map[string]*widget.Clickable{}
 }
 

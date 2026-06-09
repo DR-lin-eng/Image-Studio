@@ -1,4 +1,13 @@
-import { classifyImageModel, normalizeImageModel } from "../../../../../shared/kernel/requestModel.js";
+import {
+  classifyImageModel,
+  MAX_OPENAI_IMAGE_ASPECT_RATIO,
+  MAX_OPENAI_IMAGE_PIXELS,
+  MAX_OPENAI_IMAGE_SIDE,
+  MIN_OPENAI_IMAGE_SIDE,
+  normalizeImageModel,
+  normalizeOpenAIImageSize,
+  OPENAI_IMAGE_SIZE_ALIGNMENT,
+} from "../../../../../shared/kernel/requestModel.js";
 import {
   buildCustomAspectRatioId,
   reduceAspectRatio,
@@ -68,9 +77,6 @@ type CustomResolutionReference = SizeLimitConfig & {
   area: number;
 };
 
-export const MAX_OPENAI_IMAGE_SIDE = 3840;
-export const MAX_OPENAI_IMAGE_PIXELS = 3840 * 2160;
-export const MAX_OPENAI_IMAGE_ASPECT_RATIO = 3;
 const MIN_OPENAI_IMAGE_ASPECT_RATIO = 1 / MAX_OPENAI_IMAGE_ASPECT_RATIO;
 
 const BUILTIN_ASPECT_DIMENSIONS: Record<Exclude<BuiltinAspectPreset, "auto">, { width: number; height: number }> = {
@@ -174,12 +180,12 @@ const EXACT_SIZE_LIMITS: SizeLimitConfig = {
   maxSide: MAX_OPENAI_IMAGE_SIDE,
   maxPixels: MAX_OPENAI_IMAGE_PIXELS,
   maxAspectRatio: MAX_OPENAI_IMAGE_ASPECT_RATIO,
-  alignment: 1,
+  alignment: OPENAI_IMAGE_SIZE_ALIGNMENT,
 };
 const CUSTOM_RESOLUTION_REFERENCES: Record<FlexibleCustomResolution, CustomResolutionReference> = {
-  "1k": { area: 1536 * 1024, maxSide: 1536, maxPixels: MAX_OPENAI_IMAGE_PIXELS, maxAspectRatio: MAX_OPENAI_IMAGE_ASPECT_RATIO, alignment: 8 },
-  "2k": { area: 2048 * 1360, maxSide: 2048, maxPixels: MAX_OPENAI_IMAGE_PIXELS, maxAspectRatio: MAX_OPENAI_IMAGE_ASPECT_RATIO, alignment: 8 },
-  "4k": { area: 3840 * 2160, maxSide: 3840, maxPixels: MAX_OPENAI_IMAGE_PIXELS, maxAspectRatio: MAX_OPENAI_IMAGE_ASPECT_RATIO, alignment: 16 },
+  "1k": { area: 1536 * 1024, maxSide: 1536, maxPixels: MAX_OPENAI_IMAGE_PIXELS, maxAspectRatio: MAX_OPENAI_IMAGE_ASPECT_RATIO, alignment: OPENAI_IMAGE_SIZE_ALIGNMENT },
+  "2k": { area: 2048 * 1360, maxSide: 2048, maxPixels: MAX_OPENAI_IMAGE_PIXELS, maxAspectRatio: MAX_OPENAI_IMAGE_ASPECT_RATIO, alignment: OPENAI_IMAGE_SIZE_ALIGNMENT },
+  "4k": { area: 3840 * 2160, maxSide: 3840, maxPixels: MAX_OPENAI_IMAGE_PIXELS, maxAspectRatio: MAX_OPENAI_IMAGE_ASPECT_RATIO, alignment: OPENAI_IMAGE_SIZE_ALIGNMENT },
 };
 const CUSTOM_ASPECT_TOLERANCE = 0.035;
 const BUILTIN_ASPECT_TOLERANCE = 0.08;
@@ -321,7 +327,7 @@ export function normalizeExactSizeDimensions(
   const safeWidth = normalizeExactSizeDimension(width);
   const safeHeight = normalizeExactSizeDimension(height);
   if (!safeWidth || !safeHeight) return null;
-  return enforceSizeLimits(safeWidth, safeHeight, EXACT_SIZE_LIMITS);
+  return normalizeOpenAIImageSize({ width: safeWidth, height: safeHeight });
 }
 
 export function deriveExactSizeSelection(
@@ -595,41 +601,117 @@ function enforceSizeLimits(
     limitedHeight *= scale;
   }
 
-  let roundedWidth = Math.min(limits.maxSide, roundDimension(limitedWidth, limits.alignment));
-  let roundedHeight = Math.min(limits.maxSide, roundDimension(limitedHeight, limits.alignment));
-
-  while (
-    roundedWidth > 0
-    && roundedHeight > 0
-    && (
-      roundedWidth * roundedHeight > limits.maxPixels
-      || roundedWidth / roundedHeight > limits.maxAspectRatio
-      || roundedWidth / roundedHeight < MIN_OPENAI_IMAGE_ASPECT_RATIO
-    )
-  ) {
-    const nextWidth = roundedWidth - limits.alignment;
-    const nextHeight = roundedHeight - limits.alignment;
-    const widthDistance = nextWidth >= MIN_EXACT_SIZE
-      ? customSizeDistance(nextWidth, roundedHeight, limitedWidth, limitedHeight)
-      : Number.POSITIVE_INFINITY;
-    const heightDistance = nextHeight >= MIN_EXACT_SIZE
-      ? customSizeDistance(roundedWidth, nextHeight, limitedWidth, limitedHeight)
-      : Number.POSITIVE_INFINITY;
-    if (widthDistance <= heightDistance && Number.isFinite(widthDistance)) {
-      roundedWidth = nextWidth;
-      continue;
-    }
-    if (Number.isFinite(heightDistance)) {
-      roundedHeight = nextHeight;
-      continue;
-    }
-    break;
+  const pixelCount = limitedWidth * limitedHeight;
+  if (pixelCount > limits.maxPixels) {
+    const scale = Math.sqrt(limits.maxPixels / pixelCount);
+    limitedWidth *= scale;
+    limitedHeight *= scale;
   }
 
-  if (roundedWidth < MIN_EXACT_SIZE || roundedHeight < MIN_EXACT_SIZE) {
+  const snapped = snapToNearestValidSize(limitedWidth, limitedHeight, limits);
+  if (!snapped) {
+    return null;
+  }
+  return snapped;
+}
+
+function snapToNearestValidSize(
+  targetWidth: number,
+  targetHeight: number,
+  limits: SizeLimitConfig,
+): { width: number; height: number } | null {
+  const widthCandidates = alignedDimensionCandidates(targetWidth, limits.alignment, MIN_EXACT_SIZE, limits.maxSide);
+  const heightCandidates = alignedDimensionCandidates(targetHeight, limits.alignment, MIN_EXACT_SIZE, limits.maxSide);
+  let best: { width: number; height: number } | null = null;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  let bestAspectDistance = Number.POSITIVE_INFINITY;
+  let bestAreaDistance = Number.POSITIVE_INFINITY;
+
+  for (const width of widthCandidates) {
+    for (const height of heightCandidates) {
+      if (!isWithinSizeLimits(width, height, limits)) continue;
+      const distance = customSizeDistance(width, height, targetWidth, targetHeight);
+      const aspectDistance = Math.abs((width / height) - (targetWidth / targetHeight));
+      const areaDistance = Math.abs((width * height) - (targetWidth * targetHeight)) / Math.max(targetWidth * targetHeight, 1);
+      if (
+        distance < bestDistance
+        || (distance === bestDistance && aspectDistance < bestAspectDistance)
+        || (distance === bestDistance && aspectDistance === bestAspectDistance && areaDistance < bestAreaDistance)
+      ) {
+        best = { width, height };
+        bestDistance = distance;
+        bestAspectDistance = aspectDistance;
+        bestAreaDistance = areaDistance;
+      }
+    }
+  }
+
+  if (best) return best;
+
+  let roundedWidth = widthCandidates[0] ?? Math.min(limits.maxSide, roundDimension(targetWidth, limits.alignment));
+  let roundedHeight = heightCandidates[0] ?? Math.min(limits.maxSide, roundDimension(targetHeight, limits.alignment));
+
+  while (!isWithinSizeLimits(roundedWidth, roundedHeight, limits)) {
+    const options: Array<{ width: number; height: number; distance: number; aspectDistance: number; areaDistance: number }> = [];
+    if (roundedWidth - limits.alignment >= MIN_EXACT_SIZE) {
+      const width = roundedWidth - limits.alignment;
+      const height = roundedHeight;
+      options.push({
+        width,
+        height,
+        distance: customSizeDistance(width, height, targetWidth, targetHeight),
+        aspectDistance: Math.abs((width / height) - (targetWidth / targetHeight)),
+        areaDistance: Math.abs((width * height) - (targetWidth * targetHeight)) / Math.max(targetWidth * targetHeight, 1),
+      });
+    }
+    if (roundedHeight - limits.alignment >= MIN_EXACT_SIZE) {
+      const width = roundedWidth;
+      const height = roundedHeight - limits.alignment;
+      options.push({
+        width,
+        height,
+        distance: customSizeDistance(width, height, targetWidth, targetHeight),
+        aspectDistance: Math.abs((width / height) - (targetWidth / targetHeight)),
+        areaDistance: Math.abs((width * height) - (targetWidth * targetHeight)) / Math.max(targetWidth * targetHeight, 1),
+      });
+    }
+    const next = options
+      .filter((option) => option.width >= MIN_EXACT_SIZE && option.height >= MIN_EXACT_SIZE)
+      .sort((left, right) => (
+        left.distance - right.distance
+        || left.aspectDistance - right.aspectDistance
+        || left.areaDistance - right.areaDistance
+      ))[0];
+    if (!next) break;
+    roundedWidth = next.width;
+    roundedHeight = next.height;
+  }
+
+  if (!isWithinSizeLimits(roundedWidth, roundedHeight, limits)) {
     return null;
   }
   return { width: roundedWidth, height: roundedHeight };
+}
+
+function alignedDimensionCandidates(
+  value: number,
+  alignment: number,
+  min: number,
+  max: number,
+): number[] {
+  const clamped = Math.max(min, Math.min(max, value));
+  const floor = Math.max(min, Math.min(max, Math.floor(clamped / alignment) * alignment));
+  const ceil = Math.max(min, Math.min(max, Math.ceil(clamped / alignment) * alignment));
+  return Array.from(new Set([floor, ceil].filter((candidate) => candidate >= min && candidate <= max)))
+    .sort((left, right) => Math.abs(left - clamped) - Math.abs(right - clamped) || right - left);
+}
+
+function isWithinSizeLimits(width: number, height: number, limits: SizeLimitConfig): boolean {
+  if (width < MIN_EXACT_SIZE || height < MIN_EXACT_SIZE) return false;
+  if (width > limits.maxSide || height > limits.maxSide) return false;
+  if (width * height > limits.maxPixels) return false;
+  const aspect = width / height;
+  return aspect <= limits.maxAspectRatio && aspect >= MIN_OPENAI_IMAGE_ASPECT_RATIO;
 }
 
 function customSizeDistance(
@@ -649,7 +731,7 @@ function normalizeFlexibleCustomResolution(
   return "1k";
 }
 
-function roundDimension(value: number, alignment = 8): number {
+function roundDimension(value: number, alignment = OPENAI_IMAGE_SIZE_ALIGNMENT): number {
   return Math.max(64, Math.round(value / alignment) * alignment);
 }
 

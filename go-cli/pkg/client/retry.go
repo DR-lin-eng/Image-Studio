@@ -8,12 +8,44 @@ import (
 )
 
 var retryableMarkers = []string{
+	"upstream request failed",
 	"error code 524",
 	"524: a timeout occurred",
+	"error code 503",
+	"service unavailable",
 	"error code 504",
 	"gateway time-out",
 	"service temporarily unavailable",
 	"origin_gateway_timeout",
+}
+
+var invalidSize16Re = regexp.MustCompile(`Invalid size '(\d+x\d+)'\. Width and height must both be divisible by 16`)
+
+func extractInvalidSize(raw string) string {
+	text := strings.TrimSpace(raw)
+	if text == "" {
+		return ""
+	}
+	if match := invalidSize16Re.FindStringSubmatch(text); len(match) >= 2 {
+		return strings.TrimSpace(match[1])
+	}
+	var data map[string]any
+	if err := json.Unmarshal([]byte(text), &data); err != nil {
+		return ""
+	}
+	if errObj, ok := data["error"].(map[string]any); ok {
+		if message, _ := errObj["message"].(string); message != "" {
+			if match := invalidSize16Re.FindStringSubmatch(message); len(match) >= 2 {
+				return strings.TrimSpace(match[1])
+			}
+		}
+	}
+	if message, _ := data["message"].(string); message != "" {
+		if match := invalidSize16Re.FindStringSubmatch(message); len(match) >= 2 {
+			return strings.TrimSpace(match[1])
+		}
+	}
+	return ""
 }
 
 func hasPartialImageWithoutFinal(raw string) bool {
@@ -76,18 +108,45 @@ func IsRetryable(raw string) bool {
 	}
 	if status, ok := data["status"].(float64); ok {
 		switch int(status) {
-		case 502, 503, 504, 524:
+		case 403, 502, 503, 504, 524:
 			return true
 		}
 	}
 	if errObj, ok := data["error"].(map[string]any); ok {
 		message, _ := errObj["message"].(string)
 		errType, _ := errObj["type"].(string)
+		switch statusValue := errObj["upstreamStatus"].(type) {
+		case float64:
+			switch int(statusValue) {
+			case 403, 502, 503, 504, 524:
+				return true
+			}
+		case int:
+			switch statusValue {
+			case 403, 502, 503, 504, 524:
+				return true
+			}
+		}
+		switch statusValue := errObj["upstream_status"].(type) {
+		case float64:
+			switch int(statusValue) {
+			case 403, 502, 503, 504, 524:
+				return true
+			}
+		case int:
+			switch statusValue {
+			case 403, 502, 503, 504, 524:
+				return true
+			}
+		}
 		if strings.Contains(strings.ToLower(message), "temporarily unavailable") {
 			return true
 		}
+		if strings.Contains(strings.ToLower(message), "upstream request failed") {
+			return true
+		}
 		switch strings.ToLower(errType) {
-		case "api_error", "server_error":
+		case "api_error", "server_error", "upstream_error":
 			return true
 		}
 	}

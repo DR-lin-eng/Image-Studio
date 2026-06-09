@@ -147,6 +147,17 @@ func RequestAndExtractWithRetriesAndPartial(
 	return responsesAPIWithRetries(ctx, transport, opts, outputDir, timestamp, onLog, onProgress, onPartial)
 }
 
+func effectiveMaxAttempts(opts Options) int {
+	retryCount := opts.AutoRetryCount
+	if retryCount <= 0 {
+		retryCount = DefaultAutoRetryCount
+	}
+	if retryCount > MaxAutoRetryCount {
+		retryCount = MaxAutoRetryCount
+	}
+	return retryCount + 1
+}
+
 func responsesAPIWithRetries(
 	ctx context.Context,
 	transport Transport,
@@ -171,15 +182,17 @@ func responsesAPIWithRetries(
 	if opts.AutoRetryEnabled != nil && !*opts.AutoRetryEnabled {
 		autoRetryEnabled = false
 	}
+	maxAttempts := effectiveMaxAttempts(opts)
+	sizeRepairTried := false
 
-	for attempt := 1; attempt <= MaxAttempts; attempt++ {
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		rawPrefix := "sse-response"
 		if normalizeResponsesTransport(opts.ResponsesTransport) == ResponsesTransportWebSocket {
 			rawPrefix = "ws-response"
 		}
 		rawPath := filepath.Join(outputDir, fmt.Sprintf("%s-%s-attempt%d.txt", rawPrefix, timestamp, attempt))
 		lastPath = rawPath
-		onLog(fmt.Sprintf("第 %d/%d 次请求...", attempt, MaxAttempts))
+		onLog(fmt.Sprintf("第 %d/%d 次请求...", attempt, maxAttempts))
 
 		f, err := os.OpenFile(rawPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
 		if err != nil {
@@ -205,10 +218,19 @@ func responsesAPIWithRetries(
 		rawBytes, _ := os.ReadFile(rawPath)
 		raw := string(rawBytes)
 
+		if !sizeRepairTried {
+			if repairedOpts, repaired, reason := repairSizeRetryOptions(opts, raw, reqErr); repaired {
+				sizeRepairTried = true
+				opts = repairedOpts
+				onLog(reason)
+				continue
+			}
+		}
+
 		if errors.Is(reqErr, ErrNoImageInResponse) {
 			lastErr = reqErr
 			reason := DescribeProblem(raw)
-			if autoRetryEnabled && attempt < MaxAttempts && IsRetryable(raw) {
+			if autoRetryEnabled && attempt < maxAttempts && IsRetryable(raw) {
 				onLog(reason)
 				onLog(fmt.Sprintf("这是可重试错误,%d 秒后自动重试...", RetryBackoffSeconds))
 				if !sleepCtx(ctx, time.Duration(RetryBackoffSeconds)*time.Second) {
@@ -223,7 +245,7 @@ func responsesAPIWithRetries(
 
 		// Transport-level error (network / native HTTP failure). Retry up to MaxAttempts.
 		lastErr = reqErr
-		if autoRetryEnabled && attempt < MaxAttempts {
+		if autoRetryEnabled && attempt < maxAttempts {
 			onLog(fmt.Sprintf("%v", reqErr))
 			onLog(fmt.Sprintf("%d 秒后自动重试...", RetryBackoffSeconds))
 			if !sleepCtx(ctx, time.Duration(RetryBackoffSeconds)*time.Second) {
@@ -277,11 +299,13 @@ func imagesAPIWithRetries(
 	if opts.AutoRetryEnabled != nil && !*opts.AutoRetryEnabled {
 		autoRetryEnabled = false
 	}
+	maxAttempts := effectiveMaxAttempts(opts)
+	sizeRepairTried := false
 
-	for attempt := 1; attempt <= MaxAttempts; attempt++ {
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		rawPath := filepath.Join(outputDir, fmt.Sprintf("images-response-%s-attempt%d.json", timestamp, attempt))
 		lastPath = rawPath
-		onLog(fmt.Sprintf("[Images API] 第 %d/%d 次请求...", attempt, MaxAttempts))
+		onLog(fmt.Sprintf("[Images API] 第 %d/%d 次请求...", attempt, maxAttempts))
 
 		f, err := os.OpenFile(rawPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
 		if err != nil {
@@ -297,10 +321,19 @@ func imagesAPIWithRetries(
 		rawBytes, _ := os.ReadFile(rawPath)
 		raw := string(rawBytes)
 
+		if !sizeRepairTried {
+			if repairedOpts, repaired, reason := repairSizeRetryOptions(opts, raw, reqErr); repaired {
+				sizeRepairTried = true
+				opts = repairedOpts
+				onLog(reason)
+				continue
+			}
+		}
+
 		lastErr = reqErr
 		// Images API has no SSE / no partial — only retry on transport-level
 		// errors and Cloudflare 5xx HTML pages.
-		if autoRetryEnabled && attempt < MaxAttempts && (IsRetryable(raw) || isTransportishError(reqErr)) {
+		if autoRetryEnabled && attempt < maxAttempts && (IsRetryable(raw) || isTransportishError(reqErr)) {
 			onLog(fmt.Sprintf("%v", reqErr))
 			onLog(fmt.Sprintf("%d 秒后自动重试...", RetryBackoffSeconds))
 			if !sleepCtx(ctx, time.Duration(RetryBackoffSeconds)*time.Second) {
@@ -313,6 +346,17 @@ func imagesAPIWithRetries(
 	}
 
 	return ImageResult{}, lastPath, fmt.Errorf("多次请求后仍未成功:%w", lastErr)
+}
+
+func repairSizeRetryOptions(opts Options, raw string, reqErr error) (Options, bool, string) {
+	if extractInvalidSize(raw) == "" && (reqErr == nil || extractInvalidSize(reqErr.Error()) == "") {
+		return opts, false, ""
+	}
+	repaired := repairSizeForOpenAIOptions(opts)
+	if repaired == nil {
+		return opts, false, ""
+	}
+	return *repaired, true, fmt.Sprintf("检测到上游拒绝当前尺寸 %s，自动改为最近合法尺寸 %s 后重试一次...", opts.Size, repaired.Size)
 }
 
 // isTransportishError treats common transport-layer failures as retryable.

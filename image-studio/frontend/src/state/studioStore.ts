@@ -1,5 +1,9 @@
 import { create } from "zustand";
 import {
+  DEFAULT_AUTO_RETRY_COUNT,
+  normalizeAutoRetryCount,
+} from "../../../../shared/kernel/requestModel.js";
+import {
   BuildBatchOutputPath,
   EventsOn,
   EventsOff,
@@ -332,6 +336,7 @@ function launchQueuedLoopJobs(controller: LoopRunController): void {
 const KEEP_LOGS_KEY = "gptcodex.keepLogs";
 const CLEANUP_PREVIEW_CACHE_ON_EXIT_KEY = "gptcodex.cleanupPreviewCacheOnExit";
 const AUTO_RETRY_ENABLED_KEY = "gptcodex.autoRetryEnabled";
+const AUTO_RETRY_COUNT_KEY = "gptcodex.autoRetryCount";
 const PROTECT_STREAM_PREVIEW_KEY = "gptcodex.protectStreamPreview";
 const INITIAL_HISTORY_LOAD = 18;
 const HISTORY_MEDIA_HYDRATE_CONCURRENCY = 4;
@@ -392,6 +397,22 @@ function writeAutoRetryEnabled(value: boolean): void {
   try {
     if (value) localStorage.removeItem(AUTO_RETRY_ENABLED_KEY);
     else localStorage.setItem(AUTO_RETRY_ENABLED_KEY, "0");
+  } catch {
+    // localStorage can be unavailable in tests/previews.
+  }
+}
+
+function readAutoRetryCount(): number {
+  try {
+    return normalizeAutoRetryCount(localStorage.getItem(AUTO_RETRY_COUNT_KEY));
+  } catch {
+    return DEFAULT_AUTO_RETRY_COUNT;
+  }
+}
+
+function writeAutoRetryCount(value: number): void {
+  try {
+    localStorage.setItem(AUTO_RETRY_COUNT_KEY, String(normalizeAutoRetryCount(value)));
   } catch {
     // localStorage can be unavailable in tests/previews.
   }
@@ -605,6 +626,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   partialImages: 1,
   protectStreamPreview: true,
   autoRetryEnabled: true,
+  autoRetryCount: DEFAULT_AUTO_RETRY_COUNT,
   kernelRuntimeMode: "auto",
   baseURL: "",
   textModelID: "",
@@ -935,6 +957,8 @@ export const useStudioStore = create<StudioState>((set, get) => ({
                       ? value !== false
                     : key === "autoRetryEnabled"
                       ? value !== false
+                      : key === "autoRetryCount"
+                        ? normalizeAutoRetryCount(value)
       : key === "loopGeneration"
         ? normalizeLoopGenerationConfig(value)
         : value;
@@ -1015,6 +1039,8 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       writeProtectStreamPreview(value !== false);
     } else if (key === "autoRetryEnabled") {
       writeAutoRetryEnabled(value !== false);
+    } else if (key === "autoRetryCount") {
+      writeAutoRetryCount(Number(value));
     }
   },
   setFullscreen: async (value) => {
@@ -1277,6 +1303,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       noPromptRevision: true,
       concurrencyLimit,
       partialImages: s.partialImages,
+      autoRetryCount: s.autoRetryCount,
       fallbackProfile: fallbackProfile && fallbackProfileKey.trim() && fallbackProfile.baseURL.trim()
         ? {
             baseURL: cleanBaseURL(fallbackProfile.baseURL),
@@ -1450,6 +1477,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
         moderation: preview.currentImage.moderation ?? "low",
         userIdentifier: "",
         partialImages: 1,
+        autoRetryCount: DEFAULT_AUTO_RETRY_COUNT,
         kernelRuntimeMode: "auto",
         baseURL: preview.profile.baseURL,
         textModelID: preview.profile.textModelID,
@@ -1527,6 +1555,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
         starPromptOpen: false,
         starPromptSource: "auto",
         autoRetryEnabled: readAutoRetryEnabled(),
+        autoRetryCount: readAutoRetryCount(),
         savePromptRequest: null,
         savePromptQueue: [],
         savePromptSuppressed: readSavePromptSuppressed(),
@@ -1624,6 +1653,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     } catch {}
     const protectStreamPreview = readProtectStreamPreview();
     const autoRetryEnabled = readAutoRetryEnabled();
+    const autoRetryCount = readAutoRetryCount();
     // ---- v0.1.6 profile 列表加载 / 迁移 -----------------------------------
     // 1) 优先读新格式 gptcodex.profiles。
     // 2) 缺失时尝试从老 gptcodex.{responses,images}.* + 老 keyring 项合成 0-2
@@ -1810,6 +1840,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       moderation,
       userIdentifier,
       partialImages,
+      autoRetryCount,
       protectStreamPreview,
       autoRetryEnabled,
       profiles,

@@ -275,6 +275,19 @@ func TestBuildPayloadAlwaysKeepsPromptVerbatim(t *testing.T) {
 	}
 }
 
+func TestRepairSizeForOpenAIOptionsSnapsToNearestLegalSize(t *testing.T) {
+	repaired := repairSizeForOpenAIOptions(Options{
+		Prompt: "cat",
+		Size:   "872x2048",
+	})
+	if repaired == nil {
+		t.Fatal("expected repaired options")
+	}
+	if repaired.Size != "880x2048" {
+		t.Fatalf("repaired size = %q, want 880x2048", repaired.Size)
+	}
+}
+
 func TestBuildPayloadMultiImageReferences(t *testing.T) {
 	urls := []string{
 		"data:image/png;base64,AAA",

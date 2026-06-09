@@ -2,10 +2,16 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  DEFAULT_AUTO_RETRY_COUNT,
   DEFAULT_PARTIAL_IMAGES,
   DEFAULT_REASONING_EFFORT,
   buildResponsesPayload,
   describeProblem,
+  extractInvalidSize,
+  isRetryableRaw,
+  normalizeAutoRetryCount,
+  normalizeOpenAIImageSize,
+  repairSizeForOpenAI,
   normalizePartialImages,
 } from "../../../shared/kernel/requestModel.js";
 
@@ -30,6 +36,13 @@ test("normalizePartialImages clamps OpenAI range", () => {
   assert.equal(normalizePartialImages(9), 3);
 });
 
+test("normalizeAutoRetryCount clamps retry count range", () => {
+  assert.equal(normalizeAutoRetryCount(undefined), DEFAULT_AUTO_RETRY_COUNT);
+  assert.equal(normalizeAutoRetryCount(-1), DEFAULT_AUTO_RETRY_COUNT);
+  assert.equal(normalizeAutoRetryCount(3.8), 3);
+  assert.equal(normalizeAutoRetryCount(99), 10);
+});
+
 test("Responses payload uses configured reasoning effort", () => {
   const payload = buildResponsesPayload({
     prompt: "cat",
@@ -46,4 +59,27 @@ test("describeProblem extracts refusal text from Responses SSE message events", 
     'data: {"type":"response.completed","response":{"status":"completed","output":[{"type":"image_generation_call","status":"failed"}]}}',
   ].join("\n");
   assert.equal(describeProblem(raw), "抱歉，这个请求包含成人裸露，我无法生成这类真实照片风格图片。");
+});
+
+test("isRetryableRaw treats upstream_error and 403 as retryable", () => {
+  assert.equal(isRetryableRaw(JSON.stringify({
+    error: {
+      message: "Upstream request failed",
+      type: "upstream_error",
+      upstreamStatus: 403,
+    },
+  })), true);
+  assert.equal(isRetryableRaw(JSON.stringify({ status: 403 })), true);
+});
+
+test("repairSizeForOpenAI snaps invalid sizes to nearest legal 16-aligned value", () => {
+  assert.deepEqual(normalizeOpenAIImageSize("872x2048"), { width: 880, height: 2048 });
+  assert.deepEqual(extractInvalidSize(`{"error":{"message":"Invalid size '872x2048'. Width and height must both be divisible by 16."}}`), {
+    original: "872x2048",
+    reason: "divisible_by_16",
+  });
+  assert.deepEqual(repairSizeForOpenAI({ size: "872x2048", prompt: "cat" }), {
+    size: "880x2048",
+    prompt: "cat",
+  });
 });

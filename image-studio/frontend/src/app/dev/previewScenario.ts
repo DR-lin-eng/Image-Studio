@@ -1,6 +1,7 @@
 import { useStudioStore } from "../../state/studioStore";
 import { applyTheme } from "../../state/studioStore.shared";
 import { buildMacWorkspacePreview, readPreviewScenario } from "./previewData";
+import { DEFAULT_AUTO_RETRY_COUNT } from "../../../../shared/kernel/requestModel.js";
 
 export { readPreviewScenario } from "./previewData";
 
@@ -25,6 +26,8 @@ export function applyMacWorkspacePreviewToStore(workspaceId = "preview-workspace
     moderation: preview.currentImage.moderation ?? "low",
     userIdentifier: "",
     partialImages: 1,
+    autoRetryEnabled: true,
+    autoRetryCount: DEFAULT_AUTO_RETRY_COUNT,
     kernelRuntimeMode: "auto",
     baseURL: preview.profile.baseURL,
     textModelID: preview.profile.textModelID,

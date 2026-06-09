@@ -8,6 +8,7 @@ import {
   GetOutputDir, OpenOutputDir, OpenExternalURL, ChooseOutputDir, SetOutputDir,
 } from "../../platform/runtime/host";
 import type { KernelRuntimeMode, ProxyMode, SystemNotificationPermissionState } from "../../types/domain";
+import { DEFAULT_AUTO_RETRY_COUNT, MAX_AUTO_RETRY_COUNT } from "../../../../../shared/kernel/requestModel.js";
 import { Modal } from "../common/Modal";
 import { rememberTrustedOutputRoot } from "../../lib/storage";
 import { scheduleCompatibilityExport } from "../../lib/compatState";
@@ -29,6 +30,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
     kernelRuntimeMode,
     proxyMode, proxyURL,
     autoRetryEnabled,
+    autoRetryCount,
     protectStreamPreview,
     theme, fontScale,
     setField, setAPIKey, setProxyConfig,
@@ -205,6 +207,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
       importHistory={() => void importHistory()}
       isTestingKey={isTestingKey}
       autoRetryEnabled={autoRetryEnabled}
+      autoRetryCount={autoRetryCount}
       protectStreamPreview={protectStreamPreview}
       kernelRuntimeMode={kernelRuntimeMode}
       onOpenAbout={() => setAboutOpen(true)}
@@ -235,6 +238,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
         scheduleCompatibilityExport(useStudioStore.getState());
         pushToast(value ? "已开启自动重试" : "已关闭自动重试", "success");
       }}
+      onSetAutoRetryCount={(value) => setField("autoRetryCount", value)}
       onSetProtectStreamPreview={(value) => {
         setField("protectStreamPreview", value);
         scheduleCompatibilityExport(useStudioStore.getState());
@@ -332,7 +336,34 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
               </SettingsSegButton>
             </div>
             <p className="mt-1 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-300">
-              默认开启。关闭后，504/524 或可重试的网络错误不会自动再发请求，适合排查问题或避免按次计费上游重复扣费。
+              默认开启。当前会对 403 / 502 / 503 / 504 / 524 以及可重试网络抖动自动重发请求；关闭后只保留第一次结果。
+            </p>
+            <div className="mt-2 flex items-center gap-3">
+              <input
+                type="range"
+                min={1}
+                max={MAX_AUTO_RETRY_COUNT}
+                step={1}
+                value={autoRetryCount}
+                onChange={(e) => setField("autoRetryCount", Number(e.target.value))}
+                onMouseUp={() => {
+                  const value = useStudioStore.getState().autoRetryCount;
+                  scheduleCompatibilityExport(useStudioStore.getState());
+                  pushToast(`自动重试次数已设为 ${value} 次`, "success");
+                }}
+                onTouchEnd={() => {
+                  const value = useStudioStore.getState().autoRetryCount;
+                  scheduleCompatibilityExport(useStudioStore.getState());
+                  pushToast(`自动重试次数已设为 ${value} 次`, "success");
+                }}
+                className="focus-ring flex-1"
+              />
+              <div className="min-w-[88px] rounded-[14px] border border-black/[0.08] bg-[var(--surface)] px-3 py-2 text-center text-[12px] font-medium text-zinc-800 dark:border-white/[0.08] dark:text-zinc-100">
+                {autoRetryCount} 次
+              </div>
+            </div>
+            <p className="mt-1 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-300">
+              默认 {DEFAULT_AUTO_RETRY_COUNT} 次，不含首次请求。
             </p>
           </SettingsRow>
 

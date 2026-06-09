@@ -1,9 +1,10 @@
 import {
+  DEFAULT_AUTO_RETRY_COUNT,
   buildPromptOptimizePayload,
   buildResponsesPayload,
   describeProblem,
   isRetryableRaw,
-  MAX_ATTEMPTS,
+  normalizeAutoRetryCount,
   normalizeAPIMode,
   normalizeBaseURL,
   RETRY_BACKOFF_MS,
@@ -61,13 +62,14 @@ async function forwardRawWithRetry({
   method,
   headers,
   bodyBuffer,
+  maxAttempts,
   shouldRetry,
 }) {
   let lastRaw = "";
   let lastStatus = 502;
   let lastContentType = "application/json; charset=utf-8";
 
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const response = await fetch(upstreamURL, {
       method,
       headers,
@@ -84,7 +86,7 @@ async function forwardRawWithRetry({
         },
       });
     }
-    if (attempt < MAX_ATTEMPTS && shouldRetry(lastRaw, response.status)) {
+    if (attempt < maxAttempts && shouldRetry(lastRaw, response.status)) {
       await sleep(RETRY_BACKOFF_MS);
       continue;
     }
@@ -98,6 +100,10 @@ async function forwardRawWithRetry({
       raw: lastRaw.slice(0, 1500),
     },
   }, { status: lastStatus || 502 });
+}
+
+function resolveMaxAttempts(autoRetryCount) {
+  return normalizeAutoRetryCount(autoRetryCount ?? DEFAULT_AUTO_RETRY_COUNT) + 1;
 }
 
 function sanitizePayload(input) {
@@ -121,6 +127,7 @@ function sanitizePayload(input) {
     requestPolicy: input?.requestPolicy === "compat" ? "compat" : "openai",
     noPromptRevision: !!input?.noPromptRevision,
     partialImages: Number(input?.partialImages || 0),
+    autoRetryCount: Number(input?.autoRetryCount || 0),
   };
 }
 
@@ -145,8 +152,9 @@ async function forwardResponses(env, payload, apiKey) {
   const requestBody = buildResponsesPayload(payload, sourceDataURLs);
   let lastRaw = "";
   let lastStatus = 502;
+  const maxAttempts = resolveMaxAttempts(payload.autoRetryCount);
 
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const response = await fetch(`${upstreamBaseURL}/v1/responses`, {
       method: "POST",
       headers: {
@@ -166,7 +174,7 @@ async function forwardResponses(env, payload, apiKey) {
         },
       });
     }
-    if (attempt < MAX_ATTEMPTS && isRetryableRaw(lastRaw)) {
+    if (attempt < maxAttempts && (isRetryableRaw(lastRaw) || [403, 502, 503, 504, 524].includes(response.status))) {
       await sleep(RETRY_BACKOFF_MS);
       continue;
     }
@@ -195,12 +203,21 @@ async function forwardOpenAIPath(env, request, apiKey) {
   const bodyBuffer = request.method === "GET" || request.method === "HEAD"
     ? null
     : await request.arrayBuffer();
+  let parsedBody = null;
+  if (bodyBuffer) {
+    try {
+      parsedBody = JSON.parse(new TextDecoder().decode(bodyBuffer));
+    } catch {
+      parsedBody = null;
+    }
+  }
   return forwardRawWithRetry({
     upstreamURL,
     method: request.method,
     headers: makeUpstreamHeaders(request, apiKey),
     bodyBuffer,
-    shouldRetry: (raw, status) => isRetryableRaw(raw) || [502, 503, 504, 524].includes(status),
+    maxAttempts: resolveMaxAttempts(parsedBody?.autoRetryCount),
+    shouldRetry: (raw, status) => isRetryableRaw(raw) || [403, 502, 503, 504, 524].includes(status),
   });
 }
 

@@ -965,6 +965,9 @@ func TestPresetLabelsCachedRefreshesAfterPresetChanges(t *testing.T) {
 	if len(first) != 1 || first[0].Title != "A" {
 		t.Fatalf("first=%v want preset A", first)
 	}
+	if first[0].Kind != "preset" {
+		t.Fatalf("first kind=%q want preset", first[0].Kind)
+	}
 
 	second := app.presetLabelsCached([]sharedCompat.Preset{{ID: "b", Name: "B", Size: "1536x1024", Quality: "medium", OutputFormat: "webp", BatchCount: 2}})
 	if len(second) != 1 || second[0].Title != "B" {
@@ -986,6 +989,58 @@ func TestPromptHelperApplyTextFallsBackToTitle(t *testing.T) {
 	item := promptHelperItem{Title: "title only", Detail: "   "}
 	if got := promptHelperApplyText(item); got != "title only" {
 		t.Fatalf("promptHelperApplyText=%q want title only", got)
+	}
+}
+
+func TestPromptTemplateItemsIncludesSharedAndBuiltInTemplates(t *testing.T) {
+	app := &App{
+		promptTemplates: []sharedCompat.PromptTemplate{{
+			ID:    "custom-1",
+			Label: "我的模板",
+			Text:  "custom prompt",
+		}},
+	}
+	items := app.promptTemplateItems()
+	if len(items) != len(builtInPromptTemplates)+1 {
+		t.Fatalf("len(promptTemplateItems)=%d want %d", len(items), len(builtInPromptTemplates)+1)
+	}
+	if items[0].ID != "custom-1" || items[0].Kind != "template" || items[0].Detail != "custom prompt" {
+		t.Fatalf("unexpected custom template item: %#v", items[0])
+	}
+}
+
+func TestApplyPresetUsesExtendedSharedFields(t *testing.T) {
+	app := &App{}
+	compression := 87
+	app.outputCompressionInput.SetText("100")
+	app.batchCount = 1
+	app.kernelRuntimeMode = "auto"
+
+	app.applyPreset(sharedCompat.Preset{
+		ID:                "preset-1",
+		Name:              "配置1",
+		Size:              "1536x1024",
+		Quality:           "high",
+		OutputFormat:      "webp",
+		NegativePrompt:    "no watermark",
+		Background:        "transparent",
+		OutputCompression: &compression,
+		InputFidelity:     "high",
+		ImageStyle:        "vivid",
+		Moderation:        "auto",
+		StyleTag:          "anime",
+		KernelRuntimeMode: "remote",
+		BatchCount:        4,
+	})
+
+	if app.size != "1536x1024" || app.quality != "high" || app.format != "webp" {
+		t.Fatalf("basic preset fields not applied: size=%q quality=%q format=%q", app.size, app.quality, app.format)
+	}
+	if app.negativePromptInput.Text() != "no watermark" {
+		t.Fatalf("negativePrompt=%q want no watermark", app.negativePromptInput.Text())
+	}
+	if app.background != "transparent" || app.outputCompressionInput.Text() != "87" || app.inputFidelity != "high" || app.imageStyle != "vivid" || app.moderation != "auto" || app.styleTag != "anime" || app.kernelRuntimeMode != "remote" || app.batchCount != 4 {
+		t.Fatalf("extended preset fields not applied: background=%q compression=%q fidelity=%q imageStyle=%q moderation=%q style=%q runtime=%q batch=%d", app.background, app.outputCompressionInput.Text(), app.inputFidelity, app.imageStyle, app.moderation, app.styleTag, app.kernelRuntimeMode, app.batchCount)
 	}
 }
 

@@ -33,6 +33,13 @@ func TestIsRetryableJSON504(t *testing.T) {
 	}
 }
 
+func TestIsRetryableJSON403(t *testing.T) {
+	body := `{"error":{"message":"Upstream request failed","type":"upstream_error","upstreamStatus":403}}`
+	if !IsRetryable(body) {
+		t.Errorf("JSON upstream 403 body should be retryable")
+	}
+}
+
 func TestIsRetryableFalseForSuccess(t *testing.T) {
 	if IsRetryable(`{"status":200,"output":[]}`) {
 		t.Errorf("200 success should not be retryable")

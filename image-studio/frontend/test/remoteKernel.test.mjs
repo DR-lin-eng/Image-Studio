@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { DEFAULT_AUTO_RETRY_COUNT } from "../../../shared/kernel/requestModel.js";
 
 const realFetch = globalThis.fetch;
 const realSetTimeout = globalThis.setTimeout;
@@ -241,7 +242,7 @@ test("runRemoteImageJob can fall back to a backup upstream profile after main re
     );
     assert.equal(result.imageB64, "YmFja3Vw");
     assert.equal(result.revisedPrompt, "backup-rev");
-    assert.equal(seen.filter((url) => url.startsWith("https://primary.example")).length, 3);
+    assert.equal(seen.filter((url) => url.startsWith("https://primary.example")).length, DEFAULT_AUTO_RETRY_COUNT + 1);
     assert.equal(seen.filter((url) => url.startsWith("https://backup.example")).length, 1);
   });
 });
@@ -525,6 +526,65 @@ test("runRemoteImageJob retries when Images API only returns partial previews", 
     assert.equal(result.sourceEvent, "images_api");
     assert.equal(partials.length, 1);
     assert.equal(partials[0].imageB64, "aW1hZ2VzLXBhcnRpYWw=");
+  });
+});
+
+test("runRemoteImageJob repairs invalid 16-alignment size errors and retries once", async () => {
+  let calls = 0;
+  const bodies = [];
+  await withPatchedGlobals(async () => {
+    globalThis.fetch = async (_url, init) => {
+      calls += 1;
+      bodies.push(JSON.parse(init.body));
+      if (calls === 1) {
+        return new Response(
+          JSON.stringify({
+            error: {
+              message: "Invalid size '872x2048'. Width and height must both be divisible by 16.",
+              type: "image_generation_user_error",
+              param: "tools",
+              code: "invalid_value",
+            },
+          }),
+          { status: 400, headers: { "content-type": "application/json" } },
+        );
+      }
+      return new Response(
+        'data: {"type":"response.output_item.done","item":{"type":"image_generation_call","result":"ZmluYWw=","revised_prompt":"fixed"}}\n',
+        { status: 200, headers: { "content-type": "text/event-stream" } },
+      );
+    };
+  }, async () => {
+    const kernel = await loadRemoteKernel();
+    const result = await kernel.runRemoteImageJob(
+      {
+        payload: {
+          apiKey: "key",
+          mode: "generate",
+          prompt: "cat",
+          size: "872x2048",
+          quality: "low",
+          outputFormat: "png",
+          imagePaths: [],
+          imagePath: "",
+          maskB64: "",
+          seed: 0,
+          negativePrompt: "",
+          userIdentifier: "user-hash-123",
+          baseURL: "https://upstream.example",
+          textModelID: "gpt-5.5",
+          imageModelID: "gpt-image-2",
+          apiMode: "responses",
+          requestPolicy: "openai",
+          noPromptRevision: false,
+        },
+      },
+      { signal: new AbortController().signal },
+    );
+    assert.equal(calls, 2);
+    assert.equal(bodies[0].tools[0].size, "872x2048");
+    assert.equal(bodies[1].tools[0].size, "880x2048");
+    assert.equal(result.imageB64, "ZmluYWw=");
   });
 });
 

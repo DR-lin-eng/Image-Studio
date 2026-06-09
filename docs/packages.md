@@ -24,6 +24,8 @@ Windows 用户需要额外注意：Actions 里的 CI artifact 如果没有经过
 |---|---|---|
 | Windows x64 | `image-studio-<version>-windows-amd64.exe` | 裸 Wails 可执行文件，适合内部测试，不是安装器。 |
 | Windows ARM64 | `image-studio-<version>-windows-arm64.exe` | 裸 Wails 可执行文件，适合内部测试，不是安装器。 |
+| Windows Portable Fixed WebView2 x64 | `image-studio-<version>-windows-amd64-portable-fixed-webview.zip` | 便携压缩包，内置 Fixed Version WebView2 Runtime，适合用户直接解压后双击 `exe`。 |
+| Windows Portable Fixed WebView2 ARM64 | `image-studio-<version>-windows-arm64-portable-fixed-webview.zip` | ARM64 便携压缩包，内置 Fixed Version WebView2 Runtime。 |
 | Windows Installer | `image-studio-<version>-windows-installer.exe` | 单个 NSIS 安装器，内含 amd64 与 arm64 两套二进制，安装时按本机架构自动选择。 |
 | Windows MSIX x64 | `image-studio-<version>-windows-x64.msix` | 面向 Microsoft Store / 企业分发的 x64 MSIX 包。 |
 | Windows MSIX ARM64 | `image-studio-<version>-windows-arm64.msix` | 面向 Microsoft Store / 企业分发的 ARM64 MSIX 包。 |
@@ -40,6 +42,7 @@ Windows 用户需要额外注意：Actions 里的 CI artifact 如果没有经过
 | 场景 | 建议下载 |
 |---|---|
 | 普通桌面用户 | 对应平台的 `image-studio-<version>-...` Wails 版。 |
+| Windows 用户会直接解压后双击 `exe`，且机器上可能没有可用 WebView2 | `image-studio-<version>-windows-*-portable-fixed-webview.zip`。 |
 | Windows 上没有稳定 WebView2 环境，或想验证 Gio 原生界面 | `image-studio-gio-<version>-windows-...`。 |
 | Linux 上只想试 Gio 原生渲染路径 | `image-studio-gio-<version>-linux-...`。 |
 | 手机与平板统一安装 | `image-studio-<version>-android-release.apk`。 |
@@ -49,8 +52,10 @@ Windows 用户需要额外注意：Actions 里的 CI artifact 如果没有经过
 ### Windows
 
 - Wails 裸 `exe` 依赖 WebView2 Runtime；安装器版本会在安装阶段检查并静默拉起 WebView2 Runtime 安装。
+- `windows-*-portable-fixed-webview.zip` 会把 Fixed Version WebView2 Runtime 一起打包，适合直接解压运行；请保持 `image-studio.exe` 与 `WebView2FixedRuntime/` 在同一目录层级。
 - ARM64 设备优先下载 `windows-arm64`，避免 x64 仿真带来的额外开销。
 - 对外普通分发时请优先使用 `image-studio-<version>-windows-installer.exe`，不要直接使用裸 `exe`。
+- 便携 Fixed WebView2 包是单独 workflow 产物，不替代正式安装器或 MSIX。
 - 提交 Microsoft Store 时请优先使用 `image-studio-<version>-windows.msixbundle`，其次再按需要使用分架构 `.msix`。
 - 对外分发请优先使用带有效 Authenticode 签名的正式 release；未签名的 CI `exe` 或安装器在 Windows 11 上可能被智能应用控制直接阻止运行。
 

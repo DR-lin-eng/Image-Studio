@@ -4,9 +4,11 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"unicode"
 )
@@ -174,6 +176,164 @@ func normalizeReasoningEffort(value string) string {
 	default:
 		return DefaultReasoningEffort
 	}
+}
+
+func parseSizeValue(size string) (width int, height int, ok bool) {
+	match := regexp.MustCompile(`^(\d+)x(\d+)$`).FindStringSubmatch(strings.TrimSpace(size))
+	if len(match) != 3 {
+		return 0, 0, false
+	}
+	w := 0
+	h := 0
+	if _, err := fmt.Sscanf(match[1], "%d", &w); err != nil {
+		return 0, 0, false
+	}
+	if _, err := fmt.Sscanf(match[2], "%d", &h); err != nil {
+		return 0, 0, false
+	}
+	if w <= 0 || h <= 0 {
+		return 0, 0, false
+	}
+	return w, h, true
+}
+
+func normalizeOpenAIImageSize(width, height int) (int, int, bool) {
+	const (
+		minSide     = 64
+		maxSide     = 3840
+		maxPixels   = 3840 * 2160
+		maxAspect   = 3.0
+		alignment   = 16
+		minAspect   = 1.0 / maxAspect
+	)
+	if width <= 0 || height <= 0 {
+		return 0, 0, false
+	}
+
+	targetWidth := float64(width)
+	targetHeight := float64(height)
+	aspect := targetWidth / targetHeight
+	if aspect > maxAspect {
+		aspect = maxAspect
+	}
+	if aspect < minAspect {
+		aspect = minAspect
+	}
+	if targetWidth/targetHeight != aspect {
+		if targetWidth >= targetHeight {
+			targetWidth = targetHeight * aspect
+		} else {
+			targetHeight = targetWidth / aspect
+		}
+	}
+	if currentMax := math.Max(targetWidth, targetHeight); currentMax > maxSide {
+		scale := float64(maxSide) / currentMax
+		targetWidth *= scale
+		targetHeight *= scale
+	}
+	if pixelCount := targetWidth * targetHeight; pixelCount > maxPixels {
+		scale := math.Sqrt(float64(maxPixels) / pixelCount)
+		targetWidth *= scale
+		targetHeight *= scale
+	}
+
+	widthCandidates := alignedDimensionCandidates(targetWidth, minSide, maxSide, alignment)
+	heightCandidates := alignedDimensionCandidates(targetHeight, minSide, maxSide, alignment)
+	bestW, bestH := 0, 0
+	bestDistance := math.Inf(1)
+	bestAspectDistance := math.Inf(1)
+	bestAreaDistance := math.Inf(1)
+
+	for _, candidateWidth := range widthCandidates {
+		for _, candidateHeight := range heightCandidates {
+			if !sizeWithinLimits(candidateWidth, candidateHeight, minSide, maxSide, maxPixels, maxAspect, minAspect) {
+				continue
+			}
+			distance := sizeDistance(candidateWidth, candidateHeight, targetWidth, targetHeight)
+			aspectDistance := math.Abs((float64(candidateWidth) / float64(candidateHeight)) - (targetWidth / targetHeight))
+			areaDistance := math.Abs(float64(candidateWidth*candidateHeight)-targetWidth*targetHeight) / math.Max(targetWidth*targetHeight, 1)
+			if distance < bestDistance ||
+				(distance == bestDistance && aspectDistance < bestAspectDistance) ||
+				(distance == bestDistance && aspectDistance == bestAspectDistance && areaDistance < bestAreaDistance) {
+				bestW = candidateWidth
+				bestH = candidateHeight
+				bestDistance = distance
+				bestAspectDistance = aspectDistance
+				bestAreaDistance = areaDistance
+			}
+		}
+	}
+	if bestW == 0 || bestH == 0 {
+		return 0, 0, false
+	}
+	return bestW, bestH, true
+}
+
+func alignedDimensionCandidates(value float64, min, max, alignment int) []int {
+	clamped := math.Max(float64(min), math.Min(float64(max), value))
+	candidates := []int{
+		int(math.Round(clamped/float64(alignment))) * alignment,
+		int(math.Floor(clamped/float64(alignment))) * alignment,
+		int(math.Ceil(clamped/float64(alignment))) * alignment,
+	}
+	seen := map[int]struct{}{}
+	out := make([]int, 0, len(candidates))
+	for _, candidate := range candidates {
+		if candidate < min {
+			candidate = min
+		}
+		if candidate > max {
+			candidate = max
+		}
+		if _, ok := seen[candidate]; ok {
+			continue
+		}
+		seen[candidate] = struct{}{}
+		out = append(out, candidate)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		left := math.Abs(float64(out[i]) - clamped)
+		right := math.Abs(float64(out[j]) - clamped)
+		if left == right {
+			return out[i] > out[j]
+		}
+		return left < right
+	})
+	return out
+}
+
+func sizeDistance(width, height int, targetWidth, targetHeight float64) float64 {
+	return math.Abs(float64(width)-targetWidth)/math.Max(targetWidth, 1) +
+		math.Abs(float64(height)-targetHeight)/math.Max(targetHeight, 1)
+}
+
+func sizeWithinLimits(width, height, minSide, maxSide, maxPixels int, maxAspect, minAspect float64) bool {
+	if width < minSide || height < minSide || width > maxSide || height > maxSide {
+		return false
+	}
+	if width*height > maxPixels {
+		return false
+	}
+	aspect := float64(width) / float64(height)
+	return aspect <= maxAspect && aspect >= minAspect
+}
+
+func repairSizeForOpenAIOptions(opts Options) *Options {
+	width, height, ok := parseSizeValue(opts.Size)
+	if !ok {
+		return nil
+	}
+	nextWidth, nextHeight, ok := normalizeOpenAIImageSize(width, height)
+	if !ok {
+		return nil
+	}
+	nextSize := fmt.Sprintf("%dx%d", nextWidth, nextHeight)
+	if nextSize == strings.TrimSpace(opts.Size) {
+		return nil
+	}
+	repaired := opts
+	repaired.Size = nextSize
+	return &repaired
 }
 
 func normalizeBackground(value string) string {

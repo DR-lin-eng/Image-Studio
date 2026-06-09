@@ -2718,9 +2718,47 @@ func (a *App) applyPreset(preset sharedCompat.Preset) {
 		a.format = preset.OutputFormat
 	}
 	a.negativePromptInput.SetText(strings.TrimSpace(preset.NegativePrompt))
+	if background := strings.TrimSpace(preset.Background); background != "" {
+		a.background = background
+	}
+	if preset.OutputCompression != nil {
+		a.outputCompressionInput.SetText(strconv.Itoa(*preset.OutputCompression))
+	}
+	if fidelity := strings.TrimSpace(preset.InputFidelity); fidelity != "" {
+		a.inputFidelity = fidelity
+	}
+	if imageStyle := strings.TrimSpace(preset.ImageStyle); imageStyle != "" {
+		a.imageStyle = imageStyle
+	}
+	if moderation := strings.TrimSpace(preset.Moderation); moderation != "" {
+		a.moderation = moderation
+	}
+	a.styleTag = strings.TrimSpace(preset.StyleTag)
+	if runtimeMode := strings.TrimSpace(preset.KernelRuntimeMode); runtimeMode != "" {
+		a.kernelRuntimeMode = normalizeKernelRuntimeMode(runtimeMode)
+	}
 	a.batchCount = normalizeBatchCount(preset.BatchCount)
 	a.promptHelperOpen = false
+	a.appendLog("已应用预设: " + strings.TrimSpace(preset.Name))
 	a.invalidateNow()
+}
+
+func (a *App) applyPresetByID(id string) bool {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return false
+	}
+	a.mu.Lock()
+	presets := append([]sharedCompat.Preset(nil), a.presets...)
+	a.mu.Unlock()
+	for _, preset := range presets {
+		if strings.TrimSpace(preset.ID) != id {
+			continue
+		}
+		a.applyPreset(preset)
+		return true
+	}
+	return false
 }
 
 func (a *App) rememberPrompt(text string) {
@@ -2752,7 +2790,7 @@ func (a *App) rememberPrompt(text string) {
 	}
 	a.mu.Lock()
 	a.setPromptHistoryLocked(next)
-	a.presets = append([]sharedCompat.Preset(nil), state.Settings.Presets...)
+	a.setPresetsLocked(state.Settings.Presets)
 	a.mu.Unlock()
 	a.invalidateNow()
 }

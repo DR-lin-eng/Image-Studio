@@ -87,6 +87,7 @@ export interface StudioState {
   partialImages: number;
   protectStreamPreview: boolean;
   autoRetryEnabled: boolean;
+  autoRetryCount: number;
   kernelRuntimeMode: KernelRuntimeMode;
   baseURL: string;
   textModelID: string;

@@ -89,6 +89,9 @@ func (a *App) layout(gtx layout.Context) layout.Dimensions {
 			a.layoutSettingsHelpModal(gtx)
 		}
 	}
+	if a.promptTemplateManagerOpen {
+		a.layoutPromptTemplateManagerModal(gtx, snap)
+	}
 	if snap.ActiveResultDetail.ID != "" || snap.ActiveResultDetail.SavedPath != "" {
 		a.layoutResultDetailModal(gtx, snap)
 	}

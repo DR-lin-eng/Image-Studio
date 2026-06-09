@@ -62,6 +62,9 @@ type GenerateOptions struct {
 	// AutoRetryEnabled controls whether retryable upstream failures should be
 	// re-issued automatically. Default true.
 	AutoRetryEnabled bool `json:"autoRetryEnabled"`
+	// AutoRetryCount controls how many extra retry attempts are made after the
+	// first request. 0 falls back to the app default.
+	AutoRetryCount int `json:"autoRetryCount"`
 	// FallbackProfile is an optional backup upstream used only after the main
 	// upstream exhausted its own automatic retries and still failed.
 	FallbackProfile *FallbackProfileOptions `json:"fallbackProfile,omitempty"`

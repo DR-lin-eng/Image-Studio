@@ -36,6 +36,7 @@ type Settings struct {
 	PartialImages             *int                     `json:"partialImages,omitempty"`
 	ProtectStreamPreview      *bool                    `json:"protectStreamPreview,omitempty"`
 	AutoRetryEnabled          *bool                    `json:"autoRetryEnabled,omitempty"`
+	AutoRetryCount            *int                     `json:"autoRetryCount,omitempty"`
 	PromptTemplates           []PromptTemplate         `json:"promptTemplates,omitempty"`
 	OutputDir                 string                   `json:"outputDir,omitempty"`
 	PromptHistory             []string                 `json:"promptHistory,omitempty"`
@@ -86,6 +87,7 @@ type Preset struct {
 	InputFidelity     string `json:"inputFidelity,omitempty"`
 	ImageStyle        string `json:"imageStyle,omitempty"`
 	Moderation        string `json:"moderation,omitempty"`
+	StyleTag          string `json:"styleTag,omitempty"`
 	KernelRuntimeMode string `json:"kernelRuntimeMode,omitempty"`
 	BatchCount        int    `json:"batchCount"`
 }

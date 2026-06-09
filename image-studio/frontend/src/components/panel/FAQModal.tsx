@@ -121,8 +121,8 @@ export function FAQModal({ open, onClose }: { open: boolean; onClose: () => void
           <summary className="faq-summary">生成失败 / 504 / 524 怎么办?</summary>
           <div className="faq-content">
             <p>
-              上游网关超时(Cloudflare 504/524)在中转站上很常见。本应用默认<strong>自动重试 3 次,每次间隔 15 秒</strong>。
-              你也可以在「设置 → 失败自动重试」里关闭它，避免测试问题时重复扣费。
+              上游网关波动或中转临时抖动很常见。本应用默认会对<strong>403 / 502 / 503 / 504 / 524</strong>及可重试网络错误自动重试，
+              默认<strong>额外重试 5 次,每次间隔 15 秒</strong>。你也可以在「设置 → 失败自动重试」里关闭或调整次数，避免测试问题时重复扣费。
               如果三次都失败:
             </p>
             <ul>

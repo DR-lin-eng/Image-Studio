@@ -377,6 +377,7 @@ func (s *Service) runJob(ctx context.Context, jobID string, opts GenerateOptions
 		NoPromptRevision:   opts.NoPromptRevision,
 		DisablePreview:     opts.DisablePreview,
 		AutoRetryEnabled:   &opts.AutoRetryEnabled,
+		AutoRetryCount:     opts.AutoRetryCount,
 		PartialImages:      client.DefaultPartialImages,
 	}
 	if opts.PartialImages > 0 {
@@ -415,6 +416,7 @@ func (s *Service) runJob(ctx context.Context, jobID string, opts GenerateOptions
 			NoPromptRevision:   opts.NoPromptRevision,
 			DisablePreview:     opts.DisablePreview,
 			AutoRetryEnabled:   &opts.AutoRetryEnabled,
+			AutoRetryCount:     opts.AutoRetryCount,
 			PartialImages:      clientOpts.PartialImages,
 		}
 	}

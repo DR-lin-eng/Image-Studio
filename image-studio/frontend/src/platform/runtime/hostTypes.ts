@@ -43,6 +43,7 @@ export type GenerateOptionsLike = {
     imagesNewAPICompat?: boolean;
   };
   autoRetryEnabled?: boolean;
+  autoRetryCount?: number;
   disablePreview?: boolean;
   requestedJobId?: string;
   sourceImages?: Array<{

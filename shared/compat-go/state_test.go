@@ -46,6 +46,21 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 				CustomName: "ding.wav",
 				CustomData: "data:audio/wav;base64,AAAA",
 			},
+			Presets: []Preset{{
+				ID:                "preset-1",
+				Name:              "配置1",
+				Size:              "1536x1024",
+				Quality:           "high",
+				OutputFormat:      "webp",
+				NegativePrompt:    "no watermark",
+				Background:        "transparent",
+				InputFidelity:     "high",
+				ImageStyle:        "vivid",
+				Moderation:        "auto",
+				StyleTag:          "anime",
+				KernelRuntimeMode: "remote",
+				BatchCount:        4,
+			}},
 		},
 		Profiles: []UpstreamProfile{{
 			ID:              "p1",
@@ -84,6 +99,13 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 	}
 	if loaded.Settings.CompletionSound == nil || !loaded.Settings.CompletionSound.Enabled || loaded.Settings.CompletionSound.Mode != "custom" || loaded.Settings.CompletionSound.CustomName != "ding.wav" || loaded.Settings.CompletionSound.CustomData != "data:audio/wav;base64,AAAA" {
 		t.Fatalf("completion sound not preserved: %#v", loaded.Settings.CompletionSound)
+	}
+	if len(loaded.Settings.Presets) != 1 {
+		t.Fatalf("presets not preserved: %#v", loaded.Settings.Presets)
+	}
+	preset := loaded.Settings.Presets[0]
+	if preset.StyleTag != "anime" || preset.Background != "transparent" || preset.InputFidelity != "high" || preset.ImageStyle != "vivid" || preset.Moderation != "auto" || preset.KernelRuntimeMode != "remote" || preset.BatchCount != 4 {
+		t.Fatalf("preset fields not preserved: %#v", preset)
 	}
 	if len(loaded.Profiles) != 1 || loaded.Profiles[0].BaseURL != "https://upstream.example" || loaded.Profiles[0].ReasoningEffort != "xhigh" {
 		t.Fatalf("profiles not preserved: %#v", loaded.Profiles)

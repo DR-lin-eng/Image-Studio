@@ -479,6 +479,7 @@ export function AndroidCanvasStage() {
           onClose={closeResultGrid}
           showClose={!showingLiveBatchGrid}
           title={showingLiveBatchGrid ? `当前并发预览 · ${runningJobs.length} 路 · ${jobsCompleted}/${jobsTotal}` : undefined}
+          livePreview={showingLiveBatchGrid}
         />
       ) : null}
       {!showingResultGrid && currentImage && compareB ? (

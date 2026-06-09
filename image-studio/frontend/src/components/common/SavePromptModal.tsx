@@ -3,9 +3,14 @@ import { FolderOpen, Save } from "lucide-react";
 import { useStudioStore } from "../../state/studioStore";
 import { BatchResultGrid } from "../canvas/BatchResultGrid";
 import { historyPreviewSrc, useBlobURL } from "../../lib/images";
+import {
+  buildHistoryItemDragExport,
+  writeImageFileDragData,
+  writeInternalHistoryItemDragData,
+} from "../../lib/dragExport.ts";
 import { saveHistoryItemAs, saveHistoryItemsToDirectory } from "../../lib/saveResultImage";
 import { androidSaveHint, androidTarget } from "../../platform/android/bridge";
-import { getHostCapabilities, ChooseDirectory } from "../../platform/runtime/host";
+import { BeginNativeFileDrag, getHostCapabilities, ChooseDirectory } from "../../platform/runtime/host";
 import { usePlatform } from "../../platform/context";
 import { Modal } from "./Modal";
 
@@ -15,7 +20,7 @@ export function SavePromptModal() {
   const suppressed = useStudioStore((s) => s.savePromptSuppressed);
   const setSuppressed = useStudioStore((s) => s.setSavePromptSuppressed);
   const pushToast = useStudioStore((s) => s.pushToast);
-  const { usesFluentUI, isAndroidPhone, isAndroid } = usePlatform();
+  const { usesFluentUI, isAndroidPhone, isAndroid, isMac } = usePlatform();
   const [saving, setSaving] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
@@ -82,16 +87,42 @@ export function SavePromptModal() {
 
   if (!isBatch) {
     const imageSrc = historyPreviewSrc(singleItem, singlePreviewURL);
+    const dragSpec = singleItem ? buildHistoryItemDragExport(singleItem) : null;
+
+    function handleSinglePreviewDragStart(event: React.DragEvent<HTMLDivElement>) {
+      if (!singleItem || !dragSpec) {
+        event.preventDefault();
+        return;
+      }
+      event.stopPropagation();
+      if (isMac && singleItem.savedPath) {
+        event.preventDefault();
+        void BeginNativeFileDrag(singleItem.savedPath).catch((error) => {
+          console.error("[drag-export] native-file-drag failed", error);
+        });
+        return;
+      }
+      event.dataTransfer.effectAllowed = "copy";
+      writeInternalHistoryItemDragData(event.dataTransfer, singleItem);
+      writeImageFileDragData(event.dataTransfer, dragSpec);
+    }
+
     return (
       <Modal open onClose={closeSavePrompt} title="是否另存这张图片?" width={isAndroidPhone ? 420 : 520}>
         <div className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-[132px_minmax(0,1fr)]">
-            <div className={`grid min-h-[132px] place-items-center overflow-hidden border border-black/[0.08] bg-[var(--surface)] p-2 dark:border-white/[0.06] ${usesFluentUI ? "rounded-[10px]" : "rounded-[16px]"}`}>
+            <div
+              draggable={!!dragSpec}
+              onDragStart={handleSinglePreviewDragStart}
+              title={dragSpec ? "拖到文件夹复制原图" : undefined}
+              className={`grid min-h-[132px] place-items-center overflow-hidden border border-black/[0.08] bg-[var(--surface)] p-2 dark:border-white/[0.06] ${usesFluentUI ? "rounded-[10px]" : "rounded-[16px]"}`}
+            >
               {imageSrc ? (
                 <img
                   src={imageSrc}
                   alt="生成结果预览"
                   decoding="async"
+                  draggable={false}
                   className={`max-h-[120px] max-w-full object-contain ${usesFluentUI ? "rounded-[8px]" : "rounded-[12px]"}`}
                 />
               ) : (

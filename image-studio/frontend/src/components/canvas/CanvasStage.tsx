@@ -481,6 +481,7 @@ export function CanvasStage() {
             onClose={closeResultGrid}
             showClose={!showingLiveBatchGrid}
             title={showingLiveBatchGrid ? `当前并发预览 · ${runningJobs.length} 路 · ${jobsCompleted}/${jobsTotal}` : undefined}
+            livePreview={showingLiveBatchGrid}
           />
         )}
         {!showingResultGrid && currentImage && compareB && (

@@ -18,6 +18,7 @@ export function BatchResultGrid({
   selectedIds,
   onToggleSelect,
   selectionMode = false,
+  livePreview = false,
 }: {
   items: HistoryItem[];
   slots?: BatchGridSlot[];
@@ -29,12 +30,14 @@ export function BatchResultGrid({
   selectedIds?: Set<string>;
   onToggleSelect?: (item: HistoryItem) => void;
   selectionMode?: boolean;
+  livePreview?: boolean;
 }) {
   const gridSlots = slots ?? items.map((item) => ({ type: "result", item }) satisfies BatchGridSlot);
-  const columns = gridSlots.length <= 2 ? 2 : gridSlots.length <= 4 ? 2 : 3;
+  const singleLivePreview = livePreview && gridSlots.length === 1;
+  const columns = singleLivePreview ? 1 : gridSlots.length <= 4 ? 2 : 3;
   return (
-    <div className="batch-grid-overlay">
-      <div className="batch-grid-head">
+    <div className={`batch-grid-overlay ${livePreview ? "live-preview-grid" : ""} ${singleLivePreview ? "single-slot" : ""}`}>
+      <div className={`batch-grid-head ${singleLivePreview ? "single-slot" : ""}`}>
         <span className="batch-grid-title">{title ?? `本批结果 · ${items.length} 张`}</span>
         {showClose ? (
           <button type="button" className="batch-grid-close" onClick={onClose} title="返回当前图">
@@ -43,12 +46,12 @@ export function BatchResultGrid({
         ) : null}
       </div>
       <div
-        className="batch-grid"
+        className={`batch-grid ${singleLivePreview ? "single-slot" : ""}`}
         style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
       >
         {gridSlots.map((slot, index) => {
           if (slot.type === "pending") {
-            return <PendingGridTile key={slot.id} index={index} />;
+            return <PendingGridTile key={slot.id} index={index} singleLayout={singleLivePreview} />;
           }
           return (
             <BatchGridTile
@@ -61,6 +64,7 @@ export function BatchResultGrid({
               selected={slot.type === "result" && !!selectedIds?.has(slot.item.id)}
               onToggleSelect={onToggleSelect}
               selectionMode={selectionMode}
+              singleLayout={singleLivePreview}
             />
           );
         })}
@@ -78,6 +82,7 @@ function BatchGridTile({
   selected,
   onToggleSelect,
   selectionMode,
+  singleLayout,
 }: {
   item: HistoryItem;
   index: number;
@@ -87,6 +92,7 @@ function BatchGridTile({
   selected: boolean;
   onToggleSelect?: (item: HistoryItem) => void;
   selectionMode: boolean;
+  singleLayout: boolean;
 }) {
   const previewURL = useBlobURL(item.imageBlob ?? item.previewBlob ?? null, item.imageB64 ?? null);
   const src = historyPreviewSrc(item, previewURL);
@@ -97,7 +103,7 @@ function BatchGridTile({
     >
       <button
         type="button"
-        className="batch-grid-tile-button"
+        className={`batch-grid-tile-button ${singleLayout ? "single-layout" : ""}`}
         onClick={() => {
           if (selectionMode && !preview) {
             onToggleSelect?.(item);
@@ -107,13 +113,20 @@ function BatchGridTile({
         }}
         disabled={preview}
       >
-        <img
-          src={src}
-          alt={item.prompt || `batch result ${index + 1}`}
-          loading="eager"
-          decoding="async"
-          draggable={false}
-        />
+        <span className="batch-grid-media">
+          <img
+            src={src}
+            alt={item.prompt || `batch result ${index + 1}`}
+            loading="eager"
+            decoding="async"
+            draggable={false}
+          />
+        </span>
+        {singleLayout ? (
+          <span className="batch-grid-single-note">
+            {preview ? "流式预览会持续刷新，最终结果生成后会自动替换。" : "当前结果已就绪，生成完成后可继续在画布中处理。"}
+          </span>
+        ) : null}
         <span className="batch-grid-index">{index + 1}</span>
         {selectionMode && !preview ? <span className="batch-grid-check">{selected ? "已选" : "未选"}</span> : null}
         {preview ? <span className="batch-grid-meta">预览中</span> : null}
@@ -124,12 +137,13 @@ function BatchGridTile({
   );
 }
 
-function PendingGridTile({ index }: { index: number }) {
+function PendingGridTile({ index, singleLayout }: { index: number; singleLayout: boolean }) {
   return (
     <div className="batch-grid-tile pending" aria-label={`等待第 ${index + 1} 张预览`}>
       <span className="batch-grid-index">{index + 1}</span>
       <span className="batch-grid-pending-ring" />
       <span className="batch-grid-pending-label">等待预览</span>
+      {singleLayout ? <span className="batch-grid-single-note pending-note">第一张流式预览出现后，会在这里实时刷新。</span> : null}
     </div>
   );
 }

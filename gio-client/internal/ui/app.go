@@ -174,6 +174,7 @@ type App struct {
 	savePromptPathInput       widget.Editor
 	promptTemplateLabelInput  widget.Editor
 	promptTemplateTextInput   widget.Editor
+	presetNameInput           widget.Editor
 	rawResponseViewerInput    widget.Editor
 	historyQueryInput         widget.Editor
 	historyTimelineQueryInput widget.Editor
@@ -252,6 +253,15 @@ type App struct {
 	savePromptTemplateButton                 widget.Clickable
 	deletePromptTemplateButton               widget.Clickable
 	promptTemplateListButtons                map[string]*widget.Clickable
+	openPresetManagerButton                  widget.Clickable
+	saveCurrentPresetButton                  widget.Clickable
+	closePresetManagerButton                 widget.Clickable
+	newPresetButton                          widget.Clickable
+	savePresetButton                         widget.Clickable
+	overwritePresetButton                    widget.Clickable
+	applyPresetButton                        widget.Clickable
+	deletePresetButton                       widget.Clickable
+	presetListButtons                        map[string]*widget.Clickable
 	closePromptHelperButton                  widget.Clickable
 	optimizePromptButton                     widget.Clickable
 	testUpstreamButton                       widget.Clickable
@@ -474,6 +484,8 @@ type App struct {
 	promptHelperTab               string
 	promptTemplateManagerOpen     bool
 	selectedPromptTemplateID      string
+	presetManagerOpen             bool
+	selectedPresetID              string
 	activePromptGroup             historyPromptGroup
 	generalSettingsOpen           bool
 	generalRuntimePickerOpen      bool
@@ -596,6 +608,7 @@ func New() *App {
 		historyButtons:             map[string]*widget.Clickable{},
 		promptButtons:              map[string]*widget.Clickable{},
 		promptTemplateListButtons:  map[string]*widget.Clickable{},
+		presetListButtons:          map[string]*widget.Clickable{},
 		sourceButtons:              map[string]*widget.Clickable{},
 		historyActionButtons:       map[string]*widget.Clickable{},
 		workspaceButtons:           map[string]*widget.Clickable{},
@@ -662,6 +675,7 @@ func (a *App) configureEditors(cfg kernel.Config) {
 		&a.userIdentifierInput,
 		&a.savePromptPathInput,
 		&a.promptTemplateLabelInput,
+		&a.presetNameInput,
 		&a.historyQueryInput,
 		&a.historyTimelineQueryInput,
 		&a.workspaceNameInput,

@@ -1,4 +1,3 @@
-import { DEFAULT_AUTO_RETRY_COUNT } from "../../../../shared/kernel/requestModel.js";
 import type {
   BatchProcessConfig,
   HistoryItem,
@@ -207,8 +206,6 @@ function buildWorkspace(
     moderation: currentImage.moderation ?? "low",
     userIdentifier: "",
     partialImages: 1,
-    autoRetryEnabled: true,
-    autoRetryCount: DEFAULT_AUTO_RETRY_COUNT,
     batchCount: 1,
     editSourceMode: "manual",
     batchProcess,

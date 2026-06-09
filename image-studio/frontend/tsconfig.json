@@ -22,7 +22,9 @@
     "jsx": "react-jsx"
   },
   "include": [
-    "src"
+    "src",
+    "../shared/kernel/**/*.d.ts",
+    "../shared/kernel/**/*.js"
   ],
   "references": [
     {

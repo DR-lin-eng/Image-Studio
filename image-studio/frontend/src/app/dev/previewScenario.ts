@@ -1,7 +1,7 @@
 import { useStudioStore } from "../../state/studioStore";
 import { applyTheme } from "../../state/studioStore.shared";
 import { buildMacWorkspacePreview, readPreviewScenario } from "./previewData";
-import { DEFAULT_AUTO_RETRY_COUNT } from "../../../../shared/kernel/requestModel.js";
+import { DEFAULT_AUTO_RETRY_COUNT } from "../../../../../shared/kernel/requestModel.js";
 
 export { readPreviewScenario } from "./previewData";
 

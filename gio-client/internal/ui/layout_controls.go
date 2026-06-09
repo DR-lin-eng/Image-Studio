@@ -997,6 +997,9 @@ func (a *App) layoutGeneralSettingsModal(gtx layout.Context, snap snapshot) layo
 	for a.openGeneralAboutButton.Clicked(gtx) {
 		a.aboutModalOpen = true
 	}
+	for a.openPresetManagerButton.Clicked(gtx) {
+		a.openPresetManager()
+	}
 	for idx, days := range []int{3, 7} {
 		days := days
 		for a.pruneGeneralHistoryButtons[idx].Clicked(gtx) {
@@ -1397,6 +1400,9 @@ func (a *App) layoutGeneralSettingsModal(gtx layout.Context, snap snapshot) layo
 						}))
 					}
 				}
+				rows = append(rows, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return a.compactIconTextButton(gtx, &a.openPresetManagerButton, uiIconSettings, "打开预设管理", false)
+				}))
 				return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(8))}.Layout(gtx, rows...)
 			})
 		},

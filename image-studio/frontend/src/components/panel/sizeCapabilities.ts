@@ -44,6 +44,13 @@ type SizeCapabilityInput = {
   imageModelID?: string;
 };
 
+export {
+  MAX_OPENAI_IMAGE_ASPECT_RATIO,
+  MAX_OPENAI_IMAGE_PIXELS,
+  MAX_OPENAI_IMAGE_SIDE,
+  MIN_OPENAI_IMAGE_SIDE,
+};
+
 export const ASPECT_PRESETS: AspectPresetOption[] = [
   { value: "auto", label: "Auto", w: 18, h: 18, auto: true },
   { value: "1:1", label: "1:1", w: 18, h: 18 },

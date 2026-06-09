@@ -1,7 +1,7 @@
 import {
   DEFAULT_AUTO_RETRY_COUNT,
   MAX_AUTO_RETRY_COUNT,
-} from "../../../../../shared/kernel/requestModel.js";
+} from "../../../../../../shared/kernel/requestModel.js";
 import {
   Bell,
   ChevronRight,

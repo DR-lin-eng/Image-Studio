@@ -92,7 +92,8 @@ Section
     CreateShortCut "$DESKTOP\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${PRODUCT_EXECUTABLE}"
 
     !insertmacro wails.associateFiles
-    !insertmacro wails.associateCustomProtocols
+    # Wails writes an unquoted exe path here; Program Files installs break the protocol launch.
+    !insertmacro CUSTOM_PROTOCOL_ASSOCIATE "image-studio" "Image-Prompts import" "$INSTDIR\${PRODUCT_EXECUTABLE},0" "$\"$INSTDIR\${PRODUCT_EXECUTABLE}$\" $\"%1$\""
 
     !insertmacro wails.writeUninstaller
 SectionEnd

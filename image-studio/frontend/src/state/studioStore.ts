@@ -149,7 +149,7 @@ import {
   supportsPreciseSizeControl,
 } from "../components/panel/sizeCapabilities";
 import { normalizeQualitySelection } from "../components/panel/panelOptions";
-import { buildMacWorkspacePreview, readPreviewScenario } from "../app/dev/previewData";
+import { buildMacWorkspacePreview, buildWindowsRightRailPreview, readPreviewScenario } from "../app/dev/previewData";
 import {
   applyTheme,
   augmentPromptWithAnnotations,
@@ -1453,30 +1453,33 @@ export const useStudioStore = create<StudioState>((set, get) => ({
 
   bootstrap: async () => {
     const previewScenario = readPreviewScenario();
-    if (previewScenario === "mac-workspace") {
+    if (previewScenario === "mac-workspace" || previewScenario === "windows-right-rail") {
       const workspaceId = genId();
-      const preview = buildMacWorkspacePreview(workspaceId);
+      const preview = previewScenario === "windows-right-rail"
+        ? buildWindowsRightRailPreview(workspaceId)
+        : buildMacWorkspacePreview(workspaceId);
       await SetKeepLogsEnabled(readKeepLogs()).catch(() => undefined);
       await SetCleanupPreviewCacheOnExitEnabled(readCleanupPreviewCacheOnExit()).catch(() => undefined);
-      applyTheme("dark");
+      applyTheme(previewScenario === "windows-right-rail" ? "light" : "dark");
       document.documentElement.style.setProperty("--font-scale", "1");
       setKernelRuntimeMode("auto");
+      const workspaceState = preview.workspace;
       set({
         apiKey: "sk-preview",
-        mode: "edit",
-        prompt: preview.currentImage.prompt,
-        negativePrompt: preview.currentImage.negativePrompt ?? "",
-        size: preview.currentImage.size,
-        quality: preview.currentImage.quality,
-        outputFormat: "png",
-        seed: preview.currentImage.seed ?? 3200,
-        background: preview.currentImage.background ?? "auto",
-        outputCompression: preview.currentImage.outputCompression ?? 100,
-        inputFidelity: preview.currentImage.inputFidelity ?? "auto",
-        imageStyle: preview.currentImage.imageStyle ?? "default",
-        moderation: preview.currentImage.moderation ?? "low",
+        mode: workspaceState.mode,
+        prompt: workspaceState.prompt,
+        negativePrompt: workspaceState.negativePrompt,
+        size: workspaceState.size,
+        quality: workspaceState.quality,
+        outputFormat: workspaceState.outputFormat,
+        seed: workspaceState.seed,
+        background: workspaceState.background,
+        outputCompression: workspaceState.outputCompression,
+        inputFidelity: workspaceState.inputFidelity,
+        imageStyle: workspaceState.imageStyle,
+        moderation: workspaceState.moderation,
         userIdentifier: "",
-        partialImages: 1,
+        partialImages: workspaceState.partialImages,
         autoRetryEnabled: true,
         autoRetryCount: DEFAULT_AUTO_RETRY_COUNT,
         kernelRuntimeMode: "auto",
@@ -1531,16 +1534,16 @@ export const useStudioStore = create<StudioState>((set, get) => ({
         canvasViewResetTick: 0,
         fullscreen: false,
         promptHistory: [],
-        promptTemplates: [],
-        batchCount: 1,
-        editSourceMode: "manual",
-        batchProcess: defaultBatchProcessConfig(),
-        loopGeneration: normalizeLoopGenerationConfig(preview.workspace.loopGeneration),
-        presets: [],
+        promptTemplates: preview.promptTemplates ?? [],
+        batchCount: workspaceState.batchCount,
+        editSourceMode: workspaceState.editSourceMode,
+        batchProcess: normalizeBatchProcessConfig(workspaceState.batchProcess),
+        loopGeneration: normalizeLoopGenerationConfig(workspaceState.loopGeneration),
+        presets: preview.presets ?? [],
         customAspectRatios: [],
-        theme: "dark",
+        theme: previewScenario === "windows-right-rail" ? "light" : "dark",
         fontScale: 1,
-        workspaces: [preview.workspace],
+        workspaces: [workspaceState],
         activeWorkspaceId: workspaceId,
         styleTag: preview.currentImage.styleTag ?? "",
         undoStack: [],

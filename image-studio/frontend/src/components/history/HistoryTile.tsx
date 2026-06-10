@@ -166,15 +166,17 @@ export function HistoryTile({
         className={`windows-history-feature-tile ${isCurrent ? "active" : ""} ${isCompare ? "compare" : ""}`}
       >
         <div className="windows-history-feature-image">
-          {renderDragImageNode()}
+          {renderDragImageNode("h-full w-full", "h-full w-full object-cover")}
           <HistoryModeBadge mode={item.mode} className="windows-history-mode" />
           {isCompare ? <span className="windows-history-compare-badge">B</span> : null}
         </div>
         <div className="windows-history-feature-body">
-          <p>{item.prompt || "(无 prompt)"}</p>
-          <HistoryMetaBadges items={[sizeLabel(item.size), qualityLabel(item.quality)]} compact />
+          <div className="windows-history-feature-copy">
+            <p>{item.prompt || "(无 prompt)"}</p>
+            <HistoryMetaBadges items={[sizeLabel(item.size), qualityLabel(item.quality)]} compact className="windows-history-feature-meta" />
+          </div>
           <div className="windows-history-tile-actions">
-            <button type="button" onClick={openMenuFromEvent} onContextMenu={openMenuFromEvent}>
+            <button type="button" onClick={openMenuFromEvent} onContextMenu={openMenuFromEvent} title="更多">
               <Ellipsis className="h-3.5 w-3.5" /> 更多
             </button>
           </div>
@@ -194,30 +196,19 @@ export function HistoryTile({
         className={`windows-history-row ${isCurrent ? "active" : ""} ${isCompare ? "compare" : ""}`}
       >
         <div className="windows-history-row-thumb">
-          {renderDragImageNode("h-full w-full")}
+          {renderDragImageNode("h-full w-full", "h-full w-full object-cover")}
         </div>
         <div className="windows-history-row-main">
           <p>{item.prompt || "(无 prompt)"}</p>
           <div className="windows-history-row-meta">
-            <HistoryModeBadge mode={item.mode} />
-            <HistoryMetaBadges items={[sizeLabel(item.size), qualityLabel(item.quality)]} compact />
+            <HistoryModeBadge mode={item.mode} className="windows-history-row-mode" />
+            <HistoryMetaBadges items={[sizeLabel(item.size), qualityLabel(item.quality)]} compact className="windows-history-row-badges" />
             {isCompare ? <span className="windows-history-compare-inline">B</span> : null}
           </div>
         </div>
         <div className="windows-history-row-actions">
           <button type="button" onClick={openMenuFromEvent} onContextMenu={openMenuFromEvent} title="更多">
             <Ellipsis className="h-3.5 w-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              void onDelete(item.id);
-            }}
-            onContextMenu={openMenuFromEvent}
-            title="删除"
-          >
-            <X className="h-3.5 w-3.5" />
           </button>
         </div>
       </div>

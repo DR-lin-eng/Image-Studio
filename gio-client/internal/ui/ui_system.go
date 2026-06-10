@@ -157,6 +157,69 @@ func chooseJSONFile() (string, error) {
 	}
 }
 
+func chooseAudioFile() (string, error) {
+	switch runtime.GOOS {
+	case "windows":
+		cmd := exec.Command(
+			"powershell",
+			"-NoProfile",
+			"-Command",
+			`Add-Type -AssemblyName System.Windows.Forms; `+
+				`$dlg = New-Object System.Windows.Forms.OpenFileDialog; `+
+				`$dlg.Multiselect = $false; `+
+				`$dlg.Filter = "Audio|*.mp3;*.wav;*.ogg;*.m4a;*.aac;*.webm"; `+
+				`if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { [Console]::OutputEncoding = [System.Text.UTF8Encoding]::UTF8; $dlg.FileName }`,
+		)
+		out, err := cmd.Output()
+		if err != nil {
+			return "", err
+		}
+		paths := parseDialogPaths(string(out))
+		if len(paths) == 0 {
+			return "", nil
+		}
+		return paths[0], nil
+	case "darwin":
+		out, err := exec.Command(
+			"osascript",
+			"-e",
+			`POSIX path of (choose file)`,
+		).Output()
+		if err != nil {
+			return "", err
+		}
+		paths := parseDialogPaths(string(out))
+		if len(paths) == 0 {
+			return "", nil
+		}
+		return paths[0], nil
+	default:
+		if path, err := exec.LookPath("zenity"); err == nil {
+			out, err := exec.Command(path, "--file-selection", "--file-filter=Audio | *.mp3 *.wav *.ogg *.m4a *.aac *.webm").Output()
+			if err != nil {
+				return "", err
+			}
+			paths := parseDialogPaths(string(out))
+			if len(paths) == 0 {
+				return "", nil
+			}
+			return paths[0], nil
+		}
+		if path, err := exec.LookPath("kdialog"); err == nil {
+			out, err := exec.Command(path, "--getopenfilename", ".", "Audio (*.mp3 *.wav *.ogg *.m4a *.aac *.webm)").Output()
+			if err != nil {
+				return "", err
+			}
+			paths := parseDialogPaths(string(out))
+			if len(paths) == 0 {
+				return "", nil
+			}
+			return paths[0], nil
+		}
+		return "", fmt.Errorf("当前系统没有可用的音频文件选择器")
+	}
+}
+
 func chooseSaveJSONFile(suggestedName string) (string, error) {
 	suggestedName = strings.TrimSpace(suggestedName)
 	if suggestedName == "" {

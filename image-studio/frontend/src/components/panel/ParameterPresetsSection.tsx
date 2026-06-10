@@ -76,13 +76,18 @@ export function ParameterPresetsSection({
     matchedPresetName: presets.find((preset) => preset.id === matchedPresetId)?.name ?? null,
     selectedPreset,
   });
+  const actionGridClassName = isAndroid
+    ? "grid-cols-1 gap-2.5"
+    : usesFluentUI
+      ? "windows-preset-actions"
+      : "grid-cols-3 gap-2";
 
   return (
     <>
-      <section className={`border border-black/[0.06] bg-[var(--surface)] px-3 py-3 dark:border-white/[0.08] ${cardRadius}`}>
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-zinc-500 dark:text-zinc-300">
+      <section className={`windows-preset-card border border-black/[0.06] bg-[var(--surface)] px-3 py-3 dark:border-white/[0.08] ${cardRadius}`}>
+        <div className="windows-preset-head flex items-center justify-between gap-2">
+          <div className="windows-preset-kicker flex items-center gap-1.5">
+            <span className="windows-preset-title text-[11px] font-semibold uppercase tracking-[0.12em] text-zinc-500 dark:text-zinc-300">
               参数预设
             </span>
             <span className={`h-1.5 w-1.5 rounded-full ${presets.length > 0 ? "bg-[var(--accent)] shadow-[0_0_6px_rgb(0_122_255_/_0.45)]" : "bg-zinc-300 dark:bg-zinc-600"}`} />
@@ -90,11 +95,11 @@ export function ParameterPresetsSection({
               {presets.length > 0 ? `已保存 ${presets.length} 条` : "未保存"}
             </span>
           </div>
-          <span className="text-[11px] text-zinc-500 dark:text-zinc-400">当前方案</span>
+          <span className="windows-preset-caption text-[11px] text-zinc-500 dark:text-zinc-400">当前方案</span>
         </div>
 
         <div className="mt-2">
-          <div className="flex items-center gap-2">
+          <div className="windows-preset-summary flex items-center gap-2">
             <div className="min-w-0 flex-1">
               <div className="text-[13px] font-medium text-zinc-900 dark:text-zinc-100">{summary.title}</div>
               <div className="mt-1 text-[11px] leading-5 text-zinc-500 dark:text-zinc-400">{summary.detail}</div>
@@ -128,12 +133,12 @@ export function ParameterPresetsSection({
             </select>
           </div>
         ) : (
-          <div className={`mt-3 border border-dashed border-black/[0.12] px-3 py-3 text-zinc-500 dark:border-white/[0.1] dark:text-zinc-400 ${cardRadius} ${isAndroid ? "text-[12px]" : "text-[11px]"}`}>
+          <div className={`windows-preset-empty mt-3 border border-dashed border-black/[0.12] px-3 py-3 text-zinc-500 dark:border-white/[0.1] dark:text-zinc-400 ${cardRadius} ${isAndroid ? "text-[12px]" : "text-[11px]"}`}>
             还没有保存任何预设。先调好参数，再新建一条。
           </div>
         )}
 
-        <div className={`mt-3 grid ${isAndroid ? "grid-cols-1 gap-2.5" : "grid-cols-3 gap-2"}`}>
+        <div className={`mt-3 grid ${actionGridClassName}`}>
           <ActionButton icon={<Save className="h-3.5 w-3.5" />} onClick={() => setSaveModalMode("save-current")}>
             保存当前预设
           </ActionButton>
@@ -186,7 +191,7 @@ function ActionButton({
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex min-h-[38px] items-center justify-center gap-1.5 border border-black/[0.08] px-3 text-[12px] font-medium text-zinc-600 transition-colors hover:border-[color:var(--accent)]/30 hover:text-[var(--accent)] dark:border-white/[0.08] dark:text-zinc-300 ${usesFluentUI ? "rounded-[8px]" : "rounded-full"}`}
+      className={`windows-preset-action inline-flex min-h-[38px] items-center justify-center gap-1.5 border border-black/[0.08] px-3 text-[12px] font-medium text-zinc-600 transition-colors hover:border-[color:var(--accent)]/30 hover:text-[var(--accent)] dark:border-white/[0.08] dark:text-zinc-300 ${usesFluentUI ? "rounded-[8px]" : "rounded-full"}`}
     >
       {icon}
       {children}

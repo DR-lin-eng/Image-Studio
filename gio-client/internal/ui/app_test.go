@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"encoding/base64"
 	"fmt"
 	"image"
 	"image/color"
@@ -11,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yuanhua/image-gptcodex/pkg/client"
 	sharedCompat "image-studio/shared/compat"
 )
 
@@ -223,6 +225,23 @@ func TestPromptGroupKeyForEntriesReturnsVisibleGroupKey(t *testing.T) {
 	}
 	if got := promptGroupKeyForEntries(entries, "missing"); got != "" {
 		t.Fatalf("promptGroupKeyForEntries(missing)=%q want empty", got)
+	}
+}
+
+func TestCurrentConfigIncludesResponsesTransportAndReasoning(t *testing.T) {
+	app := &App{
+		mode:               string(client.ModeGenerate),
+		api:                string(client.APIModeResponses),
+		policy:             string(client.RequestPolicyOpenAI),
+		responsesTransport: string(client.ResponsesTransportWebSocket),
+		reasoningEffort:    "high",
+	}
+	cfg := app.currentConfig()
+	if cfg.ResponsesTransport != client.ResponsesTransportWebSocket {
+		t.Fatalf("responses transport=%q want websocket", cfg.ResponsesTransport)
+	}
+	if cfg.ReasoningEffort != "high" {
+		t.Fatalf("reasoning effort=%q want high", cfg.ReasoningEffort)
 	}
 }
 
@@ -1042,6 +1061,40 @@ func TestApplyPresetUsesExtendedSharedFields(t *testing.T) {
 	if app.background != "transparent" || app.outputCompressionInput.Text() != "87" || app.inputFidelity != "high" || app.imageStyle != "vivid" || app.moderation != "auto" || app.styleTag != "anime" || app.kernelRuntimeMode != "remote" || app.batchCount != 4 {
 		t.Fatalf("extended preset fields not applied: background=%q compression=%q fidelity=%q imageStyle=%q moderation=%q style=%q runtime=%q batch=%d", app.background, app.outputCompressionInput.Text(), app.inputFidelity, app.imageStyle, app.moderation, app.styleTag, app.kernelRuntimeMode, app.batchCount)
 	}
+}
+
+func TestApplyPartialPreviewReplacesCanvasImageWhileRunning(t *testing.T) {
+	img := image.NewNRGBA(image.Rect(0, 0, 2, 2))
+	fill := color.NRGBA{R: 0x12, G: 0x34, B: 0x56, A: 0xff}
+	for y := 0; y < 2; y++ {
+		for x := 0; x < 2; x++ {
+			img.SetNRGBA(x, y, fill)
+		}
+	}
+	tmp := filepath.Join(t.TempDir(), "partial.png")
+	writeImagePNG(t, tmp, img)
+	data, err := os.ReadFile(tmp)
+	if err != nil {
+		t.Fatalf("read partial fixture: %v", err)
+	}
+
+	app := &App{running: true}
+	app.applyPartialPreview(client.PartialImage{
+		ImageB64:          base64.StdEncoding.EncodeToString(data),
+		RevisedPrompt:     "partial rev",
+		PartialImageIndex: 0,
+	})
+
+	if app.result.Image == nil {
+		t.Fatal("result image not populated")
+	}
+	if app.result.SourceEvent != "partial" {
+		t.Fatalf("sourceEvent=%q want partial", app.result.SourceEvent)
+	}
+	if app.result.RevisedPrompt != "partial rev" {
+		t.Fatalf("revisedPrompt=%q want partial rev", app.result.RevisedPrompt)
+	}
+	assertImagePixelColor(t, app.result.Image, fill)
 }
 
 func TestPromptInputMetricsRefreshesAfterTextChanges(t *testing.T) {

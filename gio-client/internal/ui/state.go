@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"gioui.org/widget"
+	"github.com/yuanhua/image-gptcodex/pkg/client"
 	gioCompat "image-studio/gio-client/internal/compat"
 	sharedCompat "image-studio/shared/compat"
 )
@@ -16,6 +17,9 @@ func (a *App) saveCurrentConfig() {
 	}
 	if err := gioCompat.SaveConfig(a.currentConfig()); err != nil {
 		a.appendLog("兼容配置保存失败: " + err.Error())
+	}
+	if err := a.persistGeneralSettings(); err != nil {
+		a.appendLog("通用设置保存失败: " + err.Error())
 	}
 	if err := a.saveActiveProfileMetadata(); err != nil {
 		a.appendLog("配置元数据保存失败: " + err.Error())
@@ -402,12 +406,24 @@ func (a *App) persistGeneralSettings() error {
 	if state.Settings.ProxyMode == "" {
 		state.Settings.ProxyMode = "system"
 	}
+	protectStreamPreview := a.protectStreamPreview
+	state.Settings.ProtectStreamPreview = &protectStreamPreview
+	autoRetryEnabled := a.autoRetryEnabled
+	state.Settings.AutoRetryEnabled = &autoRetryEnabled
+	autoRetryCount := normalizeAutoRetryCount(a.autoRetryCount)
+	state.Settings.AutoRetryCount = &autoRetryCount
+	completionSound := a.completionSound
+	state.Settings.CompletionSound = &completionSound
+	completionNotification := a.completionNotification
+	state.Settings.CompletionNotification = &completionNotification
+	state.Settings.CleanupPreviewCacheOnExit = a.cleanupPreviewCacheOnExit
 	state.Settings.KernelRuntimeMode = normalizeKernelRuntimeMode(a.kernelRuntimeMode)
 	state.Settings.FontScale = normalizeFontScale(a.fontScale)
 	state.Settings.ReducedEffects = a.reducedEffects
 	state.Settings.ProxyURL = strings.TrimSpace(a.proxyURLInput.Text())
 	state.Settings.OutputDir = strings.TrimSpace(a.outputDirInput.Text())
 	state.Settings.KeepLogs = a.keepLogs
+	state.Settings.UserIdentifier = strings.TrimSpace(a.userIdentifierInput.Text())
 	state.UpdatedAt = time.Now().UnixMilli()
 	if err := gioCompat.SaveState(state); err != nil {
 		return err
@@ -427,6 +443,37 @@ func (a *App) dismissFailureState() {
 	}
 	a.mu.Unlock()
 	a.invalidateNow()
+}
+
+func (a *App) applyPartialPreview(partial client.PartialImage) {
+	imageB64 := strings.TrimSpace(partial.ImageB64)
+	if imageB64 == "" {
+		return
+	}
+	img, err := decodeImageB64(imageB64)
+	if err != nil {
+		a.appendLog("解析流式预览失败: " + err.Error())
+		return
+	}
+	preview := a.prepareCanvasDisplayImage(img)
+	a.mu.Lock()
+	if !a.running {
+		a.mu.Unlock()
+		return
+	}
+	a.result = resultState{
+		Image:         preview,
+		RevisedPrompt: strings.TrimSpace(partial.RevisedPrompt),
+		SourceEvent:   "partial",
+		Rev:           a.result.Rev + 1,
+	}
+	a.compare = resultState{Rev: a.compare.Rev + 1}
+	a.compareSplitSlider.Value = 0.5
+	a.selectedHistoryID = ""
+	a.imageOpRev = 0
+	a.compareImageOpRev = 0
+	a.mu.Unlock()
+	a.invalidateSoon(33 * time.Millisecond)
 }
 
 func (a *App) isRunning() bool {

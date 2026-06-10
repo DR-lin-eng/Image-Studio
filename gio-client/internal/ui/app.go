@@ -128,6 +128,17 @@ type workspaceState struct {
 	StyleTag            string
 	SeedText            string
 	BatchCount          int
+	LoopEnabled         bool
+	LoopTotalCount      int
+	LoopConcurrency     int
+	LoopAutoSave        bool
+	LoopAutoSaveDir     string
+	LoopLivePreview     bool
+	BatchMode           bool
+	BatchInputDir       string
+	BatchOutputDir      string
+	BatchRetryOnFail    bool
+	BatchAutoAspect     string
 	SourcePathsText     string
 	ResultSavedPath     string
 	ResultRawPath       string
@@ -175,28 +186,50 @@ type App struct {
 	promptTemplateLabelInput  widget.Editor
 	promptTemplateTextInput   widget.Editor
 	presetNameInput           widget.Editor
+	loopTotalCountInput       widget.Editor
+	loopConcurrencyInput      widget.Editor
+	loopAutoSaveDirInput      widget.Editor
+	batchInputDirInput        widget.Editor
+	batchOutputDirInput       widget.Editor
 	rawResponseViewerInput    widget.Editor
 	historyQueryInput         widget.Editor
 	historyTimelineQueryInput widget.Editor
 	workspaceNameInput        widget.Editor
 
-	mode               string
-	api                string
-	size               string
-	quality            string
-	format             string
-	policy             string
-	proxy              string
-	background         string
-	inputFidelity      string
-	imageStyle         string
-	moderation         string
-	styleTag           string
-	themeMode          string
-	fontScale          float64
-	reducedEffects     bool
-	imagesNewAPICompat bool
-	batchCount         int
+	mode                 string
+	api                  string
+	size                 string
+	quality              string
+	format               string
+	policy               string
+	responsesTransport   string
+	reasoningEffort      string
+	fallbackProfileID    string
+	proxy                string
+	background           string
+	inputFidelity        string
+	imageStyle           string
+	moderation           string
+	styleTag             string
+	protectStreamPreview bool
+	autoRetryEnabled     bool
+	autoRetryCount       int
+	loopEnabled          bool
+	loopTotalCount       int
+	loopConcurrency      int
+	loopAutoSave         bool
+	loopAutoSaveDir      string
+	loopLivePreview      bool
+	batchMode            bool
+	batchInputDir        string
+	batchOutputDir       string
+	batchRetryOnFail     bool
+	batchAutoAspect      string
+	themeMode            string
+	fontScale            float64
+	reducedEffects       bool
+	imagesNewAPICompat   bool
+	batchCount           int
 
 	modeButtons                              []widget.Clickable
 	apiButtons                               []widget.Clickable
@@ -211,12 +244,16 @@ type App struct {
 	qualityButtons                           []widget.Clickable
 	formatButtons                            []widget.Clickable
 	policyButtons                            []widget.Clickable
+	responsesTransportButtons                []widget.Clickable
+	reasoningEffortButtons                   []widget.Clickable
 	proxyButtons                             []widget.Clickable
 	backgroundButtons                        []widget.Clickable
 	inputFidelityButtons                     []widget.Clickable
 	imageStyleButtons                        []widget.Clickable
 	moderationButtons                        []widget.Clickable
+	composeSourceModeButtons                 []widget.Clickable
 	partialPreviewButtons                    []widget.Clickable
+	protectStreamPreviewButtons              []widget.Clickable
 	historyModeButtons                       []widget.Clickable
 	historyDateButtons                       []widget.Clickable
 	historyTimelineModeButtons               []widget.Clickable
@@ -243,12 +280,18 @@ type App struct {
 	clearSourcesButton                       widget.Clickable
 	addSourceFilesButton                     widget.Clickable
 	addSourceStripButton                     widget.Clickable
+	chooseBatchInputDirButton                widget.Clickable
+	chooseBatchFilesButton                   widget.Clickable
+	chooseBatchOutputDirButton               widget.Clickable
+	toggleLoopButton                         widget.Clickable
+	chooseLoopAutoSaveDirButton              widget.Clickable
 	emptyStateImportButton                   widget.Clickable
 	promptHelperButton                       widget.Clickable
 	promptHelperTemplatesButton              widget.Clickable
 	promptHelperPresetsButton                widget.Clickable
 	promptHelperHistoryButton                widget.Clickable
 	openPromptTemplateManagerButton          widget.Clickable
+	openPresetManagerFromPromptButton        widget.Clickable
 	newPromptTemplateButton                  widget.Clickable
 	savePromptTemplateButton                 widget.Clickable
 	deletePromptTemplateButton               widget.Clickable
@@ -262,6 +305,10 @@ type App struct {
 	applyPresetButton                        widget.Clickable
 	deletePresetButton                       widget.Clickable
 	presetListButtons                        map[string]*widget.Clickable
+	openCustomAspectRatioManagerButton       widget.Clickable
+	addCustomAspectRatioButton               widget.Clickable
+	deleteCustomAspectRatioButton            widget.Clickable
+	customAspectRatioListButtons             map[string]*widget.Clickable
 	closePromptHelperButton                  widget.Clickable
 	optimizePromptButton                     widget.Clickable
 	testUpstreamButton                       widget.Clickable
@@ -277,10 +324,17 @@ type App struct {
 	saveSettingsButton                       widget.Clickable
 	closeGeneralSettingsButton               widget.Clickable
 	copyGeneralPerformanceDiagnosticsButton  widget.Clickable
+	previewCompletionSoundButton             widget.Clickable
+	chooseCompletionSoundButton              widget.Clickable
+	resetCompletionSoundButton               widget.Clickable
+	requestCompletionNotificationButton      widget.Clickable
 	generalRuntimePickerButton               widget.Clickable
 	openGeneralUpstreamButton                widget.Clickable
 	openGeneralOutputButton                  widget.Clickable
 	chooseGeneralOutputButton                widget.Clickable
+	chooseGeneralBatchInputButton            widget.Clickable
+	chooseGeneralBatchFilesButton            widget.Clickable
+	chooseGeneralBatchOutputButton           widget.Clickable
 	resetGeneralOutputButton                 widget.Clickable
 	triggerGeneralHistoryMediaBackfillButton widget.Clickable
 	openGeneralHistoryTimelineButton         widget.Clickable
@@ -304,6 +358,27 @@ type App struct {
 	generalFontScaleButtons                  []widget.Clickable
 	generalPerformanceButtons                []widget.Clickable
 	generalSavePromptButtons                 []widget.Clickable
+	generalCompletionSoundButtons            []widget.Clickable
+	generalCompletionSoundModeButtons        []widget.Clickable
+	generalCompletionNotificationButtons     []widget.Clickable
+	generalCleanupPreviewCacheButtons        []widget.Clickable
+	generalProtectStreamPreviewButtons       []widget.Clickable
+	generalAutoRetryButtons                  []widget.Clickable
+	generalAutoRetryCountButtons             []widget.Clickable
+	generalLoopButtons                       []widget.Clickable
+	generalLoopAutoSaveButtons               []widget.Clickable
+	generalBatchButtons                      []widget.Clickable
+	generalBatchRetryButtons                 []widget.Clickable
+	generalBatchAutoAspectButtons            []widget.Clickable
+	generalBatchAutoAspectResolutionButtons  []widget.Clickable
+	composeBatchRetryButtons                 []widget.Clickable
+	composeBatchAutoAspectButtons            []widget.Clickable
+	composeBatchAutoAspectResolutionButtons  []widget.Clickable
+	composeLoopButtons                       []widget.Clickable
+	composeLoopCountButtons                  []widget.Clickable
+	composeLoopConcurrencyButtons            []widget.Clickable
+	composeLoopAutoSaveButtons               []widget.Clickable
+	composeLoopPreviewButtons                []widget.Clickable
 	generalProxyButtons                      []widget.Clickable
 	generalKeepLogsButtons                   []widget.Clickable
 	headerAddWorkspaceButton                 widget.Clickable
@@ -363,6 +438,7 @@ type App struct {
 	promptTemplates              []sharedCompat.PromptTemplate
 	promptHistoryRev             int
 	presets                      []sharedCompat.Preset
+	customAspectRatios           []sharedCompat.CustomAspectRatio
 	historyThumbBackfillInFlight map[string]struct{}
 	activeProfileID              string
 	selectedHistoryID            string
@@ -457,51 +533,60 @@ type App struct {
 	compareSplitSlider           widget.Float
 	compareSplitDrag             gesture.Drag
 
-	savePromptVisible             bool
-	savePromptSuppressed          bool
-	keepLogs                      bool
-	kernelRuntimeMode             string
-	savePromptSourcePath          string
-	composeOpen                   bool
-	advancedOpen                  bool
-	profilePickerOpen             bool
-	historyRailCollapsed          bool
-	historyModeFilter             string
-	historyDateFilter             string
-	historyTimelineOpen           bool
-	historyTimelineModeFilter     string
-	historyTimelineDateFilter     string
-	historyTimelineModePickerOpen bool
-	historyTimelineDatePickerOpen bool
-	profileButtons                map[string]*widget.Clickable
-	settingsProfileButtons        map[string]*widget.Clickable
-	historyButtons                map[string]*widget.Clickable
-	promptButtons                 map[string]*widget.Clickable
-	sourceButtons                 map[string]*widget.Clickable
-	historyActionButtons          map[string]*widget.Clickable
-	expandedPromptGroups          map[string]bool
-	promptHelperOpen              bool
-	promptHelperTab               string
-	promptTemplateManagerOpen     bool
-	selectedPromptTemplateID      string
-	presetManagerOpen             bool
-	selectedPresetID              string
-	activePromptGroup             historyPromptGroup
-	generalSettingsOpen           bool
-	generalRuntimePickerOpen      bool
-	aboutModalOpen                bool
-	settingsModalOpen             bool
-	settingsHelpOpen              bool
-	settingsSelectedProfileID     string
-	apiKeyVisible                 bool
-	workspaces                    []workspaceState
-	activeWorkspaceID             string
-	workspaceButtons              map[string]*widget.Clickable
-	closeWorkspaceButtons         map[string]*widget.Clickable
-	workspaceRenameID             string
-	workspaceLastClickID          string
-	workspaceLastClickAt          time.Time
-	headerQuoteIndex              int
+	savePromptVisible                bool
+	savePromptSuppressed             bool
+	completionSound                  sharedCompat.CompletionSoundSettings
+	completionNotification           sharedCompat.CompletionNotificationSettings
+	completionNotificationPermission systemNotificationPermissionState
+	keepLogs                         bool
+	cleanupPreviewCacheOnExit        bool
+	windowFocused                    bool
+	kernelRuntimeMode                string
+	savePromptSourcePath             string
+	composeOpen                      bool
+	advancedOpen                     bool
+	profilePickerOpen                bool
+	historyRailCollapsed             bool
+	historyModeFilter                string
+	historyDateFilter                string
+	historyTimelineOpen              bool
+	historyTimelineModeFilter        string
+	historyTimelineDateFilter        string
+	historyTimelineModePickerOpen    bool
+	historyTimelineDatePickerOpen    bool
+	profileButtons                   map[string]*widget.Clickable
+	settingsProfileButtons           map[string]*widget.Clickable
+	historyButtons                   map[string]*widget.Clickable
+	promptButtons                    map[string]*widget.Clickable
+	sourceButtons                    map[string]*widget.Clickable
+	historyActionButtons             map[string]*widget.Clickable
+	expandedPromptGroups             map[string]bool
+	promptHelperOpen                 bool
+	promptHelperTab                  string
+	promptTemplateManagerOpen        bool
+	selectedPromptTemplateID         string
+	presetManagerOpen                bool
+	selectedPresetID                 string
+	customAspectRatioManagerOpen     bool
+	customAspectWidthInput           widget.Editor
+	customAspectHeightInput          widget.Editor
+	selectedCustomAspectRatioID      string
+	activePromptGroup                historyPromptGroup
+	generalSettingsOpen              bool
+	generalRuntimePickerOpen         bool
+	aboutModalOpen                   bool
+	settingsModalOpen                bool
+	settingsHelpOpen                 bool
+	settingsSelectedProfileID        string
+	apiKeyVisible                    bool
+	workspaces                       []workspaceState
+	activeWorkspaceID                string
+	workspaceButtons                 map[string]*widget.Clickable
+	closeWorkspaceButtons            map[string]*widget.Clickable
+	workspaceRenameID                string
+	workspaceLastClickID             string
+	workspaceLastClickAt             time.Time
+	headerQuoteIndex                 int
 
 	invalidate func()
 	window     *app.Window
@@ -532,95 +617,144 @@ func New() *App {
 	}
 	th.TextSize = unit.Sp(float32(14) * float32(fontScale))
 	a := &App{
-		th:                         th,
-		runner:                     kernel.Runner{},
-		mode:                       string(cfg.Mode),
-		api:                        string(cfg.APIMode),
-		size:                       cfg.Size,
-		quality:                    cfg.Quality,
-		format:                     cfg.OutputFormat,
-		policy:                     string(cfg.RequestPolicy),
-		proxy:                      cfg.ProxyMode,
-		background:                 cfg.Background,
-		inputFidelity:              cfg.InputFidelity,
-		imageStyle:                 cfg.ImageStyle,
-		moderation:                 cfg.Moderation,
-		styleTag:                   "",
-		themeMode:                  themeMode,
-		fontScale:                  fontScale,
-		reducedEffects:             compatState.Settings.ReducedEffects,
-		imagesNewAPICompat:         cfg.ImagesNewAPICompat,
-		kernelRuntimeMode:          normalizeKernelRuntimeMode(compatState.Settings.KernelRuntimeMode),
-		batchCount:                 1,
-		themeButtons:               make([]widget.Clickable, 3),
-		generalThemeButtons:        make([]widget.Clickable, 3),
-		generalRuntimeButtons:      make([]widget.Clickable, 3),
-		generalFontScaleButtons:    make([]widget.Clickable, 3),
-		generalPerformanceButtons:  make([]widget.Clickable, 2),
-		generalSavePromptButtons:   make([]widget.Clickable, 2),
-		generalProxyButtons:        make([]widget.Clickable, len(proxyChoices)),
-		generalKeepLogsButtons:     make([]widget.Clickable, 2),
-		pruneGeneralHistoryButtons: make([]widget.Clickable, 2),
-		modeButtons:                make([]widget.Clickable, len(modeChoices)),
-		apiButtons:                 make([]widget.Clickable, len(apiChoices)),
-		sizeButtons:                make([]widget.Clickable, len(sizeChoices)),
-		aspectButtons:              make([]widget.Clickable, len(aspectChoices)),
-		styleButtons:               make([]widget.Clickable, len(styleChoices)),
-		batchCountButtons:          make([]widget.Clickable, len(batchCountChoices)),
-		resolutionButtons:          make([]widget.Clickable, len(resolutionChoices)),
-		qualityButtons:             make([]widget.Clickable, len(qualityChoices)),
-		formatButtons:              make([]widget.Clickable, len(formatChoices)),
-		policyButtons:              make([]widget.Clickable, len(policyChoices)),
-		proxyButtons:               make([]widget.Clickable, len(proxyChoices)),
-		backgroundButtons:          make([]widget.Clickable, len(backgroundChoices)),
-		inputFidelityButtons:       make([]widget.Clickable, len(inputFidelityChoices)),
-		imageStyleButtons:          make([]widget.Clickable, len(imageStyleChoices)),
-		moderationButtons:          make([]widget.Clickable, len(moderationChoices)),
-		partialPreviewButtons:      make([]widget.Clickable, len(partialPreviewChoices)),
-		historyModeButtons:         make([]widget.Clickable, 3),
-		historyDateButtons:         make([]widget.Clickable, 3),
-		historyTimelineModeButtons: make([]widget.Clickable, 3),
-		historyTimelineDateButtons: make([]widget.Clickable, 3),
-		status:                     "Gio 原生客户端就绪",
-		logs:                       []string{"独立 Gio 高性能测试客户端已启动。"},
-		logsRev:                    1,
-		logsSnapshotRev:            -1,
-		history:                    append([]sharedCompat.HistoryItem(nil), compatState.History...),
-		profiles:                   append([]sharedCompat.UpstreamProfile(nil), compatState.Profiles...),
-		promptHistory:              append([]string(nil), compatState.Settings.PromptHistory...),
-		promptTemplates:            append([]sharedCompat.PromptTemplate(nil), compatState.Settings.PromptTemplates...),
-		promptHistoryRev:           1,
-		presets:                    append([]sharedCompat.Preset(nil), compatState.Settings.Presets...),
-		savePromptSuppressed:       gioCompat.SavePromptSuppressed(compatState),
-		keepLogs:                   compatState.Settings.KeepLogs,
-		imageCache:                 map[string]cachedImage{},
-		historyRev:                 1,
-		composeOpen:                false,
-		advancedOpen:               false,
-		profilePickerOpen:          false,
-		historyRailCollapsed:       false,
-		historyModeFilter:          "all",
-		historyDateFilter:          "all",
-		historyTimelineModeFilter:  "all",
-		historyTimelineDateFilter:  "all",
-		profileButtons:             map[string]*widget.Clickable{},
-		settingsProfileButtons:     map[string]*widget.Clickable{},
-		historyButtons:             map[string]*widget.Clickable{},
-		promptButtons:              map[string]*widget.Clickable{},
-		promptTemplateListButtons:  map[string]*widget.Clickable{},
-		presetListButtons:          map[string]*widget.Clickable{},
-		sourceButtons:              map[string]*widget.Clickable{},
-		historyActionButtons:       map[string]*widget.Clickable{},
-		workspaceButtons:           map[string]*widget.Clickable{},
-		closeWorkspaceButtons:      map[string]*widget.Clickable{},
-		expandedPromptGroups:       map[string]bool{},
-		promptHelperOpen:           false,
-		promptHelperTab:            "templates",
-		headerQuoteIndex:           initialHeaderQuoteIndex(time.Now()),
+		th:                                      th,
+		runner:                                  kernel.Runner{},
+		mode:                                    string(cfg.Mode),
+		api:                                     string(cfg.APIMode),
+		size:                                    cfg.Size,
+		quality:                                 cfg.Quality,
+		format:                                  cfg.OutputFormat,
+		policy:                                  string(cfg.RequestPolicy),
+		responsesTransport:                      normalizeProfileResponsesTransport(string(cfg.ResponsesTransport)),
+		reasoningEffort:                         normalizeReasoningEffort(cfg.ReasoningEffort),
+		proxy:                                   cfg.ProxyMode,
+		background:                              cfg.Background,
+		inputFidelity:                           cfg.InputFidelity,
+		imageStyle:                              cfg.ImageStyle,
+		moderation:                              cfg.Moderation,
+		styleTag:                                "",
+		protectStreamPreview:                    cfg.ProtectStreamPreview,
+		autoRetryEnabled:                        cfg.AutoRetryEnabled,
+		autoRetryCount:                          normalizeAutoRetryCount(cfg.AutoRetryCount),
+		loopEnabled:                             false,
+		loopTotalCount:                          10,
+		loopConcurrency:                         2,
+		loopAutoSave:                            false,
+		loopAutoSaveDir:                         "",
+		loopLivePreview:                         true,
+		batchMode:                               false,
+		batchInputDir:                           "",
+		batchOutputDir:                          "",
+		batchRetryOnFail:                        false,
+		batchAutoAspect:                         "",
+		themeMode:                               themeMode,
+		fontScale:                               fontScale,
+		reducedEffects:                          compatState.Settings.ReducedEffects,
+		imagesNewAPICompat:                      cfg.ImagesNewAPICompat,
+		kernelRuntimeMode:                       normalizeKernelRuntimeMode(compatState.Settings.KernelRuntimeMode),
+		completionSound:                         normaliseCompletionSoundSettings(compatState.Settings.CompletionSound),
+		completionNotification:                  normaliseCompletionNotificationSettings(compatState.Settings.CompletionNotification),
+		completionNotificationPermission:        readSystemNotificationPermission(),
+		cleanupPreviewCacheOnExit:               compatState.Settings.CleanupPreviewCacheOnExit,
+		windowFocused:                           true,
+		batchCount:                              1,
+		themeButtons:                            make([]widget.Clickable, 3),
+		generalThemeButtons:                     make([]widget.Clickable, 3),
+		generalRuntimeButtons:                   make([]widget.Clickable, 3),
+		generalFontScaleButtons:                 make([]widget.Clickable, 3),
+		generalPerformanceButtons:               make([]widget.Clickable, 2),
+		generalSavePromptButtons:                make([]widget.Clickable, 2),
+		generalCompletionSoundButtons:           make([]widget.Clickable, 2),
+		generalCompletionSoundModeButtons:       make([]widget.Clickable, 2),
+		generalCompletionNotificationButtons:    make([]widget.Clickable, 2),
+		generalCleanupPreviewCacheButtons:       make([]widget.Clickable, 2),
+		generalProtectStreamPreviewButtons:      make([]widget.Clickable, 2),
+		generalAutoRetryButtons:                 make([]widget.Clickable, 2),
+		generalAutoRetryCountButtons:            make([]widget.Clickable, 5),
+		generalLoopButtons:                      make([]widget.Clickable, 2),
+		generalLoopAutoSaveButtons:              make([]widget.Clickable, 2),
+		generalBatchButtons:                     make([]widget.Clickable, 2),
+		generalBatchRetryButtons:                make([]widget.Clickable, 2),
+		generalBatchAutoAspectButtons:           make([]widget.Clickable, 2),
+		generalBatchAutoAspectResolutionButtons: make([]widget.Clickable, 5),
+		composeBatchRetryButtons:                make([]widget.Clickable, 2),
+		composeBatchAutoAspectButtons:           make([]widget.Clickable, 2),
+		composeBatchAutoAspectResolutionButtons: make([]widget.Clickable, 5),
+		composeLoopButtons:                      make([]widget.Clickable, 2),
+		composeLoopCountButtons:                 make([]widget.Clickable, 5),
+		composeLoopConcurrencyButtons:           make([]widget.Clickable, 4),
+		composeLoopAutoSaveButtons:              make([]widget.Clickable, 2),
+		composeLoopPreviewButtons:               make([]widget.Clickable, 2),
+		generalProxyButtons:                     make([]widget.Clickable, len(proxyChoices)),
+		generalKeepLogsButtons:                  make([]widget.Clickable, 2),
+		pruneGeneralHistoryButtons:              make([]widget.Clickable, 2),
+		modeButtons:                             make([]widget.Clickable, len(modeChoices)),
+		apiButtons:                              make([]widget.Clickable, len(apiChoices)),
+		sizeButtons:                             make([]widget.Clickable, len(sizeChoices)),
+		aspectButtons:                           make([]widget.Clickable, len(aspectChoices)+len(compatState.Settings.CustomAspectRatios)+24),
+		styleButtons:                            make([]widget.Clickable, len(styleChoices)),
+		batchCountButtons:                       make([]widget.Clickable, len(batchCountChoices)),
+		resolutionButtons:                       make([]widget.Clickable, len(resolutionChoices)),
+		qualityButtons:                          make([]widget.Clickable, len(qualityChoices)),
+		formatButtons:                           make([]widget.Clickable, len(formatChoices)),
+		policyButtons:                           make([]widget.Clickable, len(policyChoices)),
+		responsesTransportButtons:               make([]widget.Clickable, len(responsesTransportChoices)),
+		reasoningEffortButtons:                  make([]widget.Clickable, len(reasoningEffortChoices)),
+		proxyButtons:                            make([]widget.Clickable, len(proxyChoices)),
+		backgroundButtons:                       make([]widget.Clickable, len(backgroundChoices)),
+		inputFidelityButtons:                    make([]widget.Clickable, len(inputFidelityChoices)),
+		imageStyleButtons:                       make([]widget.Clickable, len(imageStyleChoices)),
+		moderationButtons:                       make([]widget.Clickable, len(moderationChoices)),
+		composeSourceModeButtons:                make([]widget.Clickable, 2),
+		partialPreviewButtons:                   make([]widget.Clickable, len(partialPreviewChoices)),
+		protectStreamPreviewButtons:             make([]widget.Clickable, 2),
+		historyModeButtons:                      make([]widget.Clickable, 3),
+		historyDateButtons:                      make([]widget.Clickable, 3),
+		historyTimelineModeButtons:              make([]widget.Clickable, 3),
+		historyTimelineDateButtons:              make([]widget.Clickable, 3),
+		status:                                  "Gio 原生客户端就绪",
+		logs:                                    []string{"独立 Gio 高性能测试客户端已启动。"},
+		logsRev:                                 1,
+		logsSnapshotRev:                         -1,
+		history:                                 append([]sharedCompat.HistoryItem(nil), compatState.History...),
+		profiles:                                append([]sharedCompat.UpstreamProfile(nil), compatState.Profiles...),
+		promptHistory:                           append([]string(nil), compatState.Settings.PromptHistory...),
+		promptTemplates:                         append([]sharedCompat.PromptTemplate(nil), compatState.Settings.PromptTemplates...),
+		promptHistoryRev:                        1,
+		presets:                                 append([]sharedCompat.Preset(nil), compatState.Settings.Presets...),
+		customAspectRatios:                      append([]sharedCompat.CustomAspectRatio(nil), compatState.Settings.CustomAspectRatios...),
+		savePromptSuppressed:                    gioCompat.SavePromptSuppressed(compatState),
+		keepLogs:                                compatState.Settings.KeepLogs,
+		imageCache:                              map[string]cachedImage{},
+		historyRev:                              1,
+		composeOpen:                             false,
+		advancedOpen:                            false,
+		profilePickerOpen:                       false,
+		historyRailCollapsed:                    false,
+		historyModeFilter:                       "all",
+		historyDateFilter:                       "all",
+		historyTimelineModeFilter:               "all",
+		historyTimelineDateFilter:               "all",
+		profileButtons:                          map[string]*widget.Clickable{},
+		settingsProfileButtons:                  map[string]*widget.Clickable{},
+		historyButtons:                          map[string]*widget.Clickable{},
+		promptButtons:                           map[string]*widget.Clickable{},
+		promptTemplateListButtons:               map[string]*widget.Clickable{},
+		presetListButtons:                       map[string]*widget.Clickable{},
+		customAspectRatioListButtons:            map[string]*widget.Clickable{},
+		sourceButtons:                           map[string]*widget.Clickable{},
+		historyActionButtons:                    map[string]*widget.Clickable{},
+		workspaceButtons:                        map[string]*widget.Clickable{},
+		closeWorkspaceButtons:                   map[string]*widget.Clickable{},
+		expandedPromptGroups:                    map[string]bool{},
+		promptHelperOpen:                        false,
+		promptHelperTab:                         "templates",
+		headerQuoteIndex:                        initialHeaderQuoteIndex(time.Now()),
 	}
 	if profile, ok := gioCompat.ActiveProfile(compatState); ok {
 		a.activeProfileID = profile.ID
 		a.profileNameInput.SetText(strings.TrimSpace(profile.Name))
+		a.fallbackProfileID = strings.TrimSpace(profile.FallbackProfileID)
 		if profile.ConcurrencyLimit > 0 {
 			a.concurrencyLimitInput.SetText(strconv.Itoa(profile.ConcurrencyLimit))
 		}
@@ -676,6 +810,11 @@ func (a *App) configureEditors(cfg kernel.Config) {
 		&a.savePromptPathInput,
 		&a.promptTemplateLabelInput,
 		&a.presetNameInput,
+		&a.loopTotalCountInput,
+		&a.loopConcurrencyInput,
+		&a.loopAutoSaveDirInput,
+		&a.batchInputDirInput,
+		&a.batchOutputDirInput,
 		&a.historyQueryInput,
 		&a.historyTimelineQueryInput,
 		&a.workspaceNameInput,
@@ -714,6 +853,13 @@ func (a *App) applyRuntimeConfig(cfg kernel.Config) {
 	a.inputFidelity = cfg.InputFidelity
 	a.imageStyle = cfg.ImageStyle
 	a.moderation = cfg.Moderation
+	a.responsesTransport = normalizeProfileResponsesTransport(string(cfg.ResponsesTransport))
+	a.reasoningEffort = normalizeReasoningEffort(cfg.ReasoningEffort)
+	a.fallbackProfileID = strings.TrimSpace(cfg.FallbackProfileID)
+	a.completionSound = normaliseCompletionSoundSettings(&cfg.CompletionSound)
+	a.protectStreamPreview = cfg.ProtectStreamPreview
+	a.autoRetryEnabled = cfg.AutoRetryEnabled
+	a.autoRetryCount = normalizeAutoRetryCount(cfg.AutoRetryCount)
 	a.proxyURLInput.SetText(cfg.ProxyURL)
 	a.outputDirInput.SetText(cfg.OutputDir)
 	a.partialImagesInput.SetText(strconv.Itoa(cfg.PartialImages))
@@ -737,9 +883,14 @@ func (a *App) Run(w *app.Window) error {
 	var ops op.Ops
 	for {
 		switch e := w.Event().(type) {
+		case app.ConfigEvent:
+			a.mu.Lock()
+			a.windowFocused = e.Config.Focused
+			a.mu.Unlock()
 		case app.DestroyEvent:
 			a.saveCurrentConfig()
 			a.cancelRun()
+			a.cleanupRuntimeArtifactsOnExit()
 			return e.Err
 		case app.FrameEvent:
 			a.recordRenderFrame(e.Now, e.Size)

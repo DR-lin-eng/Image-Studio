@@ -70,6 +70,53 @@ func TestNormalizeConfigPreservesZeroPartialImages(t *testing.T) {
 	}
 }
 
+func TestNormalizeConfigNormalizesAutoRetryCount(t *testing.T) {
+	cfg := normalizeConfig(Config{
+		Prompt:         "hello",
+		OutputDir:      filepath.Join("tmp", "out"),
+		AutoRetryCount: 0,
+	})
+	if cfg.AutoRetryCount != client.DefaultAutoRetryCount {
+		t.Fatalf("auto retry count=%d want default %d", cfg.AutoRetryCount, client.DefaultAutoRetryCount)
+	}
+	cfg = normalizeConfig(Config{
+		Prompt:         "hello",
+		OutputDir:      filepath.Join("tmp", "out"),
+		AutoRetryCount: client.MaxAutoRetryCount + 5,
+	})
+	if cfg.AutoRetryCount != client.MaxAutoRetryCount {
+		t.Fatalf("auto retry count=%d want max %d", cfg.AutoRetryCount, client.MaxAutoRetryCount)
+	}
+}
+
+func TestNormalizeConfigNormalizesResponsesTransportAndReasoning(t *testing.T) {
+	cfg := normalizeConfig(Config{
+		Prompt:             "hello",
+		OutputDir:          filepath.Join("tmp", "out"),
+		ResponsesTransport: client.ResponsesTransport("invalid"),
+		ReasoningEffort:    "invalid",
+	})
+	if cfg.ResponsesTransport != client.ResponsesTransportSSE {
+		t.Fatalf("responses transport=%q want %q", cfg.ResponsesTransport, client.ResponsesTransportSSE)
+	}
+	if cfg.ReasoningEffort != client.DefaultReasoningEffort {
+		t.Fatalf("reasoning effort=%q want %q", cfg.ReasoningEffort, client.DefaultReasoningEffort)
+	}
+
+	cfg = normalizeConfig(Config{
+		Prompt:             "hello",
+		OutputDir:          filepath.Join("tmp", "out"),
+		ResponsesTransport: client.ResponsesTransportWebSocket,
+		ReasoningEffort:    "high",
+	})
+	if cfg.ResponsesTransport != client.ResponsesTransportWebSocket {
+		t.Fatalf("responses transport=%q want websocket", cfg.ResponsesTransport)
+	}
+	if cfg.ReasoningEffort != "high" {
+		t.Fatalf("reasoning effort=%q want high", cfg.ReasoningEffort)
+	}
+}
+
 func TestBuildImageNameMapsJPEGExtension(t *testing.T) {
 	got := buildImageName(client.ModeEdit, "A cat wearing sunglasses", "20260531-120000", "jpeg")
 	want := "image-edit-a-cat-wearing-sunglasses-20260531-120000.jpg"

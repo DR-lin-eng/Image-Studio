@@ -2,12 +2,24 @@ import type {
   BatchProcessConfig,
   HistoryItem,
   LoopGenerationConfig,
+  Preset,
+  PromptTemplate,
   SourceImage,
   UpstreamProfile,
   Workspace,
 } from "../../types/domain";
 
-export type PreviewScenario = "mac-workspace";
+export type PreviewScenario = "mac-workspace" | "windows-right-rail";
+
+export interface WorkspacePreviewData {
+  profile: UpstreamProfile;
+  history: HistoryItem[];
+  currentImage: HistoryItem;
+  sources: SourceImage[];
+  workspace: Workspace;
+  promptTemplates?: PromptTemplate[];
+  presets?: Preset[];
+}
 
 const PREVIEW_PNG_B64 =
   "iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAIAAAAlC+aJAAAAbUlEQVR4nO3PQQ3AIADAQMD2/hdwwZE8SBR0ztn3jJ9Zd7wD8E1gTWBNYE1gTWBNYE1gTWBNYE1gTWBNYE1gTWBNYE1gTWBNYE1gTWBNYE1gTWBNYE1gTWBNYE1gTWBNYE1gTWBNYE1gTWBNYF0X2AGCb5Q0aAAAAAElFTkSuQmCC";
@@ -22,7 +34,9 @@ export function readPreviewScenario(): PreviewScenario | null {
   try {
     const params = new URLSearchParams(window.location.search);
     const preview = (params.get("preview") ?? "").trim().toLowerCase();
-    return preview === "mac-workspace" ? "mac-workspace" : null;
+    if (preview === "mac-workspace") return "mac-workspace";
+    if (preview === "windows-right-rail") return "windows-right-rail";
+    return null;
   } catch {
     return null;
   }
@@ -227,7 +241,7 @@ function buildWorkspace(
   };
 }
 
-export function buildMacWorkspacePreview(workspaceId: string) {
+export function buildMacWorkspacePreview(workspaceId: string): WorkspacePreviewData {
   const now = Date.now();
   const history = buildHistory(now);
   const currentImage = history[0];
@@ -241,5 +255,161 @@ export function buildMacWorkspacePreview(workspaceId: string) {
     currentImage,
     sources,
     workspace,
+  };
+}
+
+function buildWindowsRightRailHistory(now: number): HistoryItem[] {
+  const prompt = "画一只小猫";
+  const defs = [
+    {
+      id: "win-preview-history-1",
+      prompt,
+      revisedPrompt: "奶油色英短幼猫，坐在木地板边缘，室内自然光，干净背景，照片感",
+      mode: "generate" as const,
+      size: "3456x2304" as const,
+      quality: "auto" as const,
+      negativePrompt: "模糊, 双影, 多余肢体",
+      styleTag: "",
+      previewUrl: previewImageUrl("文生图", 36),
+      createdAt: now - 8 * 60 * 1000,
+      savedPath: "/tmp/win-preview-history-1.png",
+      rawPath: "/tmp/win-preview-history-1.json",
+      outputFormat: "png" as const,
+      background: "auto" as const,
+      outputCompression: 100,
+      inputFidelity: "auto" as const,
+      imageStyle: "default" as const,
+      moderation: "low" as const,
+      seed: 1201,
+      elapsedSec: 16,
+    },
+    {
+      id: "win-preview-history-2",
+      prompt,
+      revisedPrompt: "同一提示词第二版，拉近景别，保留木色背景与柔和窗边光",
+      mode: "generate" as const,
+      size: "3456x2304" as const,
+      quality: "auto" as const,
+      negativePrompt: "模糊, 双影, 多余肢体",
+      styleTag: "",
+      previewUrl: previewImageUrl("2", 28),
+      createdAt: now - 18 * 60 * 1000,
+      savedPath: "/tmp/win-preview-history-2.png",
+      rawPath: "/tmp/win-preview-history-2.json",
+      outputFormat: "png" as const,
+      background: "auto" as const,
+      outputCompression: 100,
+      inputFidelity: "auto" as const,
+      imageStyle: "default" as const,
+      moderation: "low" as const,
+      seed: 1202,
+      elapsedSec: 19,
+    },
+    {
+      id: "win-preview-history-3",
+      prompt: "奶白色小猫窝在亚麻靠垫上，近景，柔光，干净背景",
+      revisedPrompt: "更近的半身取景，毛发细节清楚，保持暖白色调",
+      mode: "edit" as const,
+      size: "1024x1024" as const,
+      quality: "medium" as const,
+      negativePrompt: "锐化过度, 假眼神光",
+      styleTag: "静物生活",
+      previewUrl: previewImageUrl("图生图", 58),
+      createdAt: now - 44 * 60 * 1000,
+      savedPath: "/tmp/win-preview-history-3.png",
+      rawPath: "/tmp/win-preview-history-3.json",
+      outputFormat: "png" as const,
+      background: "auto" as const,
+      outputCompression: 100,
+      inputFidelity: "high" as const,
+      imageStyle: "natural" as const,
+      moderation: "low" as const,
+      seed: 1203,
+      elapsedSec: 22,
+    },
+  ];
+
+  return defs;
+}
+
+function buildWindowsWorkspace(
+  workspaceId: string,
+  currentImage: HistoryItem,
+  sources: SourceImage[],
+): Workspace {
+  const loopGeneration: LoopGenerationConfig = {
+    enabled: false,
+    totalCount: 10,
+    concurrency: 2,
+    autoSave: false,
+    autoSaveDir: "",
+    livePreview: true,
+  };
+  const batchProcess: BatchProcessConfig = {
+    enabled: false,
+    inputDir: "",
+    outputMode: "source_dir",
+    outputDir: "",
+    concurrency: 2,
+    retryOnFailure: false,
+    fileNamePrefix: "processed-",
+    autoAspectResolution: "",
+    discoveredSources: [],
+  };
+  return {
+    id: workspaceId,
+    name: "Windows 右栏预览",
+    prompt: "",
+    negativePrompt: "",
+    mode: "generate",
+    size: "1024x1024",
+    quality: "medium",
+    outputFormat: "png",
+    seed: 0,
+    background: "auto",
+    outputCompression: 100,
+    inputFidelity: "auto",
+    imageStyle: "default",
+    moderation: "low",
+    userIdentifier: "",
+    partialImages: 0,
+    batchCount: 1,
+    editSourceMode: "manual",
+    batchProcess,
+    loopGeneration,
+    sources,
+    currentImageId: currentImage.id,
+    batchResultIds: [],
+    resultGridOpen: false,
+    runningJobIds: [],
+    jobsTotal: 0,
+    jobsCompleted: 0,
+    progress: null,
+    streamPreview: null,
+    streamPreviews: {},
+    lastLogLine: "",
+    errorMessage: null,
+    errorRawPath: null,
+    lastPayload: null,
+  };
+}
+
+export function buildWindowsRightRailPreview(workspaceId: string): WorkspacePreviewData {
+  const now = Date.now();
+  const history = buildWindowsRightRailHistory(now);
+  const currentImage = history[0];
+  const sources: SourceImage[] = [];
+  const profile = buildPreviewProfile(now);
+  profile.name = "Windows Preview";
+  const workspace = buildWindowsWorkspace(workspaceId, currentImage, sources);
+
+  return {
+    profile,
+    history,
+    currentImage,
+    sources,
+    workspace,
+    promptTemplates: [],
+    presets: [],
   };
 }

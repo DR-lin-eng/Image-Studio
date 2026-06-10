@@ -46,7 +46,7 @@ export function PromptEditorSection({
         <ParameterPresetsSection />
       </div>
       <div className="mb-1 flex items-center justify-between gap-3">
-        <label className="text-[10px] uppercase tracking-[0.12em] text-zinc-400 dark:text-zinc-500">
+        <label className="windows-prompt-label text-[10px] uppercase tracking-[0.12em] text-zinc-400 dark:text-zinc-500">
           {mode === "edit" ? "修改要求" : "提示词"}
         </label>
         <span className={`font-mono-token tabular-nums ${isMac ? "rounded-full bg-black/[0.04] px-2 py-0.5 text-[11px] dark:bg-white/[0.06]" : ""} text-zinc-400 dark:text-zinc-500`}>{promptLen}</span>
@@ -64,7 +64,7 @@ export function PromptEditorSection({
         onChange={(e) => onSetPrompt(e.target.value)}
         className={`focus-ring w-full resize-y border border-black/[0.08] bg-[var(--surface)] text-zinc-900 placeholder:text-zinc-400 dark:border-white/[0.08] dark:text-zinc-100 dark:placeholder:text-zinc-500 ${usesFluentUI ? "min-h-[124px] rounded-[10px] px-3.5 py-3 text-[14px] leading-[1.65]" : isMac ? "min-h-[176px] rounded-[18px] px-4 py-3.5 text-[15px] leading-[1.72]" : "min-h-[124px] rounded-[14px] px-3.5 py-3 text-[14px] leading-[1.65]"}`}
       />
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="windows-prompt-template-list mt-3 flex flex-wrap gap-2">
         <button
           type="button"
           onClick={() => setTemplateManagerOpen(true)}
@@ -84,8 +84,8 @@ export function PromptEditorSection({
           </button>
         ))}
       </div>
-      <div className={`mt-3 ${isMac ? "flex flex-col gap-3" : "flex gap-2.5 items-center justify-between"}`}>
-        <div className={`${isMac ? "grid grid-cols-2 gap-2.5" : "flex gap-2.5 items-center"}`}>
+      <div className={`windows-prompt-toolbar mt-3 ${isMac ? "flex flex-col gap-3" : "flex gap-2.5 items-center justify-between"}`}>
+        <div className={`windows-prompt-actions ${isMac ? "grid grid-cols-2 gap-2.5" : "flex gap-2.5 items-center"}`}>
           <div className={`relative ${isMac ? "min-w-0" : "shrink-0"}`}>
             <button
               ref={promptPopoverAnchorRef}
@@ -126,7 +126,7 @@ export function PromptEditorSection({
             {isOptimizingPrompt ? "优化中..." : "AI 优化"}
           </button>
         </div>
-        <div className={`flex ${isMac ? "items-center justify-between gap-2.5" : "ml-auto items-center gap-2.5"}`}>
+        <div className={`windows-prompt-shortcut flex ${isMac ? "items-center justify-between gap-2.5" : "ml-auto items-center gap-2.5"}`}>
           <span className={`${isMac ? "ml-auto rounded-full bg-black/[0.03] px-2.5 py-1.5 text-[11px] dark:bg-white/[0.04]" : "text-[10px]"} text-zinc-400 dark:text-zinc-500`}>{submitShortcutLabel}</span>
         </div>
       </div>

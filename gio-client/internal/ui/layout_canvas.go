@@ -633,7 +633,21 @@ func (a *App) layoutBatchResultGrid(gtx layout.Context, snap snapshot) layout.Di
 						if livePreview {
 							title = fmt.Sprintf("本批预览 · %d/%d", len(items), totalSlots)
 						}
-						return a.label(gtx, title, unit.Sp(12), fluent.text, font.SemiBold)
+						subtitle := ""
+						if snap.Running && snap.BatchTotal > 1 {
+							subtitle = fmt.Sprintf("进行中 · 已完成 %d/%d", len(items), snap.BatchTotal)
+						}
+						return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(2))}.Layout(gtx,
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								return a.label(gtx, title, unit.Sp(12), fluent.text, font.SemiBold)
+							}),
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								if subtitle == "" {
+									return layout.Dimensions{}
+								}
+								return a.singleLineLabel(gtx, subtitle, unit.Sp(10), fluent.textDim, font.Normal)
+							}),
+						)
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						if livePreview {
@@ -949,6 +963,15 @@ func (a *App) canvasStatusBar(gtx layout.Context, snap snapshot) layout.Dimensio
 								}
 								return fixedWidth(gtx, unit.Dp(220), func(gtx layout.Context) layout.Dimensions {
 									return a.singleLineLabel(gtx, lastLog, unit.Sp(11), fluent.textDim, font.Normal)
+								})
+							}),
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								if snap.BatchTotal <= 1 {
+									return layout.Dimensions{}
+								}
+								completed := len(snap.BatchResults)
+								return layout.Inset{Left: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+									return a.singleLineLabel(gtx, fmt.Sprintf("已完成 %d/%d", completed, snap.BatchTotal), unit.Sp(11), fluent.textDim, font.Normal)
 								})
 							}),
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {

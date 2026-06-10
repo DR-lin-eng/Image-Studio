@@ -46,6 +46,14 @@ const env = { ...process.env, VITE_TARGET_PLATFORM: mode };
 if (command === "build") {
   await run("node_modules/typescript/bin/tsc", ["--noEmit"], env);
   await run("node_modules/vite/bin/vite.js", ["build", "--mode", mode], env);
+} else if (command === "build-file-preview") {
+  const previewEnv = {
+    ...env,
+    VITE_BUILD_BASE: "./",
+    VITE_OUT_DIR: "dist-file-preview",
+  };
+  await run("node_modules/typescript/bin/tsc", ["--noEmit"], previewEnv);
+  await run("node_modules/vite/bin/vite.js", ["build", "--mode", mode], previewEnv);
 } else if (command === "dev") {
   await run("node_modules/vite/bin/vite.js", ["--mode", mode], env);
 } else {

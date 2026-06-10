@@ -52,6 +52,15 @@ func ConfigFromState(cfg kernel.Config, state shared.State) kernel.Config {
 		cfg.ProxyMode = state.Settings.ProxyMode
 	}
 	cfg.ProxyURL = state.Settings.ProxyURL
+	if state.Settings.ProtectStreamPreview != nil {
+		cfg.ProtectStreamPreview = *state.Settings.ProtectStreamPreview
+	}
+	if state.Settings.AutoRetryEnabled != nil {
+		cfg.AutoRetryEnabled = *state.Settings.AutoRetryEnabled
+	}
+	if state.Settings.AutoRetryCount != nil {
+		cfg.AutoRetryCount = *state.Settings.AutoRetryCount
+	}
 
 	profile, ok := ActiveProfile(state)
 	if !ok {
@@ -61,8 +70,11 @@ func ConfigFromState(cfg kernel.Config, state shared.State) kernel.Config {
 	cfg.TextModelID = profile.TextModelID
 	cfg.ImageModelID = profile.ImageModelID
 	cfg.APIMode = normaliseAPIMode(profile.APIMode)
+	cfg.ResponsesTransport = client.ResponsesTransport(normalizeProfileResponsesTransport(profile.ResponsesTransport))
+	cfg.FallbackProfileID = strings.TrimSpace(profile.FallbackProfileID)
 	cfg.RequestPolicy = normalisePolicy(profile.RequestPolicy)
 	cfg.ImagesNewAPICompat = profile.ImagesNewAPICompat
+	cfg.ReasoningEffort = normalizeReasoningEffort(profile.ReasoningEffort)
 	if strings.TrimSpace(state.Settings.Background) != "" {
 		cfg.Background = state.Settings.Background
 	}
@@ -79,6 +91,7 @@ func ConfigFromState(cfg kernel.Config, state shared.State) kernel.Config {
 		cfg.Moderation = state.Settings.Moderation
 	}
 	cfg.UserIdentifier = strings.TrimSpace(state.Settings.UserIdentifier)
+	cfg.CompletionSound = NormaliseCompletionSoundSettings(state.Settings.CompletionSound)
 	if state.Settings.PartialImages != nil {
 		cfg.PartialImages = *state.Settings.PartialImages
 	}
@@ -162,12 +175,13 @@ func UpsertConfig(state shared.State, cfg kernel.Config) shared.State {
 		ID:                 profileID,
 		Name:               nextDefaultProfileName(state.Profiles),
 		APIMode:            string(normaliseAPIMode(string(cfg.APIMode))),
+		ResponsesTransport: normalizeProfileResponsesTransport(string(cfg.ResponsesTransport)),
 		RequestPolicy:      string(normalisePolicy(string(cfg.RequestPolicy))),
 		ImagesNewAPICompat: cfg.ImagesNewAPICompat,
 		BaseURL:            strings.TrimSpace(cfg.BaseURL),
 		TextModelID:        strings.TrimSpace(cfg.TextModelID),
 		ImageModelID:       strings.TrimSpace(cfg.ImageModelID),
-		ReasoningEffort:    "xhigh",
+		ReasoningEffort:    normalizeReasoningEffort(cfg.ReasoningEffort),
 		ConcurrencyLimit:   0,
 		CreatedAt:          now,
 		LastUsedAt:         now,
@@ -176,6 +190,7 @@ func UpsertConfig(state shared.State, cfg kernel.Config) shared.State {
 		profile.Name = state.Profiles[profileIndex].Name
 		profile.CreatedAt = state.Profiles[profileIndex].CreatedAt
 		profile.ConcurrencyLimit = state.Profiles[profileIndex].ConcurrencyLimit
+		profile.FallbackProfileID = state.Profiles[profileIndex].FallbackProfileID
 		state.Profiles[profileIndex] = profile
 	} else {
 		state.Profiles = append(state.Profiles, profile)
@@ -183,6 +198,14 @@ func UpsertConfig(state shared.State, cfg kernel.Config) shared.State {
 	state.ActiveProfile = profile.ID
 	state.Settings.ProxyMode = cfg.ProxyMode
 	state.Settings.ProxyURL = strings.TrimSpace(cfg.ProxyURL)
+	protectStreamPreview := cfg.ProtectStreamPreview
+	state.Settings.ProtectStreamPreview = &protectStreamPreview
+	autoRetryEnabled := cfg.AutoRetryEnabled
+	state.Settings.AutoRetryEnabled = &autoRetryEnabled
+	autoRetryCount := cfg.AutoRetryCount
+	state.Settings.AutoRetryCount = &autoRetryCount
+	completionSound := cfg.CompletionSound
+	state.Settings.CompletionSound = &completionSound
 	state.Settings.OutputFormat = strings.TrimSpace(cfg.OutputFormat)
 	state.Settings.OutputDir = strings.TrimSpace(cfg.OutputDir)
 	state.Settings.Background = strings.TrimSpace(cfg.Background)
@@ -295,6 +318,26 @@ func normalisePolicy(policy string) client.RequestPolicy {
 		return client.RequestPolicyCompat
 	}
 	return client.RequestPolicyOpenAI
+}
+
+func normalizeProfileResponsesTransport(value string) string {
+	if strings.TrimSpace(value) == string(client.ResponsesTransportWebSocket) {
+		return string(client.ResponsesTransportWebSocket)
+	}
+	return string(client.ResponsesTransportSSE)
+}
+
+func normalizeReasoningEffort(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "low":
+		return "low"
+	case "medium":
+		return "medium"
+	case "high":
+		return "high"
+	default:
+		return client.DefaultReasoningEffort
+	}
 }
 
 func nextDefaultProfileName(profiles []shared.UpstreamProfile) string {

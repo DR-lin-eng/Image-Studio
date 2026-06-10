@@ -5,6 +5,8 @@ import pkg from "./package.json";
 
 const targetPlatform = (process.env.VITE_TARGET_PLATFORM ?? "").trim().toLowerCase();
 const isAndroidWebViewTarget = targetPlatform === "android" || targetPlatform === "android-pad";
+const explicitBase = (process.env.VITE_BUILD_BASE ?? "").trim();
+const explicitOutDir = (process.env.VITE_OUT_DIR ?? "").trim();
 
 function manualChunks(id: string) {
   if (id.includes("/wailsjs/")) return "wails-runtime";
@@ -20,8 +22,9 @@ function manualChunks(id: string) {
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  base: isAndroidWebViewTarget ? "./" : "/",
+  base: explicitBase || (isAndroidWebViewTarget ? "./" : "/"),
   build: {
+    ...(explicitOutDir ? { outDir: explicitOutDir } : {}),
     ...(isAndroidWebViewTarget ? { target: "chrome70" } : {}),
     rollupOptions: {
       output: {

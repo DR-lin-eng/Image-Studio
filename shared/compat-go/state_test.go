@@ -40,11 +40,16 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 			KeepLogs:                  true,
 			CleanupPreviewCacheOnExit: true,
 			IgnoredReleaseTag:         "1.1.6",
+			AutoRetryEnabled:          func() *bool { v := false; return &v }(),
+			AutoRetryCount:            func() *int { v := 8; return &v }(),
 			CompletionSound: &CompletionSoundSettings{
 				Enabled:    true,
 				Mode:       "custom",
 				CustomName: "ding.wav",
 				CustomData: "data:audio/wav;base64,AAAA",
+			},
+			CompletionNotification: &CompletionNotificationSettings{
+				Enabled: false,
 			},
 			Presets: []Preset{{
 				ID:                "preset-1",
@@ -60,6 +65,13 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 				StyleTag:          "anime",
 				KernelRuntimeMode: "remote",
 				BatchCount:        4,
+			}},
+			CustomAspectRatios: []CustomAspectRatio{{
+				ID:        "5:4",
+				Label:     "5:4",
+				Width:     5,
+				Height:    4,
+				CreatedAt: 111,
 			}},
 		},
 		Profiles: []UpstreamProfile{{
@@ -97,11 +109,20 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 	if loaded.Client != "test" || loaded.ActiveProfile != "p1" || loaded.Settings.OutputDir != "/tmp/images" || !loaded.Settings.ReducedEffects || !loaded.Settings.SavePromptSuppressed || !loaded.Settings.KeepLogs || !loaded.Settings.CleanupPreviewCacheOnExit || loaded.Settings.IgnoredReleaseTag != "1.1.6" {
 		t.Fatalf("unexpected state: %#v", loaded)
 	}
+	if loaded.Settings.AutoRetryEnabled == nil || *loaded.Settings.AutoRetryEnabled != false || loaded.Settings.AutoRetryCount == nil || *loaded.Settings.AutoRetryCount != 8 {
+		t.Fatalf("auto retry not preserved: enabled=%v count=%v", loaded.Settings.AutoRetryEnabled, loaded.Settings.AutoRetryCount)
+	}
 	if loaded.Settings.CompletionSound == nil || !loaded.Settings.CompletionSound.Enabled || loaded.Settings.CompletionSound.Mode != "custom" || loaded.Settings.CompletionSound.CustomName != "ding.wav" || loaded.Settings.CompletionSound.CustomData != "data:audio/wav;base64,AAAA" {
 		t.Fatalf("completion sound not preserved: %#v", loaded.Settings.CompletionSound)
 	}
+	if loaded.Settings.CompletionNotification == nil || loaded.Settings.CompletionNotification.Enabled {
+		t.Fatalf("completion notification not preserved: %#v", loaded.Settings.CompletionNotification)
+	}
 	if len(loaded.Settings.Presets) != 1 {
 		t.Fatalf("presets not preserved: %#v", loaded.Settings.Presets)
+	}
+	if len(loaded.Settings.CustomAspectRatios) != 1 || loaded.Settings.CustomAspectRatios[0].ID != "5:4" || loaded.Settings.CustomAspectRatios[0].Width != 5 || loaded.Settings.CustomAspectRatios[0].Height != 4 {
+		t.Fatalf("custom aspect ratios not preserved: %#v", loaded.Settings.CustomAspectRatios)
 	}
 	preset := loaded.Settings.Presets[0]
 	if preset.StyleTag != "anime" || preset.Background != "transparent" || preset.InputFidelity != "high" || preset.ImageStyle != "vivid" || preset.Moderation != "auto" || preset.KernelRuntimeMode != "remote" || preset.BatchCount != 4 {

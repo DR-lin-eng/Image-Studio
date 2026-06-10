@@ -3,6 +3,7 @@ package kernel
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"image"
 	"image/draw"
@@ -14,6 +15,8 @@ import (
 	"strings"
 	"time"
 
+	sharedCompat "image-studio/shared/compat"
+
 	_ "github.com/gen2brain/avif"
 	"github.com/yuanhua/image-gptcodex/pkg/client"
 	xdraw "golang.org/x/image/draw"
@@ -21,33 +24,53 @@ import (
 )
 
 type Config struct {
+	APIKey               string
+	BaseURL              string
+	TextModelID          string
+	ImageModelID         string
+	Prompt               string
+	Mode                 client.Mode
+	APIMode              client.APIMode
+	RequestPolicy        client.RequestPolicy
+	ResponsesTransport   client.ResponsesTransport
+	ImagesNewAPICompat   bool
+	Size                 string
+	Quality              string
+	OutputFormat         string
+	Background           string
+	OutputCompression    int
+	InputFidelity        string
+	ImageStyle           string
+	Moderation           string
+	UserIdentifier       string
+	ProxyMode            string
+	ProxyURL             string
+	ReasoningEffort      string
+	ProtectStreamPreview bool
+	AutoRetryEnabled     bool
+	AutoRetryCount       int
+	CompletionSound      sharedCompat.CompletionSoundSettings
+	SourcePaths          []string
+	OutputDir            string
+	Seed                 int64
+	NegativePrompt       string
+	PartialImages        int
+	StyleTag             string
+	BatchIndex           int
+	FallbackProfileID    string
+	FallbackProfile      *FallbackProfileConfig
+}
+
+type FallbackProfileConfig struct {
 	APIKey             string
 	BaseURL            string
 	TextModelID        string
 	ImageModelID       string
-	Prompt             string
-	Mode               client.Mode
 	APIMode            client.APIMode
+	ResponsesTransport client.ResponsesTransport
 	RequestPolicy      client.RequestPolicy
 	ImagesNewAPICompat bool
-	Size               string
-	Quality            string
-	OutputFormat       string
-	Background         string
-	OutputCompression  int
-	InputFidelity      string
-	ImageStyle         string
-	Moderation         string
-	UserIdentifier     string
-	ProxyMode          string
-	ProxyURL           string
-	SourcePaths        []string
-	OutputDir          string
-	Seed               int64
-	NegativePrompt     string
-	PartialImages      int
-	StyleTag           string
-	BatchIndex         int
+	ReasoningEffort    string
 }
 
 type Callbacks struct {
@@ -73,22 +96,31 @@ type Runner struct{}
 
 func DefaultConfig() Config {
 	return Config{
-		TextModelID:       client.TextModel,
-		ImageModelID:      client.ImageModel,
-		Mode:              client.ModeGenerate,
-		APIMode:           client.APIModeResponses,
-		RequestPolicy:     client.RequestPolicyOpenAI,
-		Size:              client.DefaultSize,
-		Quality:           client.DefaultQuality,
-		OutputFormat:      client.OutputFormat,
-		Background:        client.DefaultBackground,
-		OutputCompression: client.DefaultOutputCompression,
-		InputFidelity:     client.DefaultInputFidelity,
-		ImageStyle:        client.DefaultImageStyle,
-		Moderation:        client.DefaultModeration,
-		ProxyMode:         client.ProxyModeSystem,
-		OutputDir:         DefaultOutputDir(),
-		PartialImages:     0,
+		TextModelID:          client.TextModel,
+		ImageModelID:         client.ImageModel,
+		Mode:                 client.ModeGenerate,
+		APIMode:              client.APIModeResponses,
+		RequestPolicy:        client.RequestPolicyOpenAI,
+		ResponsesTransport:   client.ResponsesTransportSSE,
+		Size:                 client.DefaultSize,
+		Quality:              client.DefaultQuality,
+		OutputFormat:         client.OutputFormat,
+		Background:           client.DefaultBackground,
+		OutputCompression:    client.DefaultOutputCompression,
+		InputFidelity:        client.DefaultInputFidelity,
+		ImageStyle:           client.DefaultImageStyle,
+		Moderation:           client.DefaultModeration,
+		ProxyMode:            client.ProxyModeSystem,
+		ReasoningEffort:      client.DefaultReasoningEffort,
+		ProtectStreamPreview: true,
+		AutoRetryEnabled:     true,
+		AutoRetryCount:       client.DefaultAutoRetryCount,
+		CompletionSound: sharedCompat.CompletionSoundSettings{
+			Enabled: true,
+			Mode:    "default",
+		},
+		OutputDir:     DefaultOutputDir(),
+		PartialImages: 0,
 	}
 }
 
@@ -152,6 +184,174 @@ func (Runner) Run(ctx context.Context, cfg Config, cb Callbacks) (Result, error)
 		return Result{}, fmt.Errorf("创建日志目录失败:%w", err)
 	}
 
+	variants := []Config{cfg}
+	if fallback := normalizeFallbackProfileConfig(cfg.FallbackProfile); fallback != nil {
+		fallbackCfg := cfg
+		fallbackCfg.APIKey = fallback.APIKey
+		fallbackCfg.BaseURL = fallback.BaseURL
+		fallbackCfg.TextModelID = fallback.TextModelID
+		fallbackCfg.ImageModelID = fallback.ImageModelID
+		fallbackCfg.APIMode = fallback.APIMode
+		fallbackCfg.ResponsesTransport = fallback.ResponsesTransport
+		fallbackCfg.RequestPolicy = fallback.RequestPolicy
+		fallbackCfg.ImagesNewAPICompat = fallback.ImagesNewAPICompat
+		fallbackCfg.ReasoningEffort = fallback.ReasoningEffort
+		fallbackCfg.FallbackProfile = nil
+		variants = append(variants, fallbackCfg)
+	}
+
+	var lastErr error
+	for idx, variant := range variants {
+		if idx > 0 {
+			nonNilLog(cb.Log)("主上游自动重试失败，切换到备用上游再试一次...")
+		}
+		result, err := runSingleConfig(ctx, variant, cb, imagesDir, logDir)
+		if err == nil {
+			return result, nil
+		}
+		lastErr = err
+		if errors.Is(err, context.Canceled) {
+			return Result{}, err
+		}
+	}
+	if lastErr != nil {
+		return Result{}, lastErr
+	}
+	return Result{}, fmt.Errorf("多次请求后仍未成功")
+}
+
+func absPathOrRaw(path string) string {
+	if path == "" {
+		return ""
+	}
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return path
+	}
+	return abs
+}
+
+func normalizeConfig(cfg Config) Config {
+	cfg.APIKey = strings.TrimSpace(cfg.APIKey)
+	cfg.BaseURL = strings.TrimSpace(cfg.BaseURL)
+	cfg.TextModelID = strings.TrimSpace(cfg.TextModelID)
+	cfg.ImageModelID = strings.TrimSpace(cfg.ImageModelID)
+	cfg.Prompt = strings.TrimSpace(cfg.Prompt)
+	cfg.Size = strings.TrimSpace(cfg.Size)
+	cfg.Quality = strings.TrimSpace(cfg.Quality)
+	cfg.OutputFormat = strings.TrimSpace(cfg.OutputFormat)
+	cfg.Background = strings.TrimSpace(cfg.Background)
+	cfg.ProxyMode = strings.TrimSpace(cfg.ProxyMode)
+	cfg.ProxyURL = strings.TrimSpace(cfg.ProxyURL)
+	cfg.OutputDir = strings.TrimSpace(cfg.OutputDir)
+	cfg.NegativePrompt = strings.TrimSpace(cfg.NegativePrompt)
+	cfg.InputFidelity = strings.TrimSpace(cfg.InputFidelity)
+	cfg.ImageStyle = strings.TrimSpace(cfg.ImageStyle)
+	cfg.Moderation = strings.TrimSpace(cfg.Moderation)
+	cfg.UserIdentifier = strings.TrimSpace(cfg.UserIdentifier)
+	if cfg.TextModelID == "" {
+		cfg.TextModelID = client.TextModel
+	}
+	if cfg.ImageModelID == "" {
+		cfg.ImageModelID = client.ImageModel
+	}
+	if cfg.Mode != client.ModeEdit {
+		cfg.Mode = client.ModeGenerate
+	}
+	if cfg.APIMode != client.APIModeImages {
+		cfg.APIMode = client.APIModeResponses
+	}
+	if cfg.RequestPolicy != client.RequestPolicyCompat {
+		cfg.RequestPolicy = client.RequestPolicyOpenAI
+	}
+	if cfg.ResponsesTransport != client.ResponsesTransportWebSocket {
+		cfg.ResponsesTransport = client.ResponsesTransportSSE
+	}
+	if cfg.Size == "" {
+		cfg.Size = client.DefaultSize
+	}
+	if cfg.Quality == "" {
+		cfg.Quality = client.DefaultQuality
+	}
+	if cfg.OutputFormat == "" {
+		cfg.OutputFormat = client.OutputFormat
+	}
+	if cfg.Background == "" {
+		cfg.Background = client.DefaultBackground
+	}
+	if cfg.OutputCompression <= 0 {
+		cfg.OutputCompression = client.DefaultOutputCompression
+	}
+	if cfg.InputFidelity == "" {
+		cfg.InputFidelity = client.DefaultInputFidelity
+	}
+	if cfg.ImageStyle == "" {
+		cfg.ImageStyle = client.DefaultImageStyle
+	}
+	if cfg.Moderation == "" {
+		cfg.Moderation = client.DefaultModeration
+	}
+	if cfg.ProxyMode == "" {
+		cfg.ProxyMode = client.ProxyModeSystem
+	}
+	switch strings.ToLower(strings.TrimSpace(cfg.ReasoningEffort)) {
+	case "low", "medium", "high", "xhigh":
+	default:
+		cfg.ReasoningEffort = client.DefaultReasoningEffort
+	}
+	if cfg.AutoRetryCount <= 0 {
+		cfg.AutoRetryCount = client.DefaultAutoRetryCount
+	}
+	if cfg.AutoRetryCount > client.MaxAutoRetryCount {
+		cfg.AutoRetryCount = client.MaxAutoRetryCount
+	}
+	if cfg.OutputDir == "" {
+		cfg.OutputDir = DefaultOutputDir()
+	}
+	if cfg.PartialImages < 0 {
+		cfg.PartialImages = client.DefaultPartialImages
+	}
+	cfg.FallbackProfileID = strings.TrimSpace(cfg.FallbackProfileID)
+	cfg.FallbackProfile = normalizeFallbackProfileConfig(cfg.FallbackProfile)
+	cfg.SourcePaths = normalizeSourcePaths(cfg.SourcePaths)
+	return cfg
+}
+
+func normalizeFallbackProfileConfig(value *FallbackProfileConfig) *FallbackProfileConfig {
+	if value == nil {
+		return nil
+	}
+	next := *value
+	next.APIKey = strings.TrimSpace(next.APIKey)
+	next.BaseURL = strings.TrimSpace(next.BaseURL)
+	next.TextModelID = strings.TrimSpace(next.TextModelID)
+	next.ImageModelID = strings.TrimSpace(next.ImageModelID)
+	next.RequestPolicy = normalizeRequestPolicy(next.RequestPolicy)
+	if next.APIMode != client.APIModeImages {
+		next.APIMode = client.APIModeResponses
+	}
+	if next.ResponsesTransport != client.ResponsesTransportWebSocket {
+		next.ResponsesTransport = client.ResponsesTransportSSE
+	}
+	switch strings.ToLower(strings.TrimSpace(next.ReasoningEffort)) {
+	case "low", "medium", "high", "xhigh":
+	default:
+		next.ReasoningEffort = client.DefaultReasoningEffort
+	}
+	if next.APIKey == "" || next.BaseURL == "" {
+		return nil
+	}
+	return &next
+}
+
+func normalizeRequestPolicy(policy client.RequestPolicy) client.RequestPolicy {
+	if policy == client.RequestPolicyCompat {
+		return client.RequestPolicyCompat
+	}
+	return client.RequestPolicyOpenAI
+}
+
+func runSingleConfig(ctx context.Context, cfg Config, cb Callbacks, imagesDir string, logDir string) (Result, error) {
 	proxy, err := client.NormalizeProxyConfig(cfg.ProxyMode, cfg.ProxyURL)
 	if err != nil {
 		return Result{}, err
@@ -169,6 +369,7 @@ func (Runner) Run(ctx context.Context, cfg Config, cb Callbacks) (Result, error)
 		Prompt:             cfg.Prompt,
 		Mode:               cfg.Mode,
 		APIMode:            cfg.APIMode,
+		ResponsesTransport: cfg.ResponsesTransport,
 		RequestPolicy:      cfg.RequestPolicy,
 		ImagesNewAPICompat: cfg.ImagesNewAPICompat,
 		Size:               cfg.Size,
@@ -181,6 +382,9 @@ func (Runner) Run(ctx context.Context, cfg Config, cb Callbacks) (Result, error)
 		Moderation:         cfg.Moderation,
 		UserIdentifier:     cfg.UserIdentifier,
 		Proxy:              proxy,
+		ReasoningEffort:    cfg.ReasoningEffort,
+		AutoRetryEnabled:   func() *bool { v := cfg.AutoRetryEnabled; return &v }(),
+		AutoRetryCount:     cfg.AutoRetryCount,
 		Seed:               cfg.Seed,
 		NegativePrompt:     cfg.NegativePrompt,
 		PartialImages:      cfg.PartialImages,
@@ -235,87 +439,6 @@ func (Runner) Run(ctx context.Context, cfg Config, cb Callbacks) (Result, error)
 		RevisedPrompt: result.RevisedPrompt,
 		SourceEvent:   result.SourceEvent,
 	}, nil
-}
-
-func absPathOrRaw(path string) string {
-	if path == "" {
-		return ""
-	}
-	abs, err := filepath.Abs(path)
-	if err != nil {
-		return path
-	}
-	return abs
-}
-
-func normalizeConfig(cfg Config) Config {
-	cfg.APIKey = strings.TrimSpace(cfg.APIKey)
-	cfg.BaseURL = strings.TrimSpace(cfg.BaseURL)
-	cfg.TextModelID = strings.TrimSpace(cfg.TextModelID)
-	cfg.ImageModelID = strings.TrimSpace(cfg.ImageModelID)
-	cfg.Prompt = strings.TrimSpace(cfg.Prompt)
-	cfg.Size = strings.TrimSpace(cfg.Size)
-	cfg.Quality = strings.TrimSpace(cfg.Quality)
-	cfg.OutputFormat = strings.TrimSpace(cfg.OutputFormat)
-	cfg.Background = strings.TrimSpace(cfg.Background)
-	cfg.ProxyMode = strings.TrimSpace(cfg.ProxyMode)
-	cfg.ProxyURL = strings.TrimSpace(cfg.ProxyURL)
-	cfg.OutputDir = strings.TrimSpace(cfg.OutputDir)
-	cfg.NegativePrompt = strings.TrimSpace(cfg.NegativePrompt)
-	cfg.InputFidelity = strings.TrimSpace(cfg.InputFidelity)
-	cfg.ImageStyle = strings.TrimSpace(cfg.ImageStyle)
-	cfg.Moderation = strings.TrimSpace(cfg.Moderation)
-	cfg.UserIdentifier = strings.TrimSpace(cfg.UserIdentifier)
-	if cfg.TextModelID == "" {
-		cfg.TextModelID = client.TextModel
-	}
-	if cfg.ImageModelID == "" {
-		cfg.ImageModelID = client.ImageModel
-	}
-	if cfg.Mode != client.ModeEdit {
-		cfg.Mode = client.ModeGenerate
-	}
-	if cfg.APIMode != client.APIModeImages {
-		cfg.APIMode = client.APIModeResponses
-	}
-	if cfg.RequestPolicy != client.RequestPolicyCompat {
-		cfg.RequestPolicy = client.RequestPolicyOpenAI
-	}
-	if cfg.Size == "" {
-		cfg.Size = client.DefaultSize
-	}
-	if cfg.Quality == "" {
-		cfg.Quality = client.DefaultQuality
-	}
-	if cfg.OutputFormat == "" {
-		cfg.OutputFormat = client.OutputFormat
-	}
-	if cfg.Background == "" {
-		cfg.Background = client.DefaultBackground
-	}
-	if cfg.OutputCompression <= 0 {
-		cfg.OutputCompression = client.DefaultOutputCompression
-	}
-	if cfg.InputFidelity == "" {
-		cfg.InputFidelity = client.DefaultInputFidelity
-	}
-	if cfg.ImageStyle == "" {
-		cfg.ImageStyle = client.DefaultImageStyle
-	}
-	if cfg.Moderation == "" {
-		cfg.Moderation = client.DefaultModeration
-	}
-	if cfg.ProxyMode == "" {
-		cfg.ProxyMode = client.ProxyModeSystem
-	}
-	if cfg.OutputDir == "" {
-		cfg.OutputDir = DefaultOutputDir()
-	}
-	if cfg.PartialImages < 0 {
-		cfg.PartialImages = client.DefaultPartialImages
-	}
-	cfg.SourcePaths = normalizeSourcePaths(cfg.SourcePaths)
-	return cfg
 }
 
 func normalizeSourcePaths(paths []string) []string {

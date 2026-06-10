@@ -13,6 +13,7 @@
     "dev:android-pad": "node ./scripts/platform-vite.mjs dev android-pad",
     "build": "node ./scripts/platform-vite.mjs build",
     "build:windows": "node ./scripts/platform-vite.mjs build windows",
+    "build:windows:file-preview": "node ./scripts/platform-vite.mjs build-file-preview windows",
     "build:macos": "node ./scripts/platform-vite.mjs build macos",
     "build:linux": "node ./scripts/platform-vite.mjs build linux",
     "build:android": "node ./scripts/platform-vite.mjs build android",

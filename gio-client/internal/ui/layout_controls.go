@@ -314,6 +314,9 @@ func (a *App) layoutPromptCard(gtx layout.Context, snap snapshot, promptLen int)
 	for a.openPromptTemplateManagerButton.Clicked(gtx) {
 		a.openPromptTemplateManager()
 	}
+	for a.openPresetManagerFromPromptButton.Clicked(gtx) {
+		a.openPresetManager()
+	}
 	for a.optimizePromptButton.Clicked(gtx) {
 		a.startPromptOptimize()
 	}
@@ -362,6 +365,12 @@ func (a *App) layoutPromptCard(gtx layout.Context, snap snapshot, promptLen int)
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							return fixedHeight(gtx, unit.Dp(32), func(gtx layout.Context) layout.Dimensions {
 								return a.ghostIconTextButton(gtx, &a.openPromptTemplateManagerButton, uiIconEdit, "管理模板", a.promptTemplateManagerOpen)
+							})
+						}),
+						layout.Rigid(layout.Spacer{Width: unit.Dp(8)}.Layout),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return fixedHeight(gtx, unit.Dp(32), func(gtx layout.Context) layout.Dimensions {
+								return a.ghostIconTextButton(gtx, &a.openPresetManagerFromPromptButton, uiIconSave, "参数预设", a.presetManagerOpen)
 							})
 						}),
 						layout.Rigid(layout.Spacer{Width: unit.Dp(8)}.Layout),
@@ -948,6 +957,96 @@ func (a *App) layoutGeneralSettingsModal(gtx layout.Context, snap snapshot) layo
 	for a.generalPerformanceButtons[1].Clicked(gtx) {
 		a.applyReducedEffects(true)
 	}
+	for a.generalCompletionSoundButtons[0].Clicked(gtx) {
+		a.completionSound.Enabled = true
+	}
+	for a.generalCompletionSoundButtons[1].Clicked(gtx) {
+		a.completionSound.Enabled = false
+	}
+	for a.generalCompletionSoundModeButtons[0].Clicked(gtx) {
+		a.completionSound.Mode = "default"
+	}
+	for a.generalCompletionSoundModeButtons[1].Clicked(gtx) {
+		if strings.TrimSpace(a.completionSound.CustomData) == "" {
+			a.importCompletionSound()
+		} else {
+			a.completionSound.Mode = "custom"
+		}
+	}
+	for a.previewCompletionSoundButton.Clicked(gtx) {
+		a.previewCompletionSound()
+	}
+	for a.chooseCompletionSoundButton.Clicked(gtx) {
+		a.importCompletionSound()
+	}
+	for a.resetCompletionSoundButton.Clicked(gtx) {
+		a.resetCompletionSoundCustom()
+	}
+	for a.generalCompletionNotificationButtons[0].Clicked(gtx) {
+		a.setCompletionNotificationEnabled(true)
+	}
+	for a.generalCompletionNotificationButtons[1].Clicked(gtx) {
+		a.setCompletionNotificationEnabled(false)
+	}
+	for a.requestCompletionNotificationButton.Clicked(gtx) {
+		a.refreshCompletionNotificationPermission()
+	}
+	for a.generalCleanupPreviewCacheButtons[0].Clicked(gtx) {
+		a.cleanupPreviewCacheOnExit = false
+	}
+	for a.generalCleanupPreviewCacheButtons[1].Clicked(gtx) {
+		a.cleanupPreviewCacheOnExit = true
+	}
+	for a.generalProtectStreamPreviewButtons[0].Clicked(gtx) {
+		a.protectStreamPreview = true
+	}
+	for a.generalProtectStreamPreviewButtons[1].Clicked(gtx) {
+		a.protectStreamPreview = false
+	}
+	for a.generalAutoRetryButtons[0].Clicked(gtx) {
+		a.autoRetryEnabled = true
+	}
+	for a.generalAutoRetryButtons[1].Clicked(gtx) {
+		a.autoRetryEnabled = false
+	}
+	for a.generalLoopButtons[0].Clicked(gtx) {
+		a.loopEnabled = true
+	}
+	for a.generalLoopButtons[1].Clicked(gtx) {
+		a.loopEnabled = false
+	}
+	for a.generalBatchButtons[0].Clicked(gtx) {
+		a.batchMode = true
+	}
+	for a.generalBatchButtons[1].Clicked(gtx) {
+		a.batchMode = false
+	}
+	for a.generalBatchRetryButtons[0].Clicked(gtx) {
+		a.batchRetryOnFail = true
+	}
+	for a.generalBatchRetryButtons[1].Clicked(gtx) {
+		a.batchRetryOnFail = false
+	}
+	for a.generalBatchAutoAspectButtons[0].Clicked(gtx) {
+		a.batchAutoAspect = ""
+	}
+	for a.generalBatchAutoAspectButtons[1].Clicked(gtx) {
+		if strings.TrimSpace(a.batchAutoAspect) == "" {
+			a.batchAutoAspect = "1k"
+		}
+	}
+	for idx, value := range []string{"256", "512", "1k", "2k", "4k"} {
+		value := value
+		for a.generalBatchAutoAspectResolutionButtons[idx].Clicked(gtx) {
+			a.batchAutoAspect = value
+		}
+	}
+	for idx, count := range generalAutoRetryCountChoices {
+		count := count
+		for a.generalAutoRetryCountButtons[idx].Clicked(gtx) {
+			a.autoRetryCount = count
+		}
+	}
 	for a.generalSavePromptButtons[0].Clicked(gtx) {
 		a.setSavePromptSuppressed(false)
 	}
@@ -978,6 +1077,39 @@ func (a *App) layoutGeneralSettingsModal(gtx layout.Context, snap snapshot) layo
 	for a.resetGeneralOutputButton.Clicked(gtx) {
 		a.outputDirInput.SetText(kernel.DefaultOutputDir())
 	}
+	for a.chooseGeneralBatchInputButton.Clicked(gtx) {
+		dir, err := chooseDirectory()
+		if err != nil {
+			a.appendLog("选择批处理输入目录失败: " + err.Error())
+			continue
+		}
+		if strings.TrimSpace(dir) != "" {
+			a.batchInputDirInput.SetText(dir)
+		}
+	}
+	for a.chooseGeneralBatchFilesButton.Clicked(gtx) {
+		paths, err := chooseImageFiles()
+		if err != nil {
+			a.appendLog("选择批处理图片失败: " + err.Error())
+			continue
+		}
+		if len(paths) > 0 {
+			a.batchInputDirInput.SetText("")
+			a.sourcePathsInput.SetText(strings.Join(paths, "\n"))
+			a.sourceButtons = map[string]*widget.Clickable{}
+		}
+	}
+	for a.chooseGeneralBatchOutputButton.Clicked(gtx) {
+		dir, err := chooseDirectory()
+		if err != nil {
+			a.appendLog("选择批处理输出目录失败: " + err.Error())
+			continue
+		}
+		if strings.TrimSpace(dir) != "" {
+			a.batchOutputDirInput.SetText(dir)
+			a.batchOutputDir = dir
+		}
+	}
 	for a.openGeneralHistoryTimelineButton.Clicked(gtx) {
 		a.closeGeneralSettingsModal()
 		a.openHistoryTimeline()
@@ -999,6 +1131,9 @@ func (a *App) layoutGeneralSettingsModal(gtx layout.Context, snap snapshot) layo
 	}
 	for a.openPresetManagerButton.Clicked(gtx) {
 		a.openPresetManager()
+	}
+	for a.openCustomAspectRatioManagerButton.Clicked(gtx) {
+		a.openCustomAspectRatioManager()
 	}
 	for idx, days := range []int{3, 7} {
 		days := days
@@ -1211,12 +1346,92 @@ func (a *App) layoutGeneralSettingsModal(gtx layout.Context, snap snapshot) layo
 			return a.compactButton(gtx, &a.generalSavePromptButtons[1], "不提示", a.savePromptSuppressed)
 		}),
 	}
+	completionSoundRows := []layout.FlexChild{
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			return a.compactButton(gtx, &a.generalCompletionSoundButtons[0], "开启", a.completionSound.Enabled)
+		}),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			return a.compactButton(gtx, &a.generalCompletionSoundButtons[1], "关闭", !a.completionSound.Enabled)
+		}),
+	}
+	completionSoundModeRows := []layout.FlexChild{
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			return a.compactButton(gtx, &a.generalCompletionSoundModeButtons[0], "默认音", a.completionSound.Mode != "custom")
+		}),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			return a.compactButton(gtx, &a.generalCompletionSoundModeButtons[1], "自定义", a.completionSound.Mode == "custom" && strings.TrimSpace(a.completionSound.CustomData) != "")
+		}),
+	}
+	completionNotificationRows := []layout.FlexChild{
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			return a.compactButton(gtx, &a.generalCompletionNotificationButtons[0], "开启", a.completionNotification.Enabled)
+		}),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			return a.compactButton(gtx, &a.generalCompletionNotificationButtons[1], "关闭", !a.completionNotification.Enabled)
+		}),
+	}
+	protectStreamPreviewRows := []layout.FlexChild{
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			return a.compactButton(gtx, &a.generalProtectStreamPreviewButtons[0], "开启", a.protectStreamPreview)
+		}),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			return a.compactButton(gtx, &a.generalProtectStreamPreviewButtons[1], "关闭", !a.protectStreamPreview)
+		}),
+	}
+	autoRetryRows := []layout.FlexChild{
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			return a.compactButton(gtx, &a.generalAutoRetryButtons[0], "开启", a.autoRetryEnabled)
+		}),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			return a.compactButton(gtx, &a.generalAutoRetryButtons[1], "关闭", !a.autoRetryEnabled)
+		}),
+	}
+	loopRows := []layout.FlexChild{
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			return a.compactButton(gtx, &a.generalLoopButtons[0], "开启", a.loopEnabled)
+		}),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			return a.compactButton(gtx, &a.generalLoopButtons[1], "关闭", !a.loopEnabled)
+		}),
+	}
+	batchRows := []layout.FlexChild{
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			return a.compactButton(gtx, &a.generalBatchButtons[0], "开启", a.batchMode)
+		}),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			return a.compactButton(gtx, &a.generalBatchButtons[1], "关闭", !a.batchMode)
+		}),
+	}
+	batchRetryRows := []layout.FlexChild{
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			return a.compactButton(gtx, &a.generalBatchRetryButtons[0], "自动重试", a.batchRetryOnFail)
+		}),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			return a.compactButton(gtx, &a.generalBatchRetryButtons[1], "失败跳过", !a.batchRetryOnFail)
+		}),
+	}
+	batchAutoAspectRows := []layout.FlexChild{
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			return a.compactButton(gtx, &a.generalBatchAutoAspectButtons[0], "沿用当前比例", strings.TrimSpace(a.batchAutoAspect) == "")
+		}),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			return a.compactButton(gtx, &a.generalBatchAutoAspectButtons[1], "按源图比例", strings.TrimSpace(a.batchAutoAspect) != "")
+		}),
+	}
 	keepLogsRows := []layout.FlexChild{
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			return a.compactButton(gtx, &a.generalKeepLogsButtons[0], "关闭", !a.keepLogs)
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			return a.compactButton(gtx, &a.generalKeepLogsButtons[1], "开启", a.keepLogs)
+		}),
+	}
+	cleanupPreviewCacheRows := []layout.FlexChild{
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			return a.compactButton(gtx, &a.generalCleanupPreviewCacheButtons[0], "关闭", !a.cleanupPreviewCacheOnExit)
+		}),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			return a.compactButton(gtx, &a.generalCleanupPreviewCacheButtons[1], "开启", a.cleanupPreviewCacheOnExit)
 		}),
 	}
 	presetItems := a.presetLabelsCached(a.presets)
@@ -1325,6 +1540,162 @@ func (a *App) layoutGeneralSettingsModal(gtx layout.Context, snap snapshot) layo
 			})
 		},
 		func(gtx layout.Context) layout.Dimensions {
+			currentSound := "使用内置默认音"
+			if a.completionSound.Mode == "custom" && strings.TrimSpace(a.completionSound.CustomName) != "" && strings.TrimSpace(a.completionSound.CustomData) != "" {
+				currentSound = "当前使用 " + strings.TrimSpace(a.completionSound.CustomName)
+			}
+			return a.generalSettingsCard(gtx, "完成提示音", func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(8))}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx, completionSoundRows...)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx, completionSoundModeRows...)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx,
+							layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+								return a.compactIconTextButton(gtx, &a.previewCompletionSoundButton, uiIconPlay, "试听", false)
+							}),
+							layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+								return a.compactIconTextButton(gtx, &a.chooseCompletionSoundButton, uiIconFolder, "导入音频", false)
+							}),
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								return fixedWidth(gtx, unit.Dp(78), func(gtx layout.Context) layout.Dimensions {
+									return a.compactButton(gtx, &a.resetCompletionSoundButton, "默认", false)
+								})
+							}),
+						)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return a.label(gtx, "整批任务全部完成后只播放一次。"+currentSound+"。", unit.Sp(10), fluent.textDim, font.Normal)
+					}),
+				)
+			})
+		},
+		func(gtx layout.Context) layout.Dimensions {
+			return a.generalSettingsCard(gtx, "系统通知", func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(8))}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx, completionNotificationRows...)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return a.compactIconTextButton(gtx, &a.requestCompletionNotificationButton, uiIconInfo, completionNotificationPermissionActionLabel(a.completionNotificationPermission), false)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return a.label(gtx, "整批任务全部完成后，仅在窗口不在前台时发送系统通知。当前权限："+systemNotificationPermissionLabel(a.completionNotificationPermission)+"。", unit.Sp(10), fluent.textDim, font.Normal)
+					}),
+				)
+			})
+		},
+		func(gtx layout.Context) layout.Dimensions {
+			return a.generalSettingsCard(gtx, "流式预览保护", func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(8))}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx, protectStreamPreviewRows...)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return a.label(gtx, "默认开启。桌面端高并发任务时会自动关闭流式预览，优先保证最终图完整；关闭后严格按你设置的预览帧数请求。", unit.Sp(10), fluent.textDim, font.Normal)
+					}),
+				)
+			})
+		},
+		func(gtx layout.Context) layout.Dimensions {
+			return a.generalSettingsCard(gtx, "失败自动重试", func(gtx layout.Context) layout.Dimensions {
+				rows := []layout.FlexChild{
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx, autoRetryRows...)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						countRows := make([]layout.FlexChild, 0, len(generalAutoRetryCountChoices))
+						for idx, count := range generalAutoRetryCountChoices {
+							idx := idx
+							count := count
+							countRows = append(countRows, layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+								return a.compactButton(gtx, &a.generalAutoRetryCountButtons[idx], fmt.Sprintf("%d 次", count), normalizeAutoRetryCount(a.autoRetryCount) == count)
+							}))
+						}
+						return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx, countRows...)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return a.label(gtx, "开启后会对可重试的上游/网络错误自动补发请求；当前次数用于限制首次请求后的额外重试上限。", unit.Sp(10), fluent.textDim, font.Normal)
+					}),
+				}
+				return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(8))}.Layout(gtx, rows...)
+			})
+		},
+		func(gtx layout.Context) layout.Dimensions {
+			return a.generalSettingsCard(gtx, "循环出图", func(gtx layout.Context) layout.Dimensions {
+				rows := []layout.FlexChild{
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx, loopRows...)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(8))}.Layout(gtx,
+							layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+								return a.field(gtx, "总张数", &a.loopTotalCountInput, "10", unit.Dp(42))
+							}),
+							layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+								return a.field(gtx, "并发数", &a.loopConcurrencyInput, "2", unit.Dp(42))
+							}),
+						)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return a.label(gtx, "开启后提交按钮会按这里的总张数和并发持续补位生成。当前先对齐桌面主路径，不含自动另存为。", unit.Sp(10), fluent.textDim, font.Normal)
+					}),
+				}
+				return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(8))}.Layout(gtx, rows...)
+			})
+		},
+		func(gtx layout.Context) layout.Dimensions {
+			return a.generalSettingsCard(gtx, "批处理图生图", func(gtx layout.Context) layout.Dimensions {
+				rows := []layout.FlexChild{
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx, batchRows...)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return a.technicalField(gtx, "输入目录", &a.batchInputDirInput, "选择一个目录后扫描当前目录图片", unit.Dp(42))
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return a.compactIconTextButton(gtx, &a.chooseGeneralBatchInputButton, uiIconFolder, "选择批处理输入目录", false)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return a.compactIconTextButton(gtx, &a.chooseGeneralBatchFilesButton, uiIconAdd, "直接加入多张图片", false)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return a.technicalField(gtx, "输出目录", &a.batchOutputDirInput, "留空 = 回原图目录", unit.Dp(42))
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return a.compactIconTextButton(gtx, &a.chooseGeneralBatchOutputButton, uiIconFolder, "选择批处理输出目录", false)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx, batchRetryRows...)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx, batchAutoAspectRows...)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						if strings.TrimSpace(a.batchAutoAspect) == "" {
+							return layout.Dimensions{}
+						}
+						rows := make([]layout.FlexChild, 0, 5)
+						for idx, value := range []string{"256", "512", "1k", "2k", "4k"} {
+							idx := idx
+							value := value
+							rows = append(rows, layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+								return a.compactButton(gtx, &a.generalBatchAutoAspectResolutionButtons[idx], strings.ToUpper(value), a.batchAutoAspect == value)
+							}))
+						}
+						return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx, rows...)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return a.label(gtx, "当前已支持目录扫描、多图并发执行、输出落盘；开启按源图比例后，会按每张图自身比例和这里的分辨率档位推导尺寸。", unit.Sp(10), fluent.textDim, font.Normal)
+					}),
+				}
+				return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(8))}.Layout(gtx, rows...)
+			})
+		},
+		func(gtx layout.Context) layout.Dimensions {
 			return a.generalSettingsCard(gtx, "日志保留", func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(8))}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -1332,6 +1703,18 @@ func (a *App) layoutGeneralSettingsModal(gtx layout.Context, snap snapshot) layo
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return a.label(gtx, "关闭时当前会话仍可查看原始响应，退出应用后会自动清理输出目录中的日志。", unit.Sp(10), fluent.textDim, font.Normal)
+					}),
+				)
+			})
+		},
+		func(gtx layout.Context) layout.Dimensions {
+			return a.generalSettingsCard(gtx, "退出时清理预览缓存", func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(8))}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx, cleanupPreviewCacheRows...)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return a.label(gtx, "默认关闭。开启后，退出应用时会删除可重建的预览图和缩略图缓存；源图、结果图和历史记录不会删除。", unit.Sp(10), fluent.textDim, font.Normal)
 					}),
 				)
 			})
@@ -1402,6 +1785,22 @@ func (a *App) layoutGeneralSettingsModal(gtx layout.Context, snap snapshot) layo
 				}
 				rows = append(rows, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return a.compactIconTextButton(gtx, &a.openPresetManagerButton, uiIconSettings, "打开预设管理", false)
+				}))
+				return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(8))}.Layout(gtx, rows...)
+			})
+		},
+		func(gtx layout.Context) layout.Dimensions {
+			return a.generalSettingsCard(gtx, "自定义比例", func(gtx layout.Context) layout.Dimensions {
+				rows := []layout.FlexChild{
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						if len(a.customAspectRatios) == 0 {
+							return a.label(gtx, "当前还没有自定义比例。已保存的共享比例可以在这里维护。", unit.Sp(10), fluent.textDim, font.Normal)
+						}
+						return a.label(gtx, fmt.Sprintf("已保存 %d 个自定义比例，会直接出现在 Gio 的比例按钮区。", len(a.customAspectRatios)), unit.Sp(10), fluent.textDim, font.Normal)
+					}),
+				}
+				rows = append(rows, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return a.compactIconTextButton(gtx, &a.openCustomAspectRatioManagerButton, uiIconSettings, "打开比例管理", false)
 				}))
 				return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(8))}.Layout(gtx, rows...)
 			})
@@ -2102,6 +2501,16 @@ func (a *App) layoutSettingsEditorPane(gtx layout.Context, snap snapshot) layout
 	if activeMode == "" {
 		activeMode = a.api
 	}
+	fallbackCandidates := make([]sharedCompat.UpstreamProfile, 0, len(snap.Profiles))
+	for _, profile := range snap.Profiles {
+		if profile.ID == selectedID {
+			continue
+		}
+		if strings.TrimSpace(profile.BaseURL) == "" {
+			continue
+		}
+		fallbackCandidates = append(fallbackCandidates, profile)
+	}
 	connectionSection := func(gtx layout.Context) layout.Dimensions {
 		rows := []layout.FlexChild{
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -2119,6 +2528,20 @@ func (a *App) layoutSettingsEditorPane(gtx layout.Context, snap snapshot) layout
 					hint = "使用标准 Images API，key 走 image-2 / image API 分组，兼容性最广。"
 				}
 				return a.label(gtx, hint, unit.Sp(10), fluent.textDim, font.Normal)
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				if a.api != string(client.APIModeResponses) {
+					return layout.Dimensions{}
+				}
+				return a.layoutSettingsOptionCards(gtx, "Responses 传输", responsesTransportChoices, a.responsesTransport, a.responsesTransportButtons, 2, func(value string) {
+					a.responsesTransport = normalizeProfileResponsesTransport(value)
+				})
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				if a.api != string(client.APIModeResponses) {
+					return layout.Dimensions{}
+				}
+				return a.label(gtx, "WebSocket mode 需要上游 / 代理正确转发 Upgrade: websocket；若握手失败，请求层会自动回退到 HTTP SSE，并把原因写进 Raw response。", unit.Sp(10), fluent.textDim, font.Normal)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return a.layoutSettingsOptionCards(gtx, "参数策略", []settingsOptionChoice{
@@ -2148,6 +2571,14 @@ func (a *App) layoutSettingsEditorPane(gtx layout.Context, snap snapshot) layout
 			rows = append(rows, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return a.technicalField(gtx, "文本模型 ID", &a.textModelInput, client.TextModel, unit.Dp(40))
 			}))
+			rows = append(rows, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return a.layoutSettingsOptionCards(gtx, "推理强度", reasoningEffortChoices, a.reasoningEffort, a.reasoningEffortButtons, 2, func(value string) {
+					a.reasoningEffort = normalizeReasoningEffort(value)
+				})
+			}))
+			rows = append(rows, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return a.label(gtx, "仅 Responses API 生效，会写入 reasoning.effort。推理越高通常越稳，但延迟也会更长。", unit.Sp(10), fluent.textDim, font.Normal)
+			}))
 		}
 		rows = append(rows,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -2157,6 +2588,76 @@ func (a *App) layoutSettingsEditorPane(gtx layout.Context, snap snapshot) layout
 				return a.technicalField(gtx, "并发数量限制", &a.concurrencyLimitInput, "留空 = 不限制", unit.Dp(40))
 			}),
 		)
+		rows = append(rows, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			children := []layout.FlexChild{
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return a.label(gtx, "失败重试路由到", unit.Sp(11), fluent.textMuted, font.SemiBold)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					btn := a.settingsProfileButton("fallback:none")
+					for btn.Clicked(gtx) {
+						a.fallbackProfileID = ""
+					}
+					active := strings.TrimSpace(a.fallbackProfileID) == ""
+					return layout.Inset{Bottom: unit.Dp(6)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return a.surfaceButton(
+							gtx,
+							btn,
+							chooseColor(active, fluent.accentSoft, fluent.surface),
+							chooseColor(active, accentAlpha(0x18), fluent.surface2),
+							chooseColor(active, accentAlpha(0x24), fluent.border),
+							unit.Dp(8),
+							layout.Inset{Top: 8, Bottom: 8, Left: 10, Right: 10},
+							func(gtx layout.Context) layout.Dimensions {
+								return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(3))}.Layout(gtx,
+									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+										return a.label(gtx, "不自动切备用上游", unit.Sp(12), chooseColor(active, fluent.accent, fluent.text), font.SemiBold)
+									}),
+									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+										return a.label(gtx, "主上游自动重试仍失败后，不再额外切备用配置。", unit.Sp(10), chooseColor(active, withAlpha(fluent.accent, 0xd0), fluent.textDim), font.Normal)
+									}),
+								)
+							},
+						)
+					})
+				}),
+			}
+			for _, profile := range fallbackCandidates {
+				profile := profile
+				children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					btn := a.settingsProfileButton("fallback:" + profile.ID)
+					for btn.Clicked(gtx) {
+						a.fallbackProfileID = profile.ID
+					}
+					active := strings.TrimSpace(a.fallbackProfileID) == profile.ID
+					return layout.Inset{Bottom: unit.Dp(6)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return a.surfaceButton(
+							gtx,
+							btn,
+							chooseColor(active, fluent.accentSoft, fluent.surface),
+							chooseColor(active, accentAlpha(0x18), fluent.surface2),
+							chooseColor(active, accentAlpha(0x24), fluent.border),
+							unit.Dp(8),
+							layout.Inset{Top: 8, Bottom: 8, Left: 10, Right: 10},
+							func(gtx layout.Context) layout.Dimensions {
+								return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(3))}.Layout(gtx,
+									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+										return a.label(gtx, strings.TrimSpace(profile.Name)+" · "+apiChoiceLabel(strings.TrimSpace(profile.APIMode)), unit.Sp(12), chooseColor(active, fluent.accent, fluent.text), font.SemiBold)
+									}),
+									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+										return a.label(gtx, strings.TrimSpace(profile.BaseURL), unit.Sp(10), chooseColor(active, withAlpha(fluent.accent, 0xd0), fluent.textDim), font.Normal)
+									}),
+								)
+							},
+						)
+					})
+				}))
+			}
+			return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
+		}))
+		rows = append(rows, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return a.label(gtx, "当前上游自动重试仍失败后，可额外切到这里选定的备用 profile 再尝试一次。默认关闭。", unit.Sp(10), fluent.textDim, font.Normal)
+		}))
 		if a.api == string(client.APIModeImages) {
 			rows = append(rows, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				active := a.imagesNewAPICompat
@@ -2352,7 +2853,7 @@ func (a *App) layoutSettingsEditorPane(gtx layout.Context, snap snapshot) layout
 }
 
 func (a *App) composeSummary(snap snapshot) string {
-	activeAspect := deriveAspectPreset(a.size)
+	activeAspect := deriveAspectPreset(a.size, a.customAspectRatios)
 	activeResolution := normalizeResolutionChoice(deriveResolutionPreset(a.size), a.api, a.policy, a.imageModelInput.Text())
 	currentSaved := strings.TrimSpace(snap.Result.SavedPath)
 	sourcePaths := a.sourcePaths()
@@ -2367,6 +2868,13 @@ func (a *App) composeSummary(snap snapshot) string {
 			sourceLabel = "未添加源图"
 		}
 	}
+	runModeLabel := ""
+	if a.batchMode {
+		batchSources := a.batchSourcePaths()
+		runModeLabel = fmt.Sprintf("批处理 %d 张", len(batchSources))
+	} else if a.loopEnabled {
+		runModeLabel = fmt.Sprintf("循环 %d 张 / 并发 %d", normalizeLoopGenerationCount(a.loopTotalCount), normalizeLoopGenerationConcurrency(a.loopConcurrency))
+	}
 	key := strings.Join([]string{
 		a.styleTag,
 		activeAspect,
@@ -2374,6 +2882,7 @@ func (a *App) composeSummary(snap snapshot) string {
 		a.quality,
 		strconv.Itoa(normalizeBatchCount(a.batchCount)),
 		a.mode,
+		runModeLabel,
 		strconv.Itoa(len(sourcePaths)),
 		currentSaved,
 	}, "\x00")
@@ -2391,6 +2900,7 @@ func (a *App) composeSummary(snap snapshot) string {
 		choiceLabel(resolutionChoices, activeResolution),
 		qualityChoiceLabel(a.quality),
 		fmt.Sprintf("%d 张", normalizeBatchCount(a.batchCount)),
+		runModeLabel,
 		sourceLabel,
 	}), " · ")
 	a.mu.Lock()
@@ -2402,7 +2912,7 @@ func (a *App) composeSummary(snap snapshot) string {
 
 func (a *App) layoutComposeCard(gtx layout.Context, snap snapshot) layout.Dimensions {
 	defer a.recordLayoutTiming(layoutTimingComposeCard, time.Now())
-	activeAspect := deriveAspectPreset(a.size)
+	activeAspect := deriveAspectPreset(a.size, a.customAspectRatios)
 	activeResolution := normalizeResolutionChoice(deriveResolutionPreset(a.size), a.api, a.policy, a.imageModelInput.Text())
 	currentSaved := strings.TrimSpace(snap.Result.SavedPath)
 	sourcePaths := a.sourcePaths()
@@ -2450,6 +2960,10 @@ func (a *App) layoutComposeCard(gtx layout.Context, snap snapshot) layout.Dimens
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return a.composeSectionCard(gtx, a.layoutBatchCountSection)
 					}),
+					layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return a.composeSectionCard(gtx, a.layoutLoopSection)
+					}),
 				)
 				if a.mode == string(client.ModeEdit) {
 					children = append(children,
@@ -2480,7 +2994,8 @@ func (a *App) layoutAspectSection(gtx layout.Context, activeAspect string, curre
 	}))
 	children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(6)}.Layout))
 
-	rows := 2
+	choices := aspectChoicesWithCustom(a.customAspectRatios)
+	rows := (len(choices) + 2) / 3
 	cols := 3
 	for row := 0; row < rows; row++ {
 		row := row
@@ -2488,13 +3003,22 @@ func (a *App) layoutAspectSection(gtx layout.Context, activeAspect string, curre
 			cells := make([]layout.FlexChild, 0, cols)
 			for col := 0; col < cols; col++ {
 				idx := row*cols + col
-				if idx >= len(aspectChoices) {
+				if idx >= len(choices) {
 					cells = append(cells, layout.Flexed(1, layout.Spacer{}.Layout))
 					continue
 				}
-				choice := aspectChoices[idx]
+				choice := choices[idx]
 				for a.aspectButtons[idx].Clicked(gtx) {
-					a.size = buildAspectSizeSelection(choice.Value, currentResolution, a.api, a.policy, a.imageModelInput.Text())
+					next := buildAspectSizeSelection(choice.Value, currentResolution, a.api, a.policy, a.imageModelInput.Text())
+					if strings.HasPrefix(choice.Value, "custom:") {
+						for _, ratio := range a.customAspectRatios {
+							if "custom:"+ratio.ID == choice.Value {
+								next = buildCustomSizeSelection(ratio, currentResolution)
+								break
+							}
+						}
+					}
+					a.size = next
 				}
 				cells = append(cells, layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 					return a.layoutAspectButton(gtx, &a.aspectButtons[idx], choice, activeAspect == choice.Value)
@@ -2574,6 +3098,30 @@ func (a *App) layoutStyleSection(gtx layout.Context) layout.Dimensions {
 }
 
 func (a *App) layoutSourceInputSection(gtx layout.Context, sourcePaths []string, currentSaved string) layout.Dimensions {
+	for a.composeSourceModeButtons[0].Clicked(gtx) {
+		a.batchMode = false
+	}
+	for a.composeSourceModeButtons[1].Clicked(gtx) {
+		a.batchMode = true
+	}
+	modeRows := []layout.FlexChild{
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			return a.compactButton(gtx, &a.composeSourceModeButtons[0], "普通图生图", !a.batchMode)
+		}),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			return a.compactButton(gtx, &a.composeSourceModeButtons[1], "批处理", a.batchMode)
+		}),
+	}
+	if a.batchMode {
+		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(8))}.Layout(gtx,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx, modeRows...)
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return a.layoutBatchSourceQueueSection(gtx, sourcePaths)
+			}),
+		)
+	}
 	for a.addSourceFilesButton.Clicked(gtx) {
 		paths, err := chooseImageFiles()
 		if err != nil {
@@ -2596,6 +3144,10 @@ func (a *App) layoutSourceInputSection(gtx layout.Context, sourcePaths []string,
 	}
 
 	children := []layout.FlexChild{
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx, modeRows...)
+		}),
+		layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
@@ -2670,6 +3222,262 @@ func (a *App) layoutSourceInputSection(gtx layout.Context, sourcePaths []string,
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
 }
 
+func (a *App) layoutBatchSourceQueueSection(gtx layout.Context, sourcePaths []string) layout.Dimensions {
+	scannedPaths, scanErr := a.batchSourcePathsForRun()
+	displayPaths := sourcePaths
+	if len(displayPaths) == 0 && strings.TrimSpace(a.batchInputDirInput.Text()) != "" {
+		displayPaths = scannedPaths
+	}
+	for a.chooseBatchInputDirButton.Clicked(gtx) {
+		dir, err := chooseDirectory()
+		if err != nil {
+			a.appendLog("选择批处理输入目录失败: " + err.Error())
+		} else if strings.TrimSpace(dir) != "" {
+			a.batchInputDirInput.SetText(dir)
+			a.sourcePathsInput.SetText("")
+			a.sourceButtons = map[string]*widget.Clickable{}
+		}
+	}
+	for a.chooseBatchFilesButton.Clicked(gtx) {
+		paths, err := chooseImageFiles()
+		if err != nil {
+			a.appendLog("选择批处理图片失败: " + err.Error())
+		} else if len(paths) > 0 {
+			a.batchInputDirInput.SetText("")
+			a.sourcePathsInput.SetText(strings.Join(paths, "\n"))
+			a.sourceButtons = map[string]*widget.Clickable{}
+		}
+	}
+	for a.chooseBatchOutputDirButton.Clicked(gtx) {
+		dir, err := chooseDirectory()
+		if err != nil {
+			a.appendLog("选择批处理输出目录失败: " + err.Error())
+		} else if strings.TrimSpace(dir) != "" {
+			a.batchOutputDirInput.SetText(dir)
+			a.batchOutputDir = dir
+		}
+	}
+	for a.addSourceFilesButton.Clicked(gtx) {
+		paths, err := chooseImageFiles()
+		if err != nil {
+			a.appendLog("选择批处理图片失败: " + err.Error())
+		} else {
+			for _, path := range paths {
+				a.appendSourcePath(path)
+			}
+		}
+	}
+	for a.clearSourcesButton.Clicked(gtx) {
+		a.setSourcePaths(nil)
+	}
+	for _, path := range sourcePaths {
+		path := path
+		btn := a.sourceButton("batch-remove:" + path)
+		for btn.Clicked(gtx) {
+			a.removeSourcePath(path)
+		}
+	}
+
+	queueLabel := fmt.Sprintf("当前队列 %d 张", len(displayPaths))
+	if strings.TrimSpace(a.batchInputDirInput.Text()) != "" && len(sourcePaths) == 0 {
+		queueLabel = fmt.Sprintf("%s · 目录模式", queueLabel)
+	}
+	if len(sourcePaths) > 0 {
+		queueLabel = fmt.Sprintf("%s · 手动队列", fmt.Sprintf("当前队列 %d 张", len(sourcePaths)))
+	}
+	children := []layout.FlexChild{
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+					return a.label(gtx, "批处理队列", unit.Sp(11), fluent.textMuted, font.SemiBold)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return a.metaBadge(gtx, queueLabel, true)
+				}),
+			)
+		}),
+		layout.Rigid(layout.Spacer{Height: unit.Dp(6)}.Layout),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(8))}.Layout(gtx,
+				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+					return a.compactIconTextButton(gtx, &a.chooseBatchInputDirButton, uiIconFolder, "选目录", false)
+				}),
+				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+					return a.compactIconTextButton(gtx, &a.chooseBatchFilesButton, uiIconAdd, "选多图", false)
+				}),
+				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+					return a.compactIconTextButton(gtx, &a.chooseBatchOutputDirButton, uiIconFolder, "输出目录", false)
+				}),
+			)
+		}),
+		layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
+	}
+	sourceModeLabel := "直接多图"
+	if strings.TrimSpace(a.batchInputDirInput.Text()) != "" && len(sourcePaths) == 0 {
+		sourceModeLabel = "目录扫描"
+	}
+	if len(displayPaths) > 0 {
+		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return a.label(gtx, "当前来源: "+sourceModeLabel, unit.Sp(10), fluent.textDim, font.Normal)
+		}))
+		children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(6)}.Layout))
+	}
+
+	if scanErr != nil {
+		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return a.borderedSurface(gtx, dangerAlpha(0x12), fluentControlRadius, dangerAlpha(0x2a), func(gtx layout.Context) layout.Dimensions {
+				return layout.UniformInset(unit.Dp(10)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return a.label(gtx, "批处理目录读取失败: "+scanErr.Error(), unit.Sp(10), fluent.danger, font.Normal)
+				})
+			})
+		}))
+	} else if len(displayPaths) == 0 {
+		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return a.borderedSurface(gtx, fluent.surface2, fluentControlRadius, fluent.border, func(gtx layout.Context) layout.Dimensions {
+				return layout.UniformInset(unit.Dp(10)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return a.label(gtx, "可直接加入多张图片，或在设置里选择输入目录后按目录扫描。", unit.Sp(10), fluent.textDim, font.Normal)
+				})
+			})
+		}))
+	} else {
+		limit := len(displayPaths)
+		if limit > 6 {
+			limit = 6
+		}
+		for idx := 0; idx < limit; idx++ {
+			path := displayPaths[idx]
+			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				btn := a.sourceButton("batch-remove:" + path)
+				removeEnabled := len(sourcePaths) > 0
+				return a.borderedSurface(gtx, fluent.surface, fluentControlRadius, fluent.border, func(gtx layout.Context) layout.Dimensions {
+					return layout.Inset{Top: 8, Bottom: 8, Left: 10, Right: 10}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								return layout.Inset{Right: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+									return a.label(gtx, strconv.Itoa(idx+1)+".", unit.Sp(10), fluent.textDim, font.Medium)
+								})
+							}),
+							layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+								return a.singleLineLabel(gtx, filepath.Base(path), unit.Sp(11), fluent.text, font.Medium)
+							}),
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								if !removeEnabled {
+									return layout.Dimensions{}
+								}
+								return a.ghostIconButton(gtx, btn, uiIconClose, false)
+							}),
+						)
+					})
+				})
+			}))
+			children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout))
+		}
+		if len(displayPaths) > limit {
+			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return a.label(gtx, fmt.Sprintf("还有 %d 张未展开显示。", len(displayPaths)-limit), unit.Sp(10), fluent.textDim, font.Normal)
+			}))
+			children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout))
+		}
+	}
+
+	children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		row := []layout.FlexChild{
+			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+				return a.compactIconTextButton(gtx, &a.addSourceFilesButton, uiIconAdd, "继续加入图片", false)
+			}),
+		}
+		if len(sourcePaths) > 0 {
+			row = append(row, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.Inset{Left: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return a.compactIconButton(gtx, &a.clearSourcesButton, uiIconDelete, false)
+				})
+			}))
+		}
+		return layout.Flex{Axis: layout.Horizontal}.Layout(gtx, row...)
+	}))
+
+	children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(10)}.Layout))
+	children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		retryRows := []layout.FlexChild{
+			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+				return a.compactButton(gtx, &a.composeBatchRetryButtons[0], "自动重试", a.batchRetryOnFail)
+			}),
+			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+				return a.compactButton(gtx, &a.composeBatchRetryButtons[1], "失败跳过", !a.batchRetryOnFail)
+			}),
+		}
+		for a.composeBatchRetryButtons[0].Clicked(gtx) {
+			a.batchRetryOnFail = true
+		}
+		for a.composeBatchRetryButtons[1].Clicked(gtx) {
+			a.batchRetryOnFail = false
+		}
+		return a.borderedSurface(gtx, fluent.surface2, fluentControlRadius, fluent.border, func(gtx layout.Context) layout.Dimensions {
+			return layout.UniformInset(unit.Dp(10)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return a.label(gtx, "失败处理", unit.Sp(11), fluent.textMuted, font.SemiBold)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx, retryRows...)
+					}),
+				)
+			})
+		})
+	}))
+
+	children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout))
+	children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		autoAspectRows := []layout.FlexChild{
+			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+				return a.compactButton(gtx, &a.composeBatchAutoAspectButtons[0], "沿用当前比例", strings.TrimSpace(a.batchAutoAspect) == "")
+			}),
+			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+				return a.compactButton(gtx, &a.composeBatchAutoAspectButtons[1], "按源图比例", strings.TrimSpace(a.batchAutoAspect) != "")
+			}),
+		}
+		for a.composeBatchAutoAspectButtons[0].Clicked(gtx) {
+			a.batchAutoAspect = ""
+		}
+		for a.composeBatchAutoAspectButtons[1].Clicked(gtx) {
+			if strings.TrimSpace(a.batchAutoAspect) == "" {
+				a.batchAutoAspect = "1k"
+			}
+		}
+		cardChildren := []layout.FlexChild{
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return a.label(gtx, "尺寸策略", unit.Sp(11), fluent.textMuted, font.SemiBold)
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx, autoAspectRows...)
+			}),
+		}
+		if strings.TrimSpace(a.batchAutoAspect) != "" {
+			cardChildren = append(cardChildren, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				rows := make([]layout.FlexChild, 0, 5)
+				for idx, value := range []string{"256", "512", "1k", "2k", "4k"} {
+					idx := idx
+					value := value
+					for a.composeBatchAutoAspectResolutionButtons[idx].Clicked(gtx) {
+						a.batchAutoAspect = value
+					}
+					rows = append(rows, layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+						return a.compactButton(gtx, &a.composeBatchAutoAspectResolutionButtons[idx], strings.ToUpper(value), a.batchAutoAspect == value)
+					}))
+				}
+				return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx, rows...)
+			}))
+		}
+		return a.borderedSurface(gtx, fluent.surface2, fluentControlRadius, fluent.border, func(gtx layout.Context) layout.Dimensions {
+			return layout.UniformInset(unit.Dp(10)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx, cardChildren...)
+			})
+		})
+	}))
+
+	return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
+}
+
 func indexOfSourcePath(path string, sourcePaths []string) int {
 	for idx, value := range sourcePaths {
 		if value == path {
@@ -2733,6 +3541,129 @@ func (a *App) layoutBatchCountSection(gtx layout.Context) layout.Dimensions {
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
 }
 
+func (a *App) layoutLoopSection(gtx layout.Context) layout.Dimensions {
+	for a.composeLoopButtons[0].Clicked(gtx) {
+		a.loopEnabled = true
+	}
+	for a.composeLoopButtons[1].Clicked(gtx) {
+		a.loopEnabled = false
+	}
+	for a.composeLoopAutoSaveButtons[0].Clicked(gtx) {
+		a.loopAutoSave = true
+	}
+	for a.composeLoopAutoSaveButtons[1].Clicked(gtx) {
+		a.loopAutoSave = false
+	}
+	for a.composeLoopPreviewButtons[0].Clicked(gtx) {
+		a.loopLivePreview = true
+	}
+	for a.composeLoopPreviewButtons[1].Clicked(gtx) {
+		a.loopLivePreview = false
+	}
+	for a.chooseLoopAutoSaveDirButton.Clicked(gtx) {
+		dir, err := chooseDirectory()
+		if err != nil {
+			a.appendLog("选择循环自动另存为目录失败: " + err.Error())
+		} else if strings.TrimSpace(dir) != "" {
+			a.loopAutoSaveDirInput.SetText(dir)
+			a.loopAutoSave = true
+		}
+	}
+	for idx, value := range []int{4, 8, 10, 20, 50} {
+		value := value
+		for a.composeLoopCountButtons[idx].Clicked(gtx) {
+			a.loopTotalCount = value
+		}
+	}
+	for idx, value := range []int{1, 2, 4, 8} {
+		value := value
+		for a.composeLoopConcurrencyButtons[idx].Clicked(gtx) {
+			a.loopConcurrency = value
+		}
+	}
+
+	loopRows := []layout.FlexChild{
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			return a.compactButton(gtx, &a.composeLoopButtons[0], "开启", a.loopEnabled)
+		}),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			return a.compactButton(gtx, &a.composeLoopButtons[1], "关闭", !a.loopEnabled)
+		}),
+	}
+	autoSaveRows := []layout.FlexChild{
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			return a.compactButton(gtx, &a.composeLoopAutoSaveButtons[0], "自动另存为", a.loopAutoSave)
+		}),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			return a.compactButton(gtx, &a.composeLoopAutoSaveButtons[1], "不自动保存", !a.loopAutoSave)
+		}),
+	}
+	previewRows := []layout.FlexChild{
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			return a.compactButton(gtx, &a.composeLoopPreviewButtons[0], "实时预览开", a.loopLivePreview)
+		}),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			return a.compactButton(gtx, &a.composeLoopPreviewButtons[1], "实时预览关", !a.loopLivePreview)
+		}),
+	}
+	countRows := make([]layout.FlexChild, 0, 5)
+	for idx, value := range []int{4, 8, 10, 20, 50} {
+		idx := idx
+		value := value
+		countRows = append(countRows, layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			return a.compactButton(gtx, &a.composeLoopCountButtons[idx], fmt.Sprintf("%d 张", value), normalizeLoopGenerationCount(a.loopTotalCount) == value)
+		}))
+	}
+	concurrencyRows := make([]layout.FlexChild, 0, 4)
+	for idx, value := range []int{1, 2, 4, 8} {
+		idx := idx
+		value := value
+		concurrencyRows = append(concurrencyRows, layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			return a.compactButton(gtx, &a.composeLoopConcurrencyButtons[idx], fmt.Sprintf("%d 并发", value), normalizeLoopGenerationConcurrency(a.loopConcurrency) == value)
+		}))
+	}
+	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+					return a.label(gtx, "循环出图", unit.Sp(11), fluent.textMuted, font.SemiBold)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					stateLabel := "关闭"
+					if a.loopEnabled {
+						stateLabel = fmt.Sprintf("%d 张 / %d 并发", normalizeLoopGenerationCount(a.loopTotalCount), normalizeLoopGenerationConcurrency(a.loopConcurrency))
+					}
+					return a.metaBadge(gtx, stateLabel, true)
+				}),
+			)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx, loopRows...)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx, countRows...)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx, concurrencyRows...)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx, autoSaveRows...)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx, previewRows...)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return a.technicalField(gtx, "自动另存为目录", &a.loopAutoSaveDirInput, "留空 = 关闭自动另存为", unit.Dp(42))
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return a.compactIconTextButton(gtx, &a.chooseLoopAutoSaveDirButton, uiIconFolder, "选择自动另存为目录", false)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return a.label(gtx, "开启后提交按钮会按这里的总张数和并发持续补位生成。自动另存为与实时预览开关都已接到执行路径。", unit.Sp(10), fluent.textDim, font.Normal)
+		}),
+	)
+}
+
 func (a *App) advancedSummary() string {
 	partialPreview := strings.TrimSpace(a.partialImagesInput.Text())
 	if partialPreview == "" {
@@ -2751,6 +3682,7 @@ func (a *App) advancedSummary() string {
 		a.imageStyle,
 		a.moderation,
 		partialPreview,
+		strconv.FormatBool(a.protectStreamPreview),
 		a.userIdentifierInput.Text(),
 		a.seedInput.Text(),
 	}, "\x00")
@@ -2771,6 +3703,7 @@ func (a *App) advancedSummary() string {
 		chooseOptionalImageStyleSummary(a.imageStyle),
 		"审核 " + moderationChoiceLabel(a.moderation),
 		"预览 " + partialPreviewSummary,
+		protectStreamPreviewSummary(a.protectStreamPreview),
 		chooseOptionalUserIdentifierSummary(a.userIdentifierInput.Text()),
 		seedSummary(a.seedInput.Text()),
 	}), " · ")
@@ -2786,6 +3719,12 @@ func (a *App) layoutAdvancedCard(gtx layout.Context) layout.Dimensions {
 	for a.copyPerformanceDiagnosticsButton.Clicked(gtx) {
 		copyResultDetailText(gtx, a.buildPerformanceDiagnosticsReport())
 		a.appendLog("已复制性能诊断")
+	}
+	for a.protectStreamPreviewButtons[0].Clicked(gtx) {
+		a.protectStreamPreview = true
+	}
+	for a.protectStreamPreviewButtons[1].Clicked(gtx) {
+		a.protectStreamPreview = false
 	}
 	summary := a.advancedSummary()
 
@@ -2890,6 +3829,19 @@ func (a *App) layoutAdvancedCard(gtx layout.Context) layout.Dimensions {
 								}),
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 									return a.label(gtx, "Gio 默认仅请求最终图；打开预览帧会增加上游响应体积和界面刷新开销。", unit.Sp(10), fluent.textDim, font.Normal)
+								}),
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									return layout.Flex{Axis: layout.Horizontal, Gap: gtx.Dp(unit.Dp(6))}.Layout(gtx,
+										layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+											return a.compactButton(gtx, &a.protectStreamPreviewButtons[0], "保护开启", a.protectStreamPreview)
+										}),
+										layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+											return a.compactButton(gtx, &a.protectStreamPreviewButtons[1], "保护关闭", !a.protectStreamPreview)
+										}),
+									)
+								}),
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									return a.label(gtx, "默认开启。桌面端高并发任务时会自动关闭流式预览；关闭后严格按上面的预览帧数请求。", unit.Sp(10), fluent.textDim, font.Normal)
 								}),
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 									return a.compactIconTextButton(gtx, &a.copyPerformanceDiagnosticsButton, uiIconCopy, "复制性能诊断", false)
@@ -3265,6 +4217,13 @@ func chooseOptionalUserIdentifierSummary(value string) string {
 		return ""
 	}
 	return "用户标识 已填"
+}
+
+func protectStreamPreviewSummary(enabled bool) string {
+	if enabled {
+		return "预览保护 开"
+	}
+	return "预览保护 关"
 }
 
 func seedSummary(value string) string {

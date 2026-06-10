@@ -1,6 +1,6 @@
-# Image-Prompts 导入说明
+# Image-Prompts 配套项目与导入说明
 
-Image Studio 桌面端支持从配套提示词聚合站 [Image-Prompts](https://prompts.sorry.ink/) 一键导入提示词。
+[Image-Prompts](https://prompts.sorry.ink/) 是 Image Studio 的配套提示词站，支持从网页端一键导入提示词到桌面端。
 
 ## 使用方式
 

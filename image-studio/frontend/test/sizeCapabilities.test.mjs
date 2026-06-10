@@ -110,34 +110,34 @@ test("precise custom sizes stay untouched when the active model path supports th
     requestPolicy: "openai",
     imageModelID: "gpt-image-2",
   };
-  assert.equal(caps.normalizeSizeSelection("2000x1000", input), "2000x1000");
-  assert.deepEqual(caps.deriveExactSizeSelection("2000x1000", input), {
-    value: "2000x1000",
+  assert.equal(caps.normalizeSizeSelection("2000x1000", input), "2000x1008");
+  assert.deepEqual(caps.deriveExactSizeSelection("2000x1008", input), {
+    value: "2000x1008",
     width: 2000,
-    height: 1000,
-    label: "2000×1000",
+    height: 1008,
+    label: "2000×1008",
   });
 });
 
 test("precise custom sizes obey the shared OpenAI edge, ratio, and pixel limits", () => {
   assert.deepEqual(caps.normalizeExactSizeDimensions(5000, 1000), {
-    width: 3000,
-    height: 1000,
+    width: 3008,
+    height: 1008,
   });
   assert.deepEqual(caps.normalizeExactSizeDimensions(1000, 5000), {
-    width: 1000,
-    height: 3000,
+    width: 1008,
+    height: 3008,
   });
   assert.deepEqual(caps.normalizeExactSizeDimensions(5000, 5000), {
-    width: 2173,
-    height: 3816,
+    width: 2880,
+    height: 2880,
   });
-  assert.equal(caps.buildExactSizeValue(5000, 1000), "3000x1000");
+  assert.equal(caps.buildExactSizeValue(5000, 1000), "3008x1008");
   assert.equal(caps.normalizeSizeSelection("5000x5000", {
     apiMode: "responses",
     requestPolicy: "openai",
     imageModelID: "gpt-image-2",
-  }), "2173x3816");
+  }), "2880x2880");
 });
 
 test("compat mode can keep large resolution presets available for compatible relays", () => {
@@ -212,7 +212,7 @@ test("custom aspect ratios can build sizes and round-trip back to the active cus
   ];
   const value = caps.buildCustomAspectValue("4:5");
   const size = caps.buildAspectSizeSelection(value, "2k", input, customRatios);
-  assert.equal(size, "1496x1864");
+  assert.equal(size, "1488x1872");
   assert.equal(caps.deriveAspectPreset(size, customRatios), value);
   assert.equal(caps.deriveResolutionPreset(size), "2k");
   assert.equal(caps.normalizeSizeSelection(size, input, customRatios), size);
@@ -230,7 +230,7 @@ test("all custom resolution presets keep OpenAI aspect and pixel limits", () => 
   ];
   const custom = caps.buildCustomAspectValue("4:1");
   assert.equal(caps.buildAspectSizeSelection(custom, "1k", input, customRatios), "1536x512");
-  assert.equal(caps.buildAspectSizeSelection(custom, "2k", input, customRatios), "2040x680");
+  assert.equal(caps.buildAspectSizeSelection(custom, "2k", input, customRatios), "2048x688");
   assert.equal(caps.buildAspectSizeSelection(custom, "4k", input, customRatios), "3840x1280");
 });
 
@@ -304,7 +304,7 @@ test("reference resolution selection can use source image ratio directly", () =>
   };
   assert.equal(
     caps.buildReferenceResolutionSizeSelection("2k", { width: 1200, height: 1600 }, input, []),
-    "1448x1928",
+    "1440x1920",
   );
   assert.equal(
     caps.buildReferenceResolutionSizeSelection("4k", { width: 1600, height: 1200 }, input, []),

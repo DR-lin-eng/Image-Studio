@@ -238,6 +238,67 @@ test("desktop remote kernel can reach mock upstream through worker for images ap
   }
 });
 
+test("desktop remote kernel honors configured auto retry count for 503 retries", async () => {
+  const requests = [];
+  let attempt = 0;
+  const server = http.createServer(async (req, res) => {
+    const body = await readIncomingBody(req);
+    requests.push({ method: req.method, url: req.url, body });
+    if (req.method === "POST" && req.url === "/v1/responses") {
+      attempt++;
+      if (attempt <= 3) {
+        res.writeHead(503, { "content-type": "application/json" });
+        res.end(JSON.stringify({ error: { message: "Upstream request failed", type: "upstream_error", upstreamStatus: 503 } }));
+        return;
+      }
+      res.writeHead(200, { "content-type": "text/event-stream" });
+      res.end('data: {"type":"response.output_item.done","item":{"type":"image_generation_call","result":"cmV0cnktb2s=","revised_prompt":"retry ok"}}\n');
+      return;
+    }
+    res.writeHead(404, { "content-type": "application/json" });
+    res.end(JSON.stringify({ error: { message: "not found" } }));
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  const upstreamBaseURL = `http://127.0.0.1:${address.port}`;
+  try {
+    await withWorkerProxy(upstreamBaseURL, async () => {
+      const kernel = await loadRemoteKernel();
+      const result = await kernel.runRemoteImageJob(
+        {
+          payload: {
+            apiKey: "worker-key",
+            mode: "generate",
+            prompt: "cat",
+            size: "1024x1024",
+            quality: "low",
+            outputFormat: "png",
+            imagePaths: [],
+            imagePath: "",
+            maskB64: "",
+            seed: 0,
+            negativePrompt: "",
+            baseURL: "https://worker.local",
+            textModelID: "gpt-5.5",
+            imageModelID: "gpt-image-2",
+            apiMode: "responses",
+            requestPolicy: "openai",
+            noPromptRevision: false,
+            concurrencyLimit: 0,
+            autoRetryEnabled: true,
+            autoRetryCount: 3,
+          },
+        },
+        { signal: new AbortController().signal },
+      );
+      assert.equal(result.imageB64, "cmV0cnktb2s=");
+      assert.equal(attempt, 4);
+    });
+  } finally {
+    await new Promise((resolve, reject) => server.close((err) => (err ? reject(err) : resolve())));
+  }
+});
+
 test("desktop remote kernel worker path supports NewAPI image compat mode", async () => {
   const upstream = await startMockUpstream();
   try {

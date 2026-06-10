@@ -11,9 +11,16 @@ export const DEFAULT_MODERATION = "low";
 export const DEFAULT_REASONING_EFFORT = "xhigh";
 export const DEFAULT_REQUEST_POLICY = "openai";
 export const DEFAULT_PARTIAL_IMAGES = 1;
-export const MAX_ATTEMPTS = 3;
+export const DEFAULT_AUTO_RETRY_COUNT = 5;
+export const MAX_AUTO_RETRY_COUNT = 10;
+export const MAX_ATTEMPTS = DEFAULT_AUTO_RETRY_COUNT + 1;
 export const RETRY_BACKOFF_MS = 15_000;
 export const STATUS_INTERVAL_MS = 10_000;
+export const OPENAI_IMAGE_SIZE_ALIGNMENT = 16;
+export const MIN_OPENAI_IMAGE_SIDE = 64;
+export const MAX_OPENAI_IMAGE_SIDE = 3840;
+export const MAX_OPENAI_IMAGE_PIXELS = 3840 * 2160;
+export const MAX_OPENAI_IMAGE_ASPECT_RATIO = 3;
 
 const NO_PROMPT_REVISION_INSTRUCTIONS = "You are a tool runner. Pass the user prompt to image_generation VERBATIM. DO NOT rewrite, expand, polish, or revise it in any way. Use the exact text the user gave.";
 
@@ -88,6 +95,145 @@ export function normalizePartialImages(value) {
   const numeric = Number(value);
   if (!Number.isFinite(numeric) || numeric < 0) return DEFAULT_PARTIAL_IMAGES;
   return Math.max(0, Math.min(3, Math.floor(numeric)));
+}
+
+export function normalizeAutoRetryCount(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric < 0) return DEFAULT_AUTO_RETRY_COUNT;
+  return Math.max(1, Math.min(MAX_AUTO_RETRY_COUNT, Math.floor(numeric)));
+}
+
+export function parseSizeValue(size) {
+  const match = /^(\d+)x(\d+)$/i.exec(String(size || "").trim());
+  if (!match) return null;
+  const width = Number(match[1]);
+  const height = Number(match[2]);
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return null;
+  return { width, height };
+}
+
+export function formatSizeValue(width, height) {
+  return `${Math.floor(width)}x${Math.floor(height)}`;
+}
+
+function roundAligned(value, mode = "nearest", alignment = OPENAI_IMAGE_SIZE_ALIGNMENT) {
+  const scaled = Number(value) / alignment;
+  if (!Number.isFinite(scaled)) return 0;
+  if (mode === "down") return Math.floor(scaled) * alignment;
+  if (mode === "up") return Math.ceil(scaled) * alignment;
+  return Math.round(scaled) * alignment;
+}
+
+function sizeCandidateSet(value, min, max, alignment = OPENAI_IMAGE_SIZE_ALIGNMENT) {
+  const clamped = Math.max(min, Math.min(max, Number(value)));
+  return Array.from(new Set([
+    roundAligned(clamped, "nearest", alignment),
+    roundAligned(clamped, "down", alignment),
+    roundAligned(clamped, "up", alignment),
+  ].map((candidate) => Math.max(min, Math.min(max, candidate)))))
+    .filter((candidate) => candidate >= min && candidate <= max)
+    .sort((left, right) => Math.abs(left - clamped) - Math.abs(right - clamped) || right - left);
+}
+
+function sizeDistance(width, height, targetWidth, targetHeight) {
+  return Math.abs(width - targetWidth) / Math.max(targetWidth, 1)
+    + Math.abs(height - targetHeight) / Math.max(targetHeight, 1);
+}
+
+function sizeWithinLimits(width, height) {
+  if (width < MIN_OPENAI_IMAGE_SIDE || height < MIN_OPENAI_IMAGE_SIDE) return false;
+  if (width > MAX_OPENAI_IMAGE_SIDE || height > MAX_OPENAI_IMAGE_SIDE) return false;
+  if (width * height > MAX_OPENAI_IMAGE_PIXELS) return false;
+  const aspect = width / height;
+  return aspect <= MAX_OPENAI_IMAGE_ASPECT_RATIO && aspect >= (1 / MAX_OPENAI_IMAGE_ASPECT_RATIO);
+}
+
+export function normalizeOpenAIImageSize(size) {
+  const parsed = typeof size === "string" ? parseSizeValue(size) : size;
+  if (!parsed) return null;
+  let targetWidth = parsed.width;
+  let targetHeight = parsed.height;
+  const aspect = Math.max(1 / MAX_OPENAI_IMAGE_ASPECT_RATIO, Math.min(MAX_OPENAI_IMAGE_ASPECT_RATIO, targetWidth / targetHeight));
+
+  if (targetWidth / targetHeight !== aspect) {
+    if (targetWidth >= targetHeight) targetWidth = targetHeight * aspect;
+    else targetHeight = targetWidth / aspect;
+  }
+
+  const maxSide = Math.max(targetWidth, targetHeight);
+  if (maxSide > MAX_OPENAI_IMAGE_SIDE) {
+    const scale = MAX_OPENAI_IMAGE_SIDE / maxSide;
+    targetWidth *= scale;
+    targetHeight *= scale;
+  }
+
+  const pixelCount = targetWidth * targetHeight;
+  if (pixelCount > MAX_OPENAI_IMAGE_PIXELS) {
+    const scale = Math.sqrt(MAX_OPENAI_IMAGE_PIXELS / pixelCount);
+    targetWidth *= scale;
+    targetHeight *= scale;
+  }
+
+  const widthCandidates = sizeCandidateSet(targetWidth, MIN_OPENAI_IMAGE_SIDE, MAX_OPENAI_IMAGE_SIDE);
+  const heightCandidates = sizeCandidateSet(targetHeight, MIN_OPENAI_IMAGE_SIDE, MAX_OPENAI_IMAGE_SIDE);
+  let best = null;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  let bestAspectDistance = Number.POSITIVE_INFINITY;
+  let bestAreaDistance = Number.POSITIVE_INFINITY;
+
+  for (const width of widthCandidates) {
+    for (const height of heightCandidates) {
+      if (!sizeWithinLimits(width, height)) continue;
+      const distance = sizeDistance(width, height, targetWidth, targetHeight);
+      const aspectDistance = Math.abs((width / height) - (targetWidth / targetHeight));
+      const areaDistance = Math.abs((width * height) - (targetWidth * targetHeight)) / Math.max(targetWidth * targetHeight, 1);
+      if (
+        distance < bestDistance
+        || (distance === bestDistance && aspectDistance < bestAspectDistance)
+        || (distance === bestDistance && aspectDistance === bestAspectDistance && areaDistance < bestAreaDistance)
+      ) {
+        best = { width, height };
+        bestDistance = distance;
+        bestAspectDistance = aspectDistance;
+        bestAreaDistance = areaDistance;
+      }
+    }
+  }
+
+  return best;
+}
+
+export function repairSizeForOpenAI(payload) {
+  const currentSize = String(payload?.size || "").trim();
+  const parsed = parseSizeValue(currentSize);
+  if (!parsed) return null;
+  const normalized = normalizeOpenAIImageSize(parsed);
+  if (!normalized) return null;
+  const nextSize = formatSizeValue(normalized.width, normalized.height);
+  if (nextSize === currentSize) return null;
+  return {
+    ...payload,
+    size: nextSize,
+  };
+}
+
+export function extractInvalidSize(raw) {
+  const text = String(raw || "").trim();
+  if (!text) return null;
+  const pattern = /Invalid size '(\d+x\d+)'\. Width and height must both be divisible by 16/i;
+  const direct = text.match(pattern);
+  if (direct) {
+    return { original: direct[1], reason: "divisible_by_16" };
+  }
+  try {
+    const data = JSON.parse(text);
+    const message = String(data?.error?.message || data?.message || "");
+    const nested = message.match(pattern);
+    if (!nested) return null;
+    return { original: nested[1], reason: "divisible_by_16" };
+  } catch {
+    return null;
+  }
 }
 
 export function isCompatRequestPolicy(requestPolicy) {
@@ -240,8 +386,11 @@ export function buildPromptOptimizePayload(input, sourceDataURLs) {
 
 export function retryableMarkers() {
   return [
+    "upstream request failed",
     "error code 524",
     "524: a timeout occurred",
+    "error code 503",
+    "service unavailable",
     "error code 504",
     "gateway time-out",
     "service temporarily unavailable",
@@ -296,13 +445,16 @@ export function isRetryableRaw(raw) {
   try {
     const data = JSON.parse(text);
     if (data?.retryable === true) return true;
-    if ([502, 503, 504, 524].includes(Number(data?.status))) return true;
+    if ([403, 502, 503, 504, 524].includes(Number(data?.status))) return true;
     const err = data?.error;
     if (err && typeof err === "object") {
       const message = String(err.message || "").toLowerCase();
       const type = String(err.type || "").toLowerCase();
+      const upstreamStatus = Number(err.upstreamStatus ?? err.upstream_status ?? err.status);
+      if ([403, 502, 503, 504, 524].includes(upstreamStatus)) return true;
       if (message.includes("temporarily unavailable")) return true;
-      if (type === "api_error" || type === "server_error") return true;
+      if (message.includes("upstream request failed")) return true;
+      if (type === "api_error" || type === "server_error" || type === "upstream_error") return true;
     }
   } catch {
     // ignore

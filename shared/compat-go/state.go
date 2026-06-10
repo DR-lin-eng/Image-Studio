@@ -22,32 +22,35 @@ type State struct {
 }
 
 type Settings struct {
-	ProxyMode                 string                   `json:"proxyMode,omitempty"`
-	ProxyURL                  string                   `json:"proxyURL,omitempty"`
-	Theme                     string                   `json:"theme,omitempty"`
-	FontScale                 float64                  `json:"fontScale,omitempty"`
-	OutputFormat              string                   `json:"outputFormat,omitempty"`
-	Background                string                   `json:"background,omitempty"`
-	OutputCompression         *int                     `json:"outputCompression,omitempty"`
-	InputFidelity             string                   `json:"inputFidelity,omitempty"`
-	ImageStyle                string                   `json:"imageStyle,omitempty"`
-	Moderation                string                   `json:"moderation,omitempty"`
-	UserIdentifier            string                   `json:"userIdentifier,omitempty"`
-	PartialImages             *int                     `json:"partialImages,omitempty"`
-	ProtectStreamPreview      *bool                    `json:"protectStreamPreview,omitempty"`
-	AutoRetryEnabled          *bool                    `json:"autoRetryEnabled,omitempty"`
-	PromptTemplates           []PromptTemplate         `json:"promptTemplates,omitempty"`
-	OutputDir                 string                   `json:"outputDir,omitempty"`
-	PromptHistory             []string                 `json:"promptHistory,omitempty"`
-	Presets                   []Preset                 `json:"presets,omitempty"`
-	KernelRuntimeMode         string                   `json:"kernelRuntimeMode,omitempty"`
-	ReducedEffects            bool                     `json:"reducedEffects,omitempty"`
-	TrustedOutputRoots        []string                 `json:"trustedOutputRoots,omitempty"`
-	SavePromptSuppressed      bool                     `json:"savePromptSuppressed,omitempty"`
-	KeepLogs                  bool                     `json:"keepLogs,omitempty"`
-	CleanupPreviewCacheOnExit bool                     `json:"cleanupPreviewCacheOnExit,omitempty"`
-	IgnoredReleaseTag         string                   `json:"ignoredReleaseTag,omitempty"`
-	CompletionSound           *CompletionSoundSettings `json:"completionSound,omitempty"`
+	ProxyMode                 string                          `json:"proxyMode,omitempty"`
+	ProxyURL                  string                          `json:"proxyURL,omitempty"`
+	Theme                     string                          `json:"theme,omitempty"`
+	FontScale                 float64                         `json:"fontScale,omitempty"`
+	OutputFormat              string                          `json:"outputFormat,omitempty"`
+	Background                string                          `json:"background,omitempty"`
+	OutputCompression         *int                            `json:"outputCompression,omitempty"`
+	InputFidelity             string                          `json:"inputFidelity,omitempty"`
+	ImageStyle                string                          `json:"imageStyle,omitempty"`
+	Moderation                string                          `json:"moderation,omitempty"`
+	UserIdentifier            string                          `json:"userIdentifier,omitempty"`
+	PartialImages             *int                            `json:"partialImages,omitempty"`
+	ProtectStreamPreview      *bool                           `json:"protectStreamPreview,omitempty"`
+	AutoRetryEnabled          *bool                           `json:"autoRetryEnabled,omitempty"`
+	AutoRetryCount            *int                            `json:"autoRetryCount,omitempty"`
+	PromptTemplates           []PromptTemplate                `json:"promptTemplates,omitempty"`
+	OutputDir                 string                          `json:"outputDir,omitempty"`
+	PromptHistory             []string                        `json:"promptHistory,omitempty"`
+	Presets                   []Preset                        `json:"presets,omitempty"`
+	CustomAspectRatios        []CustomAspectRatio             `json:"customAspectRatios,omitempty"`
+	KernelRuntimeMode         string                          `json:"kernelRuntimeMode,omitempty"`
+	ReducedEffects            bool                            `json:"reducedEffects,omitempty"`
+	TrustedOutputRoots        []string                        `json:"trustedOutputRoots,omitempty"`
+	SavePromptSuppressed      bool                            `json:"savePromptSuppressed,omitempty"`
+	KeepLogs                  bool                            `json:"keepLogs,omitempty"`
+	CleanupPreviewCacheOnExit bool                            `json:"cleanupPreviewCacheOnExit,omitempty"`
+	IgnoredReleaseTag         string                          `json:"ignoredReleaseTag,omitempty"`
+	CompletionSound           *CompletionSoundSettings        `json:"completionSound,omitempty"`
+	CompletionNotification    *CompletionNotificationSettings `json:"completionNotification,omitempty"`
 }
 
 type CompletionSoundSettings struct {
@@ -55,6 +58,10 @@ type CompletionSoundSettings struct {
 	Mode       string `json:"mode,omitempty"`
 	CustomName string `json:"customName,omitempty"`
 	CustomData string `json:"customDataURL,omitempty"`
+}
+
+type CompletionNotificationSettings struct {
+	Enabled bool `json:"enabled,omitempty"`
 }
 
 type UpstreamProfile struct {
@@ -86,6 +93,7 @@ type Preset struct {
 	InputFidelity     string `json:"inputFidelity,omitempty"`
 	ImageStyle        string `json:"imageStyle,omitempty"`
 	Moderation        string `json:"moderation,omitempty"`
+	StyleTag          string `json:"styleTag,omitempty"`
 	KernelRuntimeMode string `json:"kernelRuntimeMode,omitempty"`
 	BatchCount        int    `json:"batchCount"`
 }
@@ -96,6 +104,14 @@ type PromptTemplate struct {
 	Text      string `json:"text"`
 	CreatedAt int64  `json:"createdAt"`
 	UpdatedAt int64  `json:"updatedAt"`
+}
+
+type CustomAspectRatio struct {
+	ID        string `json:"id"`
+	Label     string `json:"label"`
+	Width     int    `json:"width"`
+	Height    int    `json:"height"`
+	CreatedAt int64  `json:"createdAt"`
 }
 
 type HistoryItem struct {

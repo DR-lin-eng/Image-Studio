@@ -1,12 +1,20 @@
-import { buildPromptOptimizePayload } from "../../../../../../shared/kernel/requestModel.js";
+import {
+  DEFAULT_AUTO_RETRY_COUNT,
+  MAX_AUTO_RETRY_COUNT,
+  MAX_ATTEMPTS,
+  buildPromptOptimizePayload,
+  extractInvalidSize,
+  fileNameFromPath,
+  isRetryableRaw,
+  normalizeAPIMode,
+  normalizeAutoRetryCount,
+  normalizeBaseURL,
+  repairSizeForOpenAI,
+} from "../../../../../../shared/kernel/requestModel.js";
 import {
   extractResponseErrorMessage,
   extractResponseText,
-  fileNameFromPath,
-  isRetryableRaw,
   isTransportishError,
-  normalizeAPIMode,
-  normalizeBaseURL,
   readRegisteredText,
   shouldUseAndroidNativeHTTP,
   sleepWithSignal,
@@ -16,7 +24,6 @@ import { nativeHttpRequestText } from "./nativeHttp.ts";
 import { requestImagesOnce } from "./images.ts";
 import { requestResponsesOnce } from "./responses.ts";
 import {
-  MAX_ATTEMPTS,
   RETRY_BACKOFF_MS,
   RemoteKernelError,
   type RemotePromptOptimizeInput,
@@ -33,7 +40,9 @@ export async function runRemoteImageJob(
 ): Promise<RemoteJobResult> {
   let lastError: RemoteKernelError | null = null;
   const autoRetryEnabled = request.payload.autoRetryEnabled !== false;
+  const maxAttempts = (autoRetryEnabled ? normalizeAutoRetryCount(request.payload.autoRetryCount) : 0) + 1;
   const requestVariants: RemoteJobRequest[] = [request];
+  let sizeRepairTried = false;
   if (request.payload.fallbackProfile?.baseURL?.trim() && request.payload.fallbackProfile?.apiKey?.trim()) {
     requestVariants.push({
       ...request,
@@ -47,6 +56,7 @@ export async function runRemoteImageJob(
         apiMode: request.payload.fallbackProfile.apiMode || request.payload.apiMode,
         requestPolicy: request.payload.fallbackProfile.requestPolicy || request.payload.requestPolicy,
         imagesNewAPICompat: request.payload.fallbackProfile.imagesNewAPICompat === true,
+        autoRetryCount: request.payload.autoRetryCount,
       },
     });
   }
@@ -55,13 +65,13 @@ export async function runRemoteImageJob(
     if (variantIndex > 0) {
       callbacks.onLog?.("主上游自动重试失败，切换到备用上游再试一次...");
     }
-    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         const apiMode = normalizeAPIMode(activeRequest.payload.apiMode);
         if (apiMode === "images") {
-          return await requestImagesOnce(activeRequest, attempt, callbacks);
+          return await requestImagesOnce(activeRequest, attempt, maxAttempts, callbacks);
         }
-        return await requestResponsesOnce(activeRequest, attempt, callbacks);
+        return await requestResponsesOnce(activeRequest, attempt, maxAttempts, callbacks);
       } catch (error) {
         if (callbacks.signal.aborted) throw error;
         const typed = error instanceof RemoteKernelError
@@ -69,15 +79,40 @@ export async function runRemoteImageJob(
           : new RemoteKernelError(String((error as any)?.message || error));
         lastError = typed;
         let retryableRaw = false;
+        let workerAlreadyRetried = false;
+        let invalidSizeRaw = null;
         if (typed.rawPath) {
           try {
-            retryableRaw = isRetryableRaw(readRegisteredText(typed.rawPath));
+            const rawText = readRegisteredText(typed.rawPath);
+            retryableRaw = isRetryableRaw(rawText);
+            invalidSizeRaw = extractInvalidSize(rawText);
+            try {
+              const parsed = JSON.parse(rawText);
+              workerAlreadyRetried = parsed?.error?.type === "upstream_error"
+                && Number.isFinite(Number(parsed?.error?.upstreamStatus));
+            } catch {
+              workerAlreadyRetried = false;
+            }
           } catch {
             retryableRaw = false;
+            workerAlreadyRetried = false;
+            invalidSizeRaw = null;
+          }
+        }
+        if (!sizeRepairTried && (invalidSizeRaw || extractInvalidSize(typed.message))) {
+          const repairedPayload = repairSizeForOpenAI(activeRequest.payload);
+          if (repairedPayload && repairedPayload.size !== activeRequest.payload.size) {
+            sizeRepairTried = true;
+            callbacks.onLog?.(`检测到上游拒绝当前尺寸 ${activeRequest.payload.size}，自动改为最近合法尺寸 ${repairedPayload.size} 后重试一次...`);
+            const nextRequest = { ...activeRequest, payload: repairedPayload as typeof activeRequest.payload };
+            requestVariants.splice(variantIndex, 1, nextRequest);
+            activeRequest.payload = nextRequest.payload;
+            attempt -= 1;
+            continue;
           }
         }
         const retryable = retryableRaw || isTransportishError(typed);
-        if (autoRetryEnabled && attempt < MAX_ATTEMPTS && retryable) {
+        if (autoRetryEnabled && !workerAlreadyRetried && attempt < maxAttempts && retryable) {
           callbacks.onLog?.(typed.message);
           callbacks.onLog?.(`${Math.floor(RETRY_BACKOFF_MS / 1000)} 秒后自动重试...`);
           await sleepWithSignal(callbacks.signal, RETRY_BACKOFF_MS);
@@ -153,6 +188,8 @@ export async function optimizePromptRemote(
 }
 
 export {
+  DEFAULT_AUTO_RETRY_COUNT,
   MAX_ATTEMPTS,
+  MAX_AUTO_RETRY_COUNT,
   RETRY_BACKOFF_MS,
 };

@@ -77,6 +77,12 @@ func (a *App) layout(gtx layout.Context) layout.Dimensions {
 	if snap.SavePromptVisible {
 		a.layoutSavePrompt(gtx, snap)
 	}
+	if snap.PromptImportRegisterOpen {
+		a.layoutPromptImportRegistrationPrompt(gtx, snap)
+	}
+	if snap.PromptImportVisible {
+		a.layoutPromptImportModal(gtx, snap)
+	}
 	if a.generalSettingsOpen {
 		a.layoutGeneralSettingsModal(gtx, snap)
 	}
@@ -88,6 +94,15 @@ func (a *App) layout(gtx layout.Context) layout.Dimensions {
 		if a.settingsHelpOpen {
 			a.layoutSettingsHelpModal(gtx)
 		}
+	}
+	if a.promptTemplateManagerOpen {
+		a.layoutPromptTemplateManagerModal(gtx, snap)
+	}
+	if a.presetManagerOpen {
+		a.layoutPresetManagerModal(gtx, snap)
+	}
+	if a.customAspectRatioManagerOpen {
+		a.layoutCustomAspectRatioManagerModal(gtx)
 	}
 	if snap.ActiveResultDetail.ID != "" || snap.ActiveResultDetail.SavedPath != "" {
 		a.layoutResultDetailModal(gtx, snap)
@@ -467,6 +482,18 @@ func (a *App) layoutWorkspaceTab(gtx layout.Context, ws workspaceState, active b
 									}
 									return a.singleLineLabel(gtx, a.displayedWorkspaceName(ws), unit.Sp(12), chooseColor(active, fluent.text, fluent.textMuted), weight)
 								})
+							}),
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								modeLabel := ""
+								if ws.BatchMode {
+									modeLabel = "批"
+								} else if ws.LoopEnabled {
+									modeLabel = "循"
+								}
+								if modeLabel == "" {
+									return layout.Dimensions{}
+								}
+								return a.metaBadge(gtx, modeLabel, true)
 							}),
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 								if !running {

@@ -4,6 +4,7 @@
 /image-studio/build/darwin/build/
 /image-studio/build/windows/build/
 /image-studio/frontend/dist/
+/image-studio/frontend/dist-file-preview/
 /image-studio/frontend/node_modules/
 /android-shell/.gradle/
 /android-shell/.gradle-wrapper/

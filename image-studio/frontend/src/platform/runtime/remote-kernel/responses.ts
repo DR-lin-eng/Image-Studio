@@ -10,7 +10,6 @@ import { nativeHttpRequestText } from "./nativeHttp.ts";
 import { nativeWebSocketResponsesRequest } from "./nativeWebSocket.ts";
 import { buildResponsesPayload } from "./requestPayloads.ts";
 import {
-  MAX_ATTEMPTS,
   RemoteKernelError,
   STATUS_INTERVAL_MS,
   type ExtractedImageResult,
@@ -229,6 +228,7 @@ function isWebSocketHandshakeFailure(error: unknown): boolean {
 export async function requestResponsesOnce(
   request: RemoteJobRequest,
   attempt: number,
+  maxAttempts: number,
   callbacks: RemoteJobCallbacks,
 ): Promise<RemoteJobResult> {
   const sourceDataURLs = await resolveSourceDataURLs(request.sourceImages, request.payload);
@@ -238,7 +238,7 @@ export async function requestResponsesOnce(
   let lastStage = "等待接口响应";
   let bytesReceived = 0;
   let raw = "";
-  callbacks.onLog?.(`第 ${attempt}/${MAX_ATTEMPTS} 次请求...`);
+  callbacks.onLog?.(`第 ${attempt}/${maxAttempts} 次请求...`);
   callbacks.onProgress?.(lastStage, 0, 0);
   const ticker = globalThis.setInterval(() => {
     callbacks.onProgress?.(lastStage, nowSeconds(startedAt), bytesReceived);

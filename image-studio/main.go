@@ -33,6 +33,12 @@ func main() {
 		BackgroundColour: &options.RGBA{R: 18, G: 20, B: 26, A: 1},
 		OnStartup:        svc.Startup,
 		OnShutdown:       svc.Shutdown,
+		SingleInstanceLock: &options.SingleInstanceLock{
+			UniqueId: "top.gptcodex.imagestudio",
+			OnSecondInstanceLaunch: func(secondInstanceData options.SecondInstanceData) {
+				svc.HandlePromptImportArgs(secondInstanceData.Args)
+			},
+		},
 		Bind: []interface{}{
 			svc,
 		},
@@ -47,6 +53,7 @@ func main() {
 			TitleBar:             wailsmac.TitleBarHiddenInset(),
 			WebviewIsTransparent: false,
 			WindowIsTranslucent:  false,
+			OnUrlOpen:            svc.HandlePromptImportURL,
 		}
 	}
 	if runtime.GOOS == "windows" {
@@ -63,11 +70,21 @@ func main() {
 		if err := backend.MigrateWindowsWebviewDataDirs(webviewUserDataPath, legacyWebviewUserDataPaths); err != nil {
 			println("Warning:", err.Error())
 		}
+		fixedWebviewBrowserPath, err := backend.WindowsPortableWebviewBrowserPath()
+		if err != nil {
+			println("Warning:", err.Error())
+		}
+		if fixedWebviewBrowserPath != "" {
+			if err := backend.EnsureWindowsFixedWebviewRuntimePermissions(fixedWebviewBrowserPath); err != nil {
+				println("Warning:", err.Error())
+			}
+		}
 		appOptions.Windows = &wailswindows.Options{
 			Theme:                wailswindows.SystemDefault,
 			BackdropType:         wailswindows.Mica,
 			WebviewIsTransparent: false,
 			WindowIsTranslucent:  true,
+			WebviewBrowserPath:   fixedWebviewBrowserPath,
 			WebviewUserDataPath:  webviewUserDataPath,
 			CustomTheme: &wailswindows.ThemeSettings{
 				DarkModeTitleBar:           wailswindows.RGB(32, 32, 32),

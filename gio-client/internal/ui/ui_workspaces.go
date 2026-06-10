@@ -87,6 +87,17 @@ func (a *App) buildWorkspaceSnapshot() workspaceState {
 		StyleTag:            a.styleTag,
 		SeedText:            a.seedInput.Text(),
 		BatchCount:          a.batchCount,
+		LoopEnabled:         a.loopEnabled,
+		LoopTotalCount:      normalizeLoopGenerationCount(a.loopTotalCount),
+		LoopConcurrency:     normalizeLoopGenerationConcurrency(a.loopConcurrency),
+		LoopAutoSave:        a.loopAutoSave,
+		LoopAutoSaveDir:     strings.TrimSpace(a.loopAutoSaveDirInput.Text()),
+		LoopLivePreview:     a.loopLivePreview,
+		BatchMode:           a.batchMode,
+		BatchInputDir:       strings.TrimSpace(a.batchInputDirInput.Text()),
+		BatchOutputDir:      strings.TrimSpace(a.batchOutputDirInput.Text()),
+		BatchRetryOnFail:    a.batchRetryOnFail,
+		BatchAutoAspect:     strings.TrimSpace(a.batchAutoAspect),
 		SourcePathsText:     a.sourcePathsInput.Text(),
 		ResultSavedPath:     a.result.SavedPath,
 		ResultRawPath:       a.result.RawPath,
@@ -140,6 +151,17 @@ func (a *App) applyWorkspace(ws workspaceState) {
 	a.styleTag = ws.StyleTag
 	a.seedInput.SetText(ws.SeedText)
 	a.batchCount = normalizeBatchCount(ws.BatchCount)
+	a.loopEnabled = ws.LoopEnabled
+	a.loopTotalCount = normalizeLoopGenerationCount(ws.LoopTotalCount)
+	a.loopConcurrency = normalizeLoopGenerationConcurrency(ws.LoopConcurrency)
+	a.loopAutoSave = ws.LoopAutoSave
+	a.loopAutoSaveDirInput.SetText(strings.TrimSpace(ws.LoopAutoSaveDir))
+	a.loopLivePreview = ws.LoopLivePreview
+	a.batchMode = ws.BatchMode
+	a.batchInputDirInput.SetText(strings.TrimSpace(ws.BatchInputDir))
+	a.batchOutputDirInput.SetText(strings.TrimSpace(ws.BatchOutputDir))
+	a.batchRetryOnFail = ws.BatchRetryOnFail
+	a.batchAutoAspect = strings.TrimSpace(ws.BatchAutoAspect)
 	a.sourcePathsInput.SetText(ws.SourcePathsText)
 	a.sourceButtons = map[string]*widget.Clickable{}
 	a.selectedHistoryID = ws.SelectedHistoryID
@@ -255,6 +277,15 @@ func (a *App) createWorkspace() {
 		Moderation:        kernel.DefaultConfig().Moderation,
 		PartialImages:     strconv.Itoa(kernel.DefaultConfig().PartialImages),
 		BatchCount:        1,
+		LoopEnabled:       false,
+		LoopTotalCount:    normalizeLoopGenerationCount(10),
+		LoopConcurrency:   normalizeLoopGenerationConcurrency(2),
+		LoopAutoSave:      false,
+		LoopAutoSaveDir:   "",
+		LoopLivePreview:   true,
+		BatchMode:         false,
+		BatchRetryOnFail:  false,
+		BatchAutoAspect:   "",
 		ResultGridOpen:    false,
 	}
 	a.workspaces = append(a.workspaces, ws)

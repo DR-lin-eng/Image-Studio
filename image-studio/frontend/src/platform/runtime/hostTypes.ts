@@ -43,6 +43,7 @@ export type GenerateOptionsLike = {
     imagesNewAPICompat?: boolean;
   };
   autoRetryEnabled?: boolean;
+  autoRetryCount?: number;
   disablePreview?: boolean;
   requestedJobId?: string;
   sourceImages?: Array<{
@@ -165,6 +166,23 @@ export type AppUpdateProbeResultLike = {
   hasUpdate: boolean;
   shouldShowUpdate: boolean;
   appUpdateModalOpen: boolean;
+};
+
+export type PromptImportBilingualTextLike = {
+  zh?: string;
+  en?: string;
+};
+
+export type PromptImportPayloadLike = {
+  prompt: PromptImportBilingualTextLike;
+  negative_prompt?: PromptImportBilingualTextLike;
+  aspect_ratio?: string;
+  resolvedSize?: string;
+};
+
+export type PromptImportActivationLike = {
+  tokens?: string[];
+  invalidCount?: number;
 };
 export type HostKind = "wails-desktop" | "android-shell" | "browser";
 

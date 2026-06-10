@@ -52,6 +52,7 @@ export type RemoteGeneratePayload = {
     imagesNewAPICompat?: boolean;
   };
   autoRetryEnabled?: boolean;
+  autoRetryCount?: number;
 };
 
 export type ProgressCallback = (stage: string, elapsedSeconds: number, bytesReceived: number) => void;
@@ -96,7 +97,6 @@ export type RemotePromptOptimizeInput = {
   sourceImages?: KernelImageSource[];
 };
 
-export const MAX_ATTEMPTS = 3;
 export const RETRY_BACKOFF_MS = 15_000;
 export const STATUS_INTERVAL_MS = 10_000;
 

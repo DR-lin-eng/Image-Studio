@@ -7,7 +7,6 @@ import {
 } from "./common.ts";
 import { nativeHttpRequestText } from "./nativeHttp.ts";
 import {
-  MAX_ATTEMPTS,
   RemoteKernelError,
   STATUS_INTERVAL_MS,
   type ExtractedImageResult,
@@ -126,12 +125,13 @@ function parseImagesStreamRaw(
 export async function requestImagesOnce(
   request: RemoteJobRequest,
   attempt: number,
+  maxAttempts: number,
   callbacks: RemoteJobCallbacks,
 ): Promise<RemoteJobResult> {
   const sourceDataURLs = await resolveSourceDataURLs(request.sourceImages, request.payload);
   const built = await buildImagesRequestBody(request, sourceDataURLs);
   const startedAt = Date.now();
-  callbacks.onLog?.(`[Images API] 第 ${attempt}/${MAX_ATTEMPTS} 次请求...`);
+  callbacks.onLog?.(`[Images API] 第 ${attempt}/${maxAttempts} 次请求...`);
   callbacks.onProgress?.("等待 Images API 返回(无 SSE 保活)", 0, 0);
   const ticker = globalThis.setInterval(() => {
     callbacks.onProgress?.("等待 Images API 返回(无 SSE 保活)", nowSeconds(startedAt), 0);

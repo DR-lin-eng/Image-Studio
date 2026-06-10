@@ -1,4 +1,8 @@
 import {
+  DEFAULT_AUTO_RETRY_COUNT,
+  MAX_AUTO_RETRY_COUNT,
+} from "../../../../../../shared/kernel/requestModel.js";
+import {
   Bell,
   ChevronRight,
   Database,
@@ -37,6 +41,7 @@ export type AndroidSettingsPanelProps = {
   importHistory: () => void;
   isTestingKey: boolean;
   autoRetryEnabled: boolean;
+  autoRetryCount: number;
   protectStreamPreview: boolean;
   kernelRuntimeMode: KernelRuntimeMode;
   onOpenAbout: () => void;
@@ -52,6 +57,7 @@ export type AndroidSettingsPanelProps = {
   onSetFontScale: (value: number) => void;
   onSetKernelRuntimeMode: (value: KernelRuntimeMode) => void;
   onSetAutoRetryEnabled: (value: boolean) => void;
+  onSetAutoRetryCount: (value: number) => void;
   onSetProtectStreamPreview: (value: boolean) => void;
   onSetCleanupPreviewCacheOnExit: (value: boolean) => void;
   onSetProxyConfig: (mode: ProxyMode, url?: string) => void;
@@ -108,6 +114,7 @@ export function AndroidSettingsPanel({
   importHistory,
   isTestingKey,
   autoRetryEnabled,
+  autoRetryCount,
   protectStreamPreview,
   kernelRuntimeMode,
   onOpenAbout,
@@ -123,6 +130,7 @@ export function AndroidSettingsPanel({
   onSetFontScale,
   onSetKernelRuntimeMode,
   onSetAutoRetryEnabled,
+  onSetAutoRetryCount,
   onSetProtectStreamPreview,
   onSetCleanupPreviewCacheOnExit,
   onSetProxyConfig,
@@ -151,6 +159,7 @@ export function AndroidSettingsPanel({
     savePromptSuppressed ? "保存提示 关" : "保存提示 开",
     cleanupPreviewCacheOnExit ? "预览缓存退出清理 开" : "预览缓存退出清理 关",
     autoRetryEnabled ? "自动重试 开" : "自动重试 关",
+    `重试 ${autoRetryCount} 次`,
     protectStreamPreview ? "预览保护 开" : "预览保护 关",
     completionSound.enabled ? "提示音 开" : "提示音 关",
     `${historyCount} 条历史`,
@@ -302,7 +311,7 @@ export function AndroidSettingsPanel({
         <div>
           <span className="android-settings-field-title">失败自动重试</span>
           <span className="android-settings-field-subtitle">
-            {autoRetryEnabled ? "当前会对可重试的网关/网络错误自动再发请求。" : "当前不会自动重试，失败后只保留一次请求结果。"}
+            {autoRetryEnabled ? "当前会对 403 / 502 / 503 / 504 / 524 和可重试网络错误自动再发请求。" : "当前不会自动重试，失败后只保留第一次结果。"}
           </span>
         </div>
         <div className="android-settings-segmented" role="group" aria-label="失败自动重试">
@@ -321,6 +330,19 @@ export function AndroidSettingsPanel({
             关闭
           </button>
         </div>
+        <div className="mt-3 flex items-center gap-3">
+          <input
+            type="range"
+            min={1}
+            max={MAX_AUTO_RETRY_COUNT}
+            step={1}
+            value={autoRetryCount}
+            onChange={(e) => onSetAutoRetryCount(Number(e.currentTarget.value))}
+            className="focus-ring flex-1"
+          />
+          <span className="android-settings-status-pill ready">{autoRetryCount} 次</span>
+        </div>
+        <p className="android-settings-note">默认 {DEFAULT_AUTO_RETRY_COUNT} 次，不含首次请求。</p>
       </div>
 
       <div className="android-settings-field android-settings-field-stacked">

@@ -87,6 +87,7 @@ export interface StudioState {
   partialImages: number;
   protectStreamPreview: boolean;
   autoRetryEnabled: boolean;
+  autoRetryCount: number;
   kernelRuntimeMode: KernelRuntimeMode;
   baseURL: string;
   textModelID: string;
@@ -152,6 +153,7 @@ export interface StudioState {
   fontScale: number;
   workspaces: Workspace[];
   activeWorkspaceId: string;
+  selectedPresetId: string | null;
   styleTag: string;
   undoStack: UndoEntry[];
   redoStack: UndoEntry[];

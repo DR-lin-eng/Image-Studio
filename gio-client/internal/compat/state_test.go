@@ -16,10 +16,16 @@ func TestConfigFromStateUsesActiveProfileAndSettings(t *testing.T) {
 			OutputFormat: "webp",
 			ProxyMode:    client.ProxyModeCustom,
 			ProxyURL:     "http://127.0.0.1:7890",
+			CompletionSound: &shared.CompletionSoundSettings{
+				Enabled:    false,
+				Mode:       "custom",
+				CustomName: "ding.wav",
+				CustomData: "data:audio/wav;base64,AA==",
+			},
 		},
 		Profiles: []shared.UpstreamProfile{
 			{ID: "p1", Name: "配置1", BaseURL: "https://old.example", TextModelID: "old-text", ImageModelID: "old-image", APIMode: string(client.APIModeImages)},
-			{ID: "p2", Name: "配置2", BaseURL: "https://new.example", TextModelID: "new-text", ImageModelID: "new-image", APIMode: string(client.APIModeResponses), RequestPolicy: string(client.RequestPolicyCompat)},
+			{ID: "p2", Name: "配置2", BaseURL: "https://new.example", TextModelID: "new-text", ImageModelID: "new-image", APIMode: string(client.APIModeResponses), ResponsesTransport: string(client.ResponsesTransportWebSocket), RequestPolicy: string(client.RequestPolicyCompat), ReasoningEffort: "high"},
 		},
 		ActiveProfile: "p2",
 	}
@@ -33,35 +39,52 @@ func TestConfigFromStateUsesActiveProfileAndSettings(t *testing.T) {
 	if cfg.APIMode != client.APIModeResponses || cfg.RequestPolicy != client.RequestPolicyCompat {
 		t.Fatalf("api settings not applied: %#v", cfg)
 	}
+	if cfg.ResponsesTransport != client.ResponsesTransportWebSocket || cfg.ReasoningEffort != "high" {
+		t.Fatalf("responses config not applied: transport=%q reasoning=%q", cfg.ResponsesTransport, cfg.ReasoningEffort)
+	}
 	if cfg.ProxyMode != client.ProxyModeCustom || cfg.ProxyURL != "http://127.0.0.1:7890" {
 		t.Fatalf("proxy not applied: %#v", cfg)
+	}
+	if cfg.CompletionSound.Mode != "custom" || cfg.CompletionSound.CustomName != "ding.wav" || cfg.CompletionSound.CustomData != "data:audio/wav;base64,AA==" || cfg.CompletionSound.Enabled {
+		t.Fatalf("completion sound not applied: %#v", cfg.CompletionSound)
 	}
 }
 
 func TestUpsertConfigPreservesActiveProfileIdentity(t *testing.T) {
 	state := shared.State{
 		Profiles: []shared.UpstreamProfile{{
-			ID:               "p1",
-			Name:             "主配置",
-			APIMode:          string(client.APIModeImages),
-			RequestPolicy:    string(client.RequestPolicyOpenAI),
-			BaseURL:          "https://old.example",
-			TextModelID:      "old-text",
-			ImageModelID:     "old-image",
-			ConcurrencyLimit: 3,
-			CreatedAt:        100,
+			ID:                 "p1",
+			Name:               "主配置",
+			APIMode:            string(client.APIModeImages),
+			RequestPolicy:      string(client.RequestPolicyOpenAI),
+			BaseURL:            "https://old.example",
+			TextModelID:        "old-text",
+			ImageModelID:       "old-image",
+			ResponsesTransport: string(client.ResponsesTransportSSE),
+			ReasoningEffort:    "xhigh",
+			ConcurrencyLimit:   3,
+			FallbackProfileID:  "backup-1",
+			CreatedAt:          100,
 		}},
 		ActiveProfile: "p1",
 	}
 	cfg := kernel.Config{
-		BaseURL:       "https://new.example",
-		TextModelID:   "new-text",
-		ImageModelID:  "new-image",
-		APIMode:       client.APIModeResponses,
-		RequestPolicy: client.RequestPolicyCompat,
-		OutputFormat:  "jpeg",
-		OutputDir:     "/tmp/images",
-		ProxyMode:     client.ProxyModeNone,
+		BaseURL:            "https://new.example",
+		TextModelID:        "new-text",
+		ImageModelID:       "new-image",
+		APIMode:            client.APIModeResponses,
+		ResponsesTransport: client.ResponsesTransportWebSocket,
+		RequestPolicy:      client.RequestPolicyCompat,
+		ReasoningEffort:    "medium",
+		OutputFormat:       "jpeg",
+		OutputDir:          "/tmp/images",
+		ProxyMode:          client.ProxyModeNone,
+		CompletionSound: shared.CompletionSoundSettings{
+			Enabled:    true,
+			Mode:       "custom",
+			CustomName: "done.wav",
+			CustomData: "data:audio/wav;base64,BB==",
+		},
 	}
 	next := UpsertConfig(state, cfg)
 	if next.ActiveProfile != "p1" || len(next.Profiles) != 1 {
@@ -74,8 +97,14 @@ func TestUpsertConfigPreservesActiveProfileIdentity(t *testing.T) {
 	if profile.BaseURL != "https://new.example" || profile.APIMode != string(client.APIModeResponses) || profile.RequestPolicy != string(client.RequestPolicyCompat) {
 		t.Fatalf("profile config not updated: %#v", profile)
 	}
+	if profile.ResponsesTransport != string(client.ResponsesTransportWebSocket) || profile.ReasoningEffort != "medium" || profile.FallbackProfileID != "backup-1" {
+		t.Fatalf("extended profile config not updated: %#v", profile)
+	}
 	if next.Settings.OutputFormat != "jpeg" || next.Settings.OutputDir != "/tmp/images" || next.Settings.ProxyMode != client.ProxyModeNone {
 		t.Fatalf("settings not updated: %#v", next.Settings)
+	}
+	if next.Settings.CompletionSound == nil || !next.Settings.CompletionSound.Enabled || next.Settings.CompletionSound.Mode != "custom" || next.Settings.CompletionSound.CustomName != "done.wav" || next.Settings.CompletionSound.CustomData != "data:audio/wav;base64,BB==" {
+		t.Fatalf("completion sound not updated: %#v", next.Settings.CompletionSound)
 	}
 	if next.Settings.Theme != "system" || next.Settings.FontScale != 1 {
 		t.Fatalf("default visual settings not set: %#v", next.Settings)

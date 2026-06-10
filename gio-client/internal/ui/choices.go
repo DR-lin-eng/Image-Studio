@@ -1,9 +1,11 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/yuanhua/image-gptcodex/pkg/client"
+	sharedCompat "image-studio/shared/compat"
 )
 
 type choice struct {
@@ -12,11 +14,12 @@ type choice struct {
 }
 
 type aspectChoice struct {
-	Value string
-	Label string
-	W     int
-	H     int
-	Auto  bool
+	Value  string
+	Label  string
+	W      int
+	H      int
+	Auto   bool
+	Custom bool
 }
 
 var (
@@ -74,6 +77,16 @@ var (
 	policyChoices = []choice{
 		{"OpenAI 标准", string(client.RequestPolicyOpenAI)},
 		{"兼容中转扩展", string(client.RequestPolicyCompat)},
+	}
+	responsesTransportChoices = []settingsOptionChoice{
+		{Title: "HTTP SSE", Detail: "默认，兼容性更稳", Value: string(client.ResponsesTransportSSE)},
+		{Title: "WebSocket mode", Detail: "需要上游支持 Upgrade: websocket", Value: string(client.ResponsesTransportWebSocket)},
+	}
+	reasoningEffortChoices = []settingsOptionChoice{
+		{Title: "low", Detail: "更快返回", Value: "low"},
+		{Title: "medium", Detail: "平衡速度与质量", Value: "medium"},
+		{Title: "high", Detail: "更认真推理", Value: "high"},
+		{Title: "xhigh", Detail: "默认，长推理更稳", Value: "xhigh"},
 	}
 	proxyChoices = []choice{
 		{"系统配置", client.ProxyModeSystem},
@@ -209,6 +222,9 @@ func aspectChoiceLabel(value string) string {
 			return item.Label
 		}
 	}
+	if strings.HasPrefix(value, "custom:") {
+		return strings.TrimPrefix(value, "custom:")
+	}
 	return value
 }
 
@@ -220,7 +236,7 @@ func sizeDisplayLabel(value string) string {
 	if value == "auto" {
 		return "自动"
 	}
-	aspect := deriveAspectPreset(value)
+	aspect := deriveAspectPreset(value, nil)
 	resolution := deriveResolutionPreset(value)
 	if aspect == "" || resolution == "" {
 		return value
@@ -268,7 +284,14 @@ func chooseStyleSummary(value string) string {
 	return styleChoiceLabel(value)
 }
 
-func deriveAspectPreset(size string) string {
+func deriveAspectPreset(size string, customRatios []sharedCompat.CustomAspectRatio) string {
+	for _, ratio := range customRatios {
+		for _, resolution := range []string{"1k", "2k", "4k"} {
+			if buildCustomSizeSelection(ratio, resolution) == size {
+				return "custom:" + ratio.ID
+			}
+		}
+	}
 	if value, ok := sizeToAspect[size]; ok {
 		return value
 	}
@@ -308,12 +331,89 @@ func buildSizeSelection(aspect string, resolution string) string {
 	if aspect == "auto" || resolution == "auto" {
 		return "auto"
 	}
+	if strings.HasPrefix(aspect, "custom:") {
+		return "auto"
+	}
 	if sizes, ok := sizeMatrix[aspect]; ok {
 		if value, ok := sizes[resolution]; ok {
 			return value
 		}
 	}
 	return "1024x1024"
+}
+
+func buildCustomSizeSelection(ratio sharedCompat.CustomAspectRatio, resolution string) string {
+	switch resolution {
+	case "2k":
+		if ratio.Width >= ratio.Height {
+			return buildCustomResolutionSize(ratio.Width, ratio.Height, 2048)
+		}
+		return buildCustomResolutionSize(ratio.Width, ratio.Height, 2048)
+	case "4k":
+		if ratio.Width >= ratio.Height {
+			return buildCustomResolutionSize(ratio.Width, ratio.Height, 3840)
+		}
+		return buildCustomResolutionSize(ratio.Width, ratio.Height, 3840)
+	default:
+		if ratio.Width >= ratio.Height {
+			return buildCustomResolutionSize(ratio.Width, ratio.Height, 1536)
+		}
+		return buildCustomResolutionSize(ratio.Width, ratio.Height, 1536)
+	}
+}
+
+func buildCustomResolutionSize(width int, height int, longSide int) string {
+	if width <= 0 || height <= 0 || longSide <= 0 {
+		return "1024x1024"
+	}
+	if width >= height {
+		shortSide := max(64, int(float64(longSide)*float64(height)/float64(width)+0.5))
+		return fmt.Sprintf("%dx%d", longSide, shortSide)
+	}
+	shortSide := max(64, int(float64(longSide)*float64(width)/float64(height)+0.5))
+	return fmt.Sprintf("%dx%d", shortSide, longSide)
+}
+
+func aspectChoicesWithCustom(customRatios []sharedCompat.CustomAspectRatio) []aspectChoice {
+	if len(customRatios) == 0 {
+		return aspectChoices
+	}
+	items := make([]aspectChoice, 0, len(aspectChoices)+len(customRatios))
+	items = append(items, aspectChoices...)
+	for _, ratio := range customRatios {
+		if strings.TrimSpace(ratio.ID) == "" || ratio.Width <= 0 || ratio.Height <= 0 {
+			continue
+		}
+		w, h := aspectShapeFromRatio(ratio.Width, ratio.Height)
+		items = append(items, aspectChoice{
+			Value:  "custom:" + ratio.ID,
+			Label:  ratio.Label,
+			W:      w,
+			H:      h,
+			Custom: true,
+		})
+	}
+	return items
+}
+
+func aspectShapeFromRatio(width int, height int) (int, int) {
+	if width <= 0 || height <= 0 {
+		return 18, 18
+	}
+	const maxW = 24
+	const maxH = 22
+	scaleW := float64(maxW) / float64(width)
+	scaleH := float64(maxH) / float64(height)
+	scale := scaleW
+	if scaleH < scale {
+		scale = scaleH
+	}
+	if scale <= 0 {
+		scale = 1
+	}
+	w := max(10, int(float64(width)*scale+0.5))
+	h := max(10, int(float64(height)*scale+0.5))
+	return w, h
 }
 
 func visibleResolutionChoices(apiMode string, requestPolicy string, imageModelID string) []choice {

@@ -310,6 +310,110 @@ func TestRequestAndExtractWithRetriesCanDisableAutoRetry(t *testing.T) {
 	}
 }
 
+func TestRequestAndExtractWithRetriesUsesConfiguredRetryCount(t *testing.T) {
+	pngB64 := base64.StdEncoding.EncodeToString([]byte("\x89PNG\r\n\x1a\nfake"))
+	hits := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		if hits <= 3 {
+			fmt.Fprint(w, `{"error":{"message":"Upstream request failed","type":"upstream_error","upstreamStatus":503}}`)
+			return
+		}
+		body, _ := json.Marshal(map[string]any{
+			"type": "response.output_item.done",
+			"item": map[string]any{
+				"type":   "image_generation_call",
+				"result": pngB64,
+			},
+		})
+		fmt.Fprintln(w, "data: "+string(body))
+	}))
+	defer srv.Close()
+
+	original := RetryBackoffSeconds
+	RetryBackoffSeconds = 0
+	t.Cleanup(func() { RetryBackoffSeconds = original })
+
+	transport := &injectingTransport{inner: &NativeTransport{}, url: srv.URL}
+	dir := t.TempDir()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	res, _, err := RequestAndExtractWithRetries(
+		ctx, transport,
+		Options{
+			APIKey:         "sk-test",
+			Prompt:         "p",
+			Size:           "1024x1024",
+			Quality:        "auto",
+			BaseURL:        "https://test.local",
+			AutoRetryCount: 3,
+		},
+		dir, "20260609-100001",
+		nil, nil,
+	)
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if res.ImageB64 != pngB64 {
+		t.Fatalf("unexpected result: %+v", res)
+	}
+	if hits != 4 {
+		t.Fatalf("hits = %d, want 4", hits)
+	}
+}
+
+func TestRequestAndExtractWithRetriesRepairsInvalidSizeAndRetriesOnce(t *testing.T) {
+	pngB64 := base64.StdEncoding.EncodeToString([]byte("\x89PNG\r\n\x1a\nfixed"))
+	hits := 0
+	var requestBodies []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		body, _ := io.ReadAll(r.Body)
+		requestBodies = append(requestBodies, string(body))
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		if hits == 1 {
+			fmt.Fprint(w, `{"error":{"message":"Invalid size '872x2048'. Width and height must both be divisible by 16.","type":"image_generation_user_error","param":"tools","code":"invalid_value"}}`)
+			return
+		}
+		payload, _ := json.Marshal(map[string]any{
+			"type": "response.output_item.done",
+			"item": map[string]any{
+				"type":   "image_generation_call",
+				"result": pngB64,
+			},
+		})
+		fmt.Fprintln(w, "data: "+string(payload))
+	}))
+	defer srv.Close()
+
+	transport := &injectingTransport{inner: &NativeTransport{}, url: srv.URL}
+	dir := t.TempDir()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	res, _, err := RequestAndExtractWithRetries(
+		ctx, transport,
+		Options{APIKey: "sk-test", Prompt: "p", Size: "872x2048", Quality: "auto", BaseURL: "https://test.local"},
+		dir, "20260609-100002",
+		nil, nil,
+	)
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if hits != 2 {
+		t.Fatalf("hits = %d, want 2", hits)
+	}
+	if res.ImageB64 != pngB64 {
+		t.Fatalf("unexpected result: %+v", res)
+	}
+	if len(requestBodies) != 2 || !strings.Contains(requestBodies[0], `"size":"872x2048"`) || !strings.Contains(requestBodies[1], `"size":"880x2048"`) {
+		t.Fatalf("unexpected request bodies: %#v", requestBodies)
+	}
+}
+
 // TestRequestAndExtract_StreamCutAfterFinal:服务端发完 final event 后立刻
 // 关掉连接(模拟 Cloudflare 在 idle 阶段 reset),客户端不应再算作失败 ——
 // buffer 已经包含完整 final event,parse 出图。

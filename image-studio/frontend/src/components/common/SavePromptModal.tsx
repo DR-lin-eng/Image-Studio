@@ -191,9 +191,9 @@ export function SavePromptModal() {
       title={`本次结果 · ${batchItems.length} 张`}
       width={isAndroidPhone ? 420 : 860}
       cardClassName={!isAndroidPhone ? "max-w-[92vw]" : ""}
-      bodyClassName="space-y-4"
+      bodyClassName="flex min-h-0 flex-col gap-4"
     >
-      <div className="space-y-3">
+      <div className="flex min-h-0 flex-1 flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="space-y-1">
             <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
@@ -221,7 +221,7 @@ export function SavePromptModal() {
           </div>
         </div>
 
-        <div className="relative h-[min(56vh,520px)] overflow-hidden rounded-[18px] border border-black/[0.08] bg-[var(--canvas-bg)] dark:border-white/[0.06]">
+        <div className="relative min-h-[320px] flex-1 overflow-hidden rounded-[18px] border border-black/[0.08] bg-[var(--canvas-bg)] dark:border-white/[0.06]">
           <BatchResultGrid
             items={batchItems}
             currentId={null}

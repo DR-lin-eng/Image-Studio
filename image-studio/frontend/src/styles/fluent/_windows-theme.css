@@ -169,8 +169,17 @@ html[data-platform="windows"][data-ui-family="fluent"] .control-panel h2 + p {
 
 html[data-platform="windows"][data-ui-family="fluent"] .platform-card label,
 html[data-platform="windows"][data-ui-family="fluent"] .history-rail h3 {
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+html[data-platform="windows"][data-ui-family="fluent"] .windows-prompt-label,
+html[data-platform="windows"][data-ui-family="fluent"] .windows-preset-title,
+html[data-platform="windows"][data-ui-family="fluent"] .windows-preset-caption,
+html[data-platform="windows"][data-ui-family="fluent"] .windows-history-title,
+html[data-platform="windows"][data-ui-family="fluent"] .windows-compose-title {
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 html[data-platform="windows"][data-ui-family="fluent"] .footer-bar {

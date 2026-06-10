@@ -45,9 +45,9 @@ export function CustomSizeModal() {
       return `请保持宽高都在 ${MIN_EXACT_SIZE} 到 ${MAX_EXACT_SIZE}px 之间，并满足最长边不超过 ${MAX_EXACT_SIZE}px。`;
     }
     if (normalized.width !== width || normalized.height !== height) {
-      return `当前输入会被收口为 ${normalized.width}×${normalized.height}，因为上游要求最长边不超过 ${MAX_EXACT_SIZE}px、宽高比不超过 ${MAX_OPENAI_IMAGE_ASPECT_RATIO}:1、总像素不超过 ${MAX_OPENAI_IMAGE_PIXELS}。`;
+      return `当前输入会被收口为 ${normalized.width}×${normalized.height}。应用会自动按最接近的合法值修正，因为上游要求宽高都能被 16 整除，同时最长边不超过 ${MAX_EXACT_SIZE}px、宽高比不超过 ${MAX_OPENAI_IMAGE_ASPECT_RATIO}:1、总像素不超过 ${MAX_OPENAI_IMAGE_PIXELS}。`;
     }
-    return `当前尺寸满足上游限制：最长边 <= ${MAX_EXACT_SIZE}px，宽高比 <= ${MAX_OPENAI_IMAGE_ASPECT_RATIO}:1，总像素 <= ${MAX_OPENAI_IMAGE_PIXELS}。`;
+    return `当前尺寸满足上游限制：宽高都能被 16 整除，最长边 <= ${MAX_EXACT_SIZE}px，宽高比 <= ${MAX_OPENAI_IMAGE_ASPECT_RATIO}:1，总像素 <= ${MAX_OPENAI_IMAGE_PIXELS}。`;
   }, [heightInput, widthInput]);
 
   const handleApply = (event?: FormEvent<HTMLFormElement>) => {
@@ -78,7 +78,7 @@ export function CustomSizeModal() {
             <div>
               <div className="text-[13px] font-semibold text-zinc-900 dark:text-zinc-100">设置精确尺寸</div>
               <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-                请输入 {MIN_EXACT_SIZE} 到 {MAX_EXACT_SIZE} 之间的整数像素值。最长边不能超过 {MAX_EXACT_SIZE}px，宽高比不能超过 {MAX_OPENAI_IMAGE_ASPECT_RATIO}:1，总像素不能超过 {MAX_OPENAI_IMAGE_PIXELS}。
+                请输入 {MIN_EXACT_SIZE} 到 {MAX_EXACT_SIZE} 之间的整数像素值。应用会自动收口到最接近的 16 倍数合法尺寸；最长边不能超过 {MAX_EXACT_SIZE}px，宽高比不能超过 {MAX_OPENAI_IMAGE_ASPECT_RATIO}:1，总像素不能超过 {MAX_OPENAI_IMAGE_PIXELS}。
               </div>
             </div>
             {ratioHint ? (

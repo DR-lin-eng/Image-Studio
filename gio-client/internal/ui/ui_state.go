@@ -1298,6 +1298,9 @@ func (a *App) switchActiveProfile(profileID string) {
 	a.setProfilesLocked(state.Profiles)
 	a.activeProfileID = profileID
 	a.settingsSelectedProfileID = profileID
+	if profile, ok := profileByID(state.Profiles, profileID); ok {
+		a.fallbackProfileID = strings.TrimSpace(profile.FallbackProfileID)
+	}
 	a.status = "已切换上游: " + activeProfileName(state.Profiles, profileID)
 	a.appendLogLocked("切换上游配置: " + activeProfileName(state.Profiles, profileID))
 	a.mu.Unlock()
@@ -1361,6 +1364,26 @@ func normalizeProfilePolicy(policy string) string {
 	return string(client.RequestPolicyOpenAI)
 }
 
+func normalizeProfileResponsesTransport(value string) string {
+	if strings.TrimSpace(value) == string(client.ResponsesTransportWebSocket) {
+		return string(client.ResponsesTransportWebSocket)
+	}
+	return string(client.ResponsesTransportSSE)
+}
+
+func normalizeReasoningEffort(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "low":
+		return "low"
+	case "medium":
+		return "medium"
+	case "high":
+		return "high"
+	default:
+		return client.DefaultReasoningEffort
+	}
+}
+
 func normalizeSettingsSelectedProfileID(state sharedCompat.State, profileID string) string {
 	profileID = strings.TrimSpace(profileID)
 	if profileID != "" {
@@ -1388,6 +1411,9 @@ func (a *App) applySettingsProfileDraft(state sharedCompat.State, profile shared
 	a.profileNameInput.SetText(strings.TrimSpace(profile.Name))
 	a.api = normalizeProfileAPIMode(profile.APIMode)
 	a.policy = normalizeProfilePolicy(profile.RequestPolicy)
+	a.responsesTransport = normalizeProfileResponsesTransport(profile.ResponsesTransport)
+	a.reasoningEffort = normalizeReasoningEffort(profile.ReasoningEffort)
+	a.fallbackProfileID = strings.TrimSpace(profile.FallbackProfileID)
 	a.imagesNewAPICompat = profile.ImagesNewAPICompat
 	a.baseURLInput.SetText(strings.TrimSpace(profile.BaseURL))
 	a.textModelInput.SetText(strings.TrimSpace(profile.TextModelID))
@@ -1436,6 +1462,16 @@ func (a *App) applySettingsProfileDraft(state sharedCompat.State, profile shared
 	} else {
 		a.partialImagesInput.SetText(strconv.Itoa(kernel.DefaultConfig().PartialImages))
 	}
+	a.completionSound = normaliseCompletionSoundSettings(state.Settings.CompletionSound)
+	a.completionNotification = normaliseCompletionNotificationSettings(state.Settings.CompletionNotification)
+	a.completionNotificationPermission = readSystemNotificationPermission()
+	a.keepLogs = state.Settings.KeepLogs
+	a.cleanupPreviewCacheOnExit = state.Settings.CleanupPreviewCacheOnExit
+	if state.Settings.ProtectStreamPreview != nil {
+		a.protectStreamPreview = *state.Settings.ProtectStreamPreview
+	} else {
+		a.protectStreamPreview = kernel.DefaultConfig().ProtectStreamPreview
+	}
 	a.apiKeyVisible = false
 }
 
@@ -1454,6 +1490,9 @@ func (a *App) loadSettingsProfileDraft(profileID string) error {
 		a.textModelInput.SetText(client.TextModel)
 		a.imageModelInput.SetText(client.ImageModel)
 		a.concurrencyLimitInput.SetText("")
+		a.responsesTransport = string(client.ResponsesTransportSSE)
+		a.reasoningEffort = client.DefaultReasoningEffort
+		a.fallbackProfileID = ""
 		a.proxy = strings.TrimSpace(state.Settings.ProxyMode)
 		if a.proxy == "" {
 			a.proxy = client.ProxyModeSystem
@@ -1495,6 +1534,16 @@ func (a *App) loadSettingsProfileDraft(profileID string) error {
 		} else {
 			a.partialImagesInput.SetText(strconv.Itoa(kernel.DefaultConfig().PartialImages))
 		}
+		a.completionSound = normaliseCompletionSoundSettings(state.Settings.CompletionSound)
+		a.completionNotification = normaliseCompletionNotificationSettings(state.Settings.CompletionNotification)
+		a.completionNotificationPermission = readSystemNotificationPermission()
+		a.keepLogs = state.Settings.KeepLogs
+		a.cleanupPreviewCacheOnExit = state.Settings.CleanupPreviewCacheOnExit
+		if state.Settings.ProtectStreamPreview != nil {
+			a.protectStreamPreview = *state.Settings.ProtectStreamPreview
+		} else {
+			a.protectStreamPreview = kernel.DefaultConfig().ProtectStreamPreview
+		}
 		a.imagesNewAPICompat = false
 		a.api = string(client.APIModeResponses)
 		a.policy = string(client.RequestPolicyOpenAI)
@@ -1521,6 +1570,11 @@ func (a *App) restoreActiveRuntimeConfig(logErrors bool) error {
 	cfg := gioCompat.ConfigFromState(kernel.DefaultConfig(), state)
 	a.applyRuntimeConfig(cfg)
 	a.profileNameInput.SetText(activeProfileName(state.Profiles, state.ActiveProfile))
+	if profile, ok := profileByID(state.Profiles, state.ActiveProfile); ok {
+		a.fallbackProfileID = strings.TrimSpace(profile.FallbackProfileID)
+	} else {
+		a.fallbackProfileID = ""
+	}
 	if limit := activeProfileConcurrencyLimit(state.Profiles, state.ActiveProfile); limit > 0 {
 		a.concurrencyLimitInput.SetText(strconv.Itoa(limit))
 	} else {
@@ -1530,6 +1584,10 @@ func (a *App) restoreActiveRuntimeConfig(logErrors bool) error {
 	a.setProfilesLocked(state.Profiles)
 	a.activeProfileID = state.ActiveProfile
 	a.settingsSelectedProfileID = state.ActiveProfile
+	a.completionNotification = normaliseCompletionNotificationSettings(state.Settings.CompletionNotification)
+	a.completionNotificationPermission = readSystemNotificationPermission()
+	a.keepLogs = state.Settings.KeepLogs
+	a.cleanupPreviewCacheOnExit = state.Settings.CleanupPreviewCacheOnExit
 	a.mu.Unlock()
 	a.apiKeyVisible = false
 	return nil
@@ -1583,6 +1641,9 @@ func (a *App) saveSettingsSelection() error {
 		state.Profiles[i].Name = name
 		state.Profiles[i].APIMode = normalizeProfileAPIMode(a.api)
 		state.Profiles[i].RequestPolicy = normalizeProfilePolicy(a.policy)
+		state.Profiles[i].ResponsesTransport = normalizeProfileResponsesTransport(a.responsesTransport)
+		state.Profiles[i].ReasoningEffort = normalizeReasoningEffort(a.reasoningEffort)
+		state.Profiles[i].FallbackProfileID = strings.TrimSpace(a.fallbackProfileID)
 		state.Profiles[i].ImagesNewAPICompat = a.imagesNewAPICompat
 		state.Profiles[i].BaseURL = strings.TrimSpace(a.baseURLInput.Text())
 		state.Profiles[i].TextModelID = strings.TrimSpace(a.textModelInput.Text())
@@ -1619,6 +1680,14 @@ func (a *App) saveSettingsSelection() error {
 		}
 	}
 	state.Settings.PartialImages = &partialImages
+	completionSound := a.completionSound
+	state.Settings.CompletionSound = &completionSound
+	completionNotification := a.completionNotification
+	state.Settings.CompletionNotification = &completionNotification
+	protectStreamPreview := a.protectStreamPreview
+	state.Settings.ProtectStreamPreview = &protectStreamPreview
+	state.Settings.KeepLogs = a.keepLogs
+	state.Settings.CleanupPreviewCacheOnExit = a.cleanupPreviewCacheOnExit
 	state.UpdatedAt = now
 	if err := gioCompat.SaveState(state); err != nil {
 		return err
@@ -1683,11 +1752,12 @@ func (a *App) createSettingsProfile(apiMode string) error {
 		ID:                 profileID,
 		Name:               nextProfileName(state.Profiles),
 		APIMode:            normalizeProfileAPIMode(apiMode),
+		ResponsesTransport: string(client.ResponsesTransportSSE),
 		RequestPolicy:      string(client.RequestPolicyOpenAI),
 		ImagesNewAPICompat: false,
 		TextModelID:        client.TextModel,
 		ImageModelID:       client.ImageModel,
-		ReasoningEffort:    "xhigh",
+		ReasoningEffort:    client.DefaultReasoningEffort,
 		CreatedAt:          now,
 		LastUsedAt:         now,
 	}
@@ -1912,11 +1982,12 @@ func (a *App) createBlankProfileWithMode(apiMode string) {
 		ID:                 profileID,
 		Name:               nextProfileName(state.Profiles),
 		APIMode:            apiMode,
+		ResponsesTransport: string(client.ResponsesTransportSSE),
 		RequestPolicy:      string(client.RequestPolicyOpenAI),
 		ImagesNewAPICompat: false,
 		TextModelID:        client.TextModel,
 		ImageModelID:       client.ImageModel,
-		ReasoningEffort:    "xhigh",
+		ReasoningEffort:    client.DefaultReasoningEffort,
 		CreatedAt:          now,
 		LastUsedAt:         now,
 	}
@@ -1932,6 +2003,7 @@ func (a *App) createBlankProfileWithMode(apiMode string) {
 	a.mu.Lock()
 	a.setProfilesLocked(state.Profiles)
 	a.activeProfileID = profileID
+	a.fallbackProfileID = strings.TrimSpace(profile.FallbackProfileID)
 	a.status = "已创建配置: " + profile.Name
 	a.appendLogLocked("已创建配置: " + profile.Name)
 	a.mu.Unlock()
@@ -1974,6 +2046,7 @@ func (a *App) duplicateActiveProfile() {
 	a.mu.Lock()
 	a.setProfilesLocked(state.Profiles)
 	a.activeProfileID = profileID
+	a.fallbackProfileID = strings.TrimSpace(clone.FallbackProfileID)
 	a.status = "已复制配置: " + clone.Name
 	a.appendLogLocked("已复制配置: " + clone.Name)
 	a.mu.Unlock()
@@ -2025,6 +2098,11 @@ func (a *App) deleteActiveProfile() {
 	a.mu.Lock()
 	a.setProfilesLocked(state.Profiles)
 	a.activeProfileID = state.ActiveProfile
+	if profile, ok := profileByID(state.Profiles, state.ActiveProfile); ok {
+		a.fallbackProfileID = strings.TrimSpace(profile.FallbackProfileID)
+	} else {
+		a.fallbackProfileID = ""
+	}
 	a.status = "已删除配置: " + current.Name
 	a.appendLogLocked("已删除配置: " + current.Name)
 	a.mu.Unlock()
@@ -2718,9 +2796,47 @@ func (a *App) applyPreset(preset sharedCompat.Preset) {
 		a.format = preset.OutputFormat
 	}
 	a.negativePromptInput.SetText(strings.TrimSpace(preset.NegativePrompt))
+	if background := strings.TrimSpace(preset.Background); background != "" {
+		a.background = background
+	}
+	if preset.OutputCompression != nil {
+		a.outputCompressionInput.SetText(strconv.Itoa(*preset.OutputCompression))
+	}
+	if fidelity := strings.TrimSpace(preset.InputFidelity); fidelity != "" {
+		a.inputFidelity = fidelity
+	}
+	if imageStyle := strings.TrimSpace(preset.ImageStyle); imageStyle != "" {
+		a.imageStyle = imageStyle
+	}
+	if moderation := strings.TrimSpace(preset.Moderation); moderation != "" {
+		a.moderation = moderation
+	}
+	a.styleTag = strings.TrimSpace(preset.StyleTag)
+	if runtimeMode := strings.TrimSpace(preset.KernelRuntimeMode); runtimeMode != "" {
+		a.kernelRuntimeMode = normalizeKernelRuntimeMode(runtimeMode)
+	}
 	a.batchCount = normalizeBatchCount(preset.BatchCount)
 	a.promptHelperOpen = false
+	a.appendLog("已应用预设: " + strings.TrimSpace(preset.Name))
 	a.invalidateNow()
+}
+
+func (a *App) applyPresetByID(id string) bool {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return false
+	}
+	a.mu.Lock()
+	presets := append([]sharedCompat.Preset(nil), a.presets...)
+	a.mu.Unlock()
+	for _, preset := range presets {
+		if strings.TrimSpace(preset.ID) != id {
+			continue
+		}
+		a.applyPreset(preset)
+		return true
+	}
+	return false
 }
 
 func (a *App) rememberPrompt(text string) {
@@ -2752,7 +2868,7 @@ func (a *App) rememberPrompt(text string) {
 	}
 	a.mu.Lock()
 	a.setPromptHistoryLocked(next)
-	a.presets = append([]sharedCompat.Preset(nil), state.Settings.Presets...)
+	a.setPresetsLocked(state.Settings.Presets)
 	a.mu.Unlock()
 	a.invalidateNow()
 }

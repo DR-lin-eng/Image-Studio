@@ -9,6 +9,7 @@ export type APIMode = "responses" | "images";
 export type RequestPolicy = "openai" | "compat";
 export type ReasoningEffortValue = "low" | "medium" | "high" | "xhigh";
 export type ResponsesTransport = "sse" | "websocket";
+export type AutoRetryCountValue = number;
 
 // UpstreamProfile 是一组完整可用于生成的上游配置。用户可以保存多个,例如
 // 「gptcodex 主号 / gptcodex 备号 / OpenAI 直连」,在 UI 里下拉切换 active。
@@ -284,6 +285,7 @@ export interface Workspace {
   userIdentifier: string;
   partialImages: number;
   batchCount: number;
+  selectedPresetId?: string | null;
   editSourceMode: EditSourceMode;
   batchProcess: BatchProcessConfig;
   loopGeneration: LoopGenerationConfig;

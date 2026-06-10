@@ -16,8 +16,10 @@ const (
 	DefaultModeration        = "low"
 	DefaultReasoningEffort   = "xhigh"
 	DefaultPartialImages     = 1
+	DefaultAutoRetryCount    = 5
+	MaxAutoRetryCount        = 10
 	MaxInputImageBytes       = 50 * 1024 * 1024
-	MaxAttempts              = 3
+	MaxAttempts              = DefaultAutoRetryCount + 1
 )
 
 // Tunable knobs (exposed as vars so tests can shrink them).
@@ -233,6 +235,10 @@ type Options struct {
 	// AutoRetryEnabled controls whether retryable upstream/transport failures are
 	// retried automatically. Nil means "use the default" (enabled).
 	AutoRetryEnabled *bool
+
+	// AutoRetryCount controls how many extra retry attempts should be issued
+	// after the initial request. Values <= 0 fall back to DefaultAutoRetryCount.
+	AutoRetryCount int
 }
 
 // EffectiveImageDataURLs returns the merged list, deduplicating empty entries.

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/yuanhua/image-gptcodex/pkg/client"
 	gioCompat "image-studio/gio-client/internal/compat"
 	sharedCompat "image-studio/shared/compat"
 )
@@ -19,6 +20,15 @@ var generalKernelRuntimeChoices = []settingsOptionChoice{
 	{Title: "local(桌面 Go/Wails)", Detail: "桌面 Go/Wails", Value: "local"},
 	{Title: "remote(共享远程内核)", Detail: "共享远程内核", Value: "remote"},
 }
+
+var generalAutoRetryCountChoices = []int{1, 3, 5, 8, 10}
+
+const (
+	defaultLoopGenerationCount       = 10
+	defaultLoopGenerationConcurrency = 2
+	maxLoopGenerationCount           = 99
+	maxLoopGenerationConcurrency     = 9
+)
 
 type historyExportPayload struct {
 	Version    int                        `json:"version"`
@@ -44,6 +54,44 @@ func kernelRuntimeModeLabel(mode string) string {
 		}
 	}
 	return generalKernelRuntimeChoices[0].Title
+}
+
+func normalizeAutoRetryCount(value int) int {
+	if value <= 0 {
+		return client.DefaultAutoRetryCount
+	}
+	if value > client.MaxAutoRetryCount {
+		return client.MaxAutoRetryCount
+	}
+	return value
+}
+
+func normalizeLoopGenerationCount(value int) int {
+	if value <= 0 {
+		return defaultLoopGenerationCount
+	}
+	if value > maxLoopGenerationCount {
+		return maxLoopGenerationCount
+	}
+	return value
+}
+
+func normalizeLoopGenerationConcurrency(value int) int {
+	if value <= 0 {
+		return defaultLoopGenerationConcurrency
+	}
+	if value > maxLoopGenerationConcurrency {
+		return maxLoopGenerationConcurrency
+	}
+	return value
+}
+
+func normaliseCompletionSoundSettings(value *sharedCompat.CompletionSoundSettings) sharedCompat.CompletionSoundSettings {
+	return gioCompat.NormaliseCompletionSoundSettings(value)
+}
+
+func normaliseCompletionNotificationSettings(value *sharedCompat.CompletionNotificationSettings) sharedCompat.CompletionNotificationSettings {
+	return gioCompat.NormaliseCompletionNotificationSettings(value)
 }
 
 func (a *App) exportHistoryJSON() {

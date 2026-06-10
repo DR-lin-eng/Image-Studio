@@ -39,6 +39,7 @@ import {
   persistCompletionNotificationConfig,
 } from "./completionNotification";
 import { normalizePromptTemplates } from "./promptTemplates";
+import { normalizeAutoRetryCount } from "../../../../shared/kernel/requestModel.js";
 
 const SCHEMA_VERSION = 1;
 const MARKER_KEY = "gptcodex.compatStateUpdatedAt";
@@ -62,6 +63,7 @@ export type CompatibilityState = {
     partialImages?: number;
     protectStreamPreview?: boolean;
     autoRetryEnabled?: boolean;
+    autoRetryCount?: number;
     promptTemplates?: PromptTemplate[];
     outputDir?: string;
     promptHistory?: string[];
@@ -100,6 +102,7 @@ export type CompatibilityExportInput = {
   partialImages: number;
   protectStreamPreview: boolean;
   autoRetryEnabled: boolean;
+  autoRetryCount: number;
   promptTemplates: PromptTemplate[];
   promptHistory: string[];
   presets: Preset[];
@@ -160,6 +163,7 @@ export function compatibilityExportFingerprint(input: CompatibilityExportInput):
     partialImages: input.partialImages,
     protectStreamPreview: input.protectStreamPreview,
     autoRetryEnabled: input.autoRetryEnabled,
+    autoRetryCount: input.autoRetryCount,
     promptTemplates: input.promptTemplates,
     promptHistory: input.promptHistory,
     presets: input.presets,
@@ -198,6 +202,7 @@ function buildCompatibilityState(input: CompatibilityExportInput): Compatibility
       partialImages: normalizePartialImages(input.partialImages),
       protectStreamPreview: input.protectStreamPreview !== false,
       autoRetryEnabled: input.autoRetryEnabled !== false,
+      autoRetryCount: normalizeAutoRetryCount(input.autoRetryCount),
       promptTemplates: normalizePromptTemplates(input.promptTemplates),
       outputDir: readLocalStorageString("gptcodex.outputDir"),
       promptHistory: cleanStringList(input.promptHistory, 50),
@@ -243,6 +248,7 @@ function applyCompatibilityLocalStorage(state: CompatibilityState): void {
   else removeLocalStorage("gptcodex.protectStreamPreview");
   if (settings.autoRetryEnabled === false) writeLocalStorageString("gptcodex.autoRetryEnabled", "0");
   else removeLocalStorage("gptcodex.autoRetryEnabled");
+  if (typeof settings.autoRetryCount === "number") writeLocalStorageString("gptcodex.autoRetryCount", String(normalizeAutoRetryCount(settings.autoRetryCount)));
   writeLocalStorageJSON("gptcodex.promptTemplates", normalizePromptTemplates(settings.promptTemplates ?? []));
   if (settings.outputDir?.trim()) writeLocalStorageString("gptcodex.outputDir", settings.outputDir.trim());
   else removeLocalStorage("gptcodex.outputDir");
@@ -318,6 +324,7 @@ function normalizeSettings(raw: unknown): CompatibilityState["settings"] {
     partialImages: normalizePartialImages(source.partialImages),
     protectStreamPreview: source.protectStreamPreview !== false,
     autoRetryEnabled: source.autoRetryEnabled !== false,
+    autoRetryCount: normalizeAutoRetryCount(source.autoRetryCount),
     promptTemplates: normalizePromptTemplates(source.promptTemplates ?? []),
     outputDir: typeof source.outputDir === "string" ? source.outputDir : "",
     promptHistory: cleanStringList(source.promptHistory ?? [], 50),
@@ -429,6 +436,7 @@ function cloneExportInput(input: CompatibilityExportInput): CompatibilityExportI
     partialImages: input.partialImages,
     protectStreamPreview: input.protectStreamPreview,
     autoRetryEnabled: input.autoRetryEnabled,
+    autoRetryCount: input.autoRetryCount,
     promptTemplates: input.promptTemplates.map((item) => ({ ...item })),
     promptHistory: [...input.promptHistory],
     presets: input.presets.map((preset) => ({ ...preset })),

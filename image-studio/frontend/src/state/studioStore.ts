@@ -1,5 +1,9 @@
 import { create } from "zustand";
 import {
+  DEFAULT_AUTO_RETRY_COUNT,
+  normalizeAutoRetryCount,
+} from "../../../../shared/kernel/requestModel.js";
+import {
   BuildBatchOutputPath,
   EventsOn,
   EventsOff,
@@ -145,7 +149,7 @@ import {
   supportsPreciseSizeControl,
 } from "../components/panel/sizeCapabilities";
 import { normalizeQualitySelection } from "../components/panel/panelOptions";
-import { buildMacWorkspacePreview, readPreviewScenario } from "../app/dev/previewData";
+import { buildMacWorkspacePreview, buildWindowsRightRailPreview, readPreviewScenario } from "../app/dev/previewData";
 import {
   applyTheme,
   augmentPromptWithAnnotations,
@@ -332,6 +336,7 @@ function launchQueuedLoopJobs(controller: LoopRunController): void {
 const KEEP_LOGS_KEY = "gptcodex.keepLogs";
 const CLEANUP_PREVIEW_CACHE_ON_EXIT_KEY = "gptcodex.cleanupPreviewCacheOnExit";
 const AUTO_RETRY_ENABLED_KEY = "gptcodex.autoRetryEnabled";
+const AUTO_RETRY_COUNT_KEY = "gptcodex.autoRetryCount";
 const PROTECT_STREAM_PREVIEW_KEY = "gptcodex.protectStreamPreview";
 const INITIAL_HISTORY_LOAD = 18;
 const HISTORY_MEDIA_HYDRATE_CONCURRENCY = 4;
@@ -392,6 +397,22 @@ function writeAutoRetryEnabled(value: boolean): void {
   try {
     if (value) localStorage.removeItem(AUTO_RETRY_ENABLED_KEY);
     else localStorage.setItem(AUTO_RETRY_ENABLED_KEY, "0");
+  } catch {
+    // localStorage can be unavailable in tests/previews.
+  }
+}
+
+function readAutoRetryCount(): number {
+  try {
+    return normalizeAutoRetryCount(localStorage.getItem(AUTO_RETRY_COUNT_KEY));
+  } catch {
+    return DEFAULT_AUTO_RETRY_COUNT;
+  }
+}
+
+function writeAutoRetryCount(value: number): void {
+  try {
+    localStorage.setItem(AUTO_RETRY_COUNT_KEY, String(normalizeAutoRetryCount(value)));
   } catch {
     // localStorage can be unavailable in tests/previews.
   }
@@ -605,6 +626,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   partialImages: 1,
   protectStreamPreview: true,
   autoRetryEnabled: true,
+  autoRetryCount: DEFAULT_AUTO_RETRY_COUNT,
   kernelRuntimeMode: "auto",
   baseURL: "",
   textModelID: "",
@@ -899,6 +921,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   },
   workspaces: [],
   activeWorkspaceId: "",
+  selectedPresetId: null,
   styleTag: "",
 
   setField: (key, value) => {
@@ -935,6 +958,8 @@ export const useStudioStore = create<StudioState>((set, get) => ({
                       ? value !== false
                     : key === "autoRetryEnabled"
                       ? value !== false
+                      : key === "autoRetryCount"
+                        ? normalizeAutoRetryCount(value)
       : key === "loopGeneration"
         ? normalizeLoopGenerationConfig(value)
         : value;
@@ -956,6 +981,12 @@ export const useStudioStore = create<StudioState>((set, get) => ({
         workspaces: get().workspaces.map((w) => (
           w.id === get().activeWorkspaceId ? { ...w, batchCount: value } : w
         )),
+      });
+    } else if (key === "selectedPresetId") {
+      set({
+        workspaces: patchWorkspaceRuntime(get().workspaces, get().activeWorkspaceId, {
+          selectedPresetId: normalizedValue as string | null,
+        }),
       });
     } else if (key === "mode") {
       const value = normalizedValue as Mode;
@@ -1015,6 +1046,8 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       writeProtectStreamPreview(value !== false);
     } else if (key === "autoRetryEnabled") {
       writeAutoRetryEnabled(value !== false);
+    } else if (key === "autoRetryCount") {
+      writeAutoRetryCount(Number(value));
     }
   },
   setFullscreen: async (value) => {
@@ -1277,6 +1310,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       noPromptRevision: true,
       concurrencyLimit,
       partialImages: s.partialImages,
+      autoRetryCount: s.autoRetryCount,
       fallbackProfile: fallbackProfile && fallbackProfileKey.trim() && fallbackProfile.baseURL.trim()
         ? {
             baseURL: cleanBaseURL(fallbackProfile.baseURL),
@@ -1426,30 +1460,35 @@ export const useStudioStore = create<StudioState>((set, get) => ({
 
   bootstrap: async () => {
     const previewScenario = readPreviewScenario();
-    if (previewScenario === "mac-workspace") {
+    if (previewScenario === "mac-workspace" || previewScenario === "windows-right-rail") {
       const workspaceId = genId();
-      const preview = buildMacWorkspacePreview(workspaceId);
+      const preview = previewScenario === "windows-right-rail"
+        ? buildWindowsRightRailPreview(workspaceId)
+        : buildMacWorkspacePreview(workspaceId);
       await SetKeepLogsEnabled(readKeepLogs()).catch(() => undefined);
       await SetCleanupPreviewCacheOnExitEnabled(readCleanupPreviewCacheOnExit()).catch(() => undefined);
-      applyTheme("dark");
+      applyTheme(previewScenario === "windows-right-rail" ? "light" : "dark");
       document.documentElement.style.setProperty("--font-scale", "1");
       setKernelRuntimeMode("auto");
+      const workspaceState = preview.workspace;
       set({
         apiKey: "sk-preview",
-        mode: "edit",
-        prompt: preview.currentImage.prompt,
-        negativePrompt: preview.currentImage.negativePrompt ?? "",
-        size: preview.currentImage.size,
-        quality: preview.currentImage.quality,
-        outputFormat: "png",
-        seed: preview.currentImage.seed ?? 3200,
-        background: preview.currentImage.background ?? "auto",
-        outputCompression: preview.currentImage.outputCompression ?? 100,
-        inputFidelity: preview.currentImage.inputFidelity ?? "auto",
-        imageStyle: preview.currentImage.imageStyle ?? "default",
-        moderation: preview.currentImage.moderation ?? "low",
+        mode: workspaceState.mode,
+        prompt: workspaceState.prompt,
+        negativePrompt: workspaceState.negativePrompt,
+        size: workspaceState.size,
+        quality: workspaceState.quality,
+        outputFormat: workspaceState.outputFormat,
+        seed: workspaceState.seed,
+        background: workspaceState.background,
+        outputCompression: workspaceState.outputCompression,
+        inputFidelity: workspaceState.inputFidelity,
+        imageStyle: workspaceState.imageStyle,
+        moderation: workspaceState.moderation,
         userIdentifier: "",
-        partialImages: 1,
+        partialImages: workspaceState.partialImages,
+        autoRetryEnabled: true,
+        autoRetryCount: DEFAULT_AUTO_RETRY_COUNT,
         kernelRuntimeMode: "auto",
         baseURL: preview.profile.baseURL,
         textModelID: preview.profile.textModelID,
@@ -1502,16 +1541,17 @@ export const useStudioStore = create<StudioState>((set, get) => ({
         canvasViewResetTick: 0,
         fullscreen: false,
         promptHistory: [],
-        promptTemplates: [],
-        batchCount: 1,
-        editSourceMode: "manual",
-        batchProcess: defaultBatchProcessConfig(),
-        loopGeneration: normalizeLoopGenerationConfig(preview.workspace.loopGeneration),
-        presets: [],
+        promptTemplates: preview.promptTemplates ?? [],
+        batchCount: workspaceState.batchCount,
+        selectedPresetId: workspaceState.selectedPresetId ?? null,
+        editSourceMode: workspaceState.editSourceMode,
+        batchProcess: normalizeBatchProcessConfig(workspaceState.batchProcess),
+        loopGeneration: normalizeLoopGenerationConfig(workspaceState.loopGeneration),
+        presets: preview.presets ?? [],
         customAspectRatios: [],
-        theme: "dark",
+        theme: previewScenario === "windows-right-rail" ? "light" : "dark",
         fontScale: 1,
-        workspaces: [preview.workspace],
+        workspaces: [workspaceState],
         activeWorkspaceId: workspaceId,
         styleTag: preview.currentImage.styleTag ?? "",
         undoStack: [],
@@ -1526,7 +1566,6 @@ export const useStudioStore = create<StudioState>((set, get) => ({
         upstreamReturnTarget: "app",
         starPromptOpen: false,
         starPromptSource: "auto",
-        autoRetryEnabled: readAutoRetryEnabled(),
         savePromptRequest: null,
         savePromptQueue: [],
         savePromptSuppressed: readSavePromptSuppressed(),
@@ -1624,6 +1663,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     } catch {}
     const protectStreamPreview = readProtectStreamPreview();
     const autoRetryEnabled = readAutoRetryEnabled();
+    const autoRetryCount = readAutoRetryCount();
     // ---- v0.1.6 profile 列表加载 / 迁移 -----------------------------------
     // 1) 优先读新格式 gptcodex.profiles。
     // 2) 缺失时尝试从老 gptcodex.{responses,images}.* + 老 keyring 项合成 0-2
@@ -1772,6 +1812,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       userIdentifier,
       partialImages,
       batchCount: 1,
+      selectedPresetId: null,
       editSourceMode: "manual",
       batchProcess: defaultBatchProcessConfig(),
       loopGeneration: defaultLoopGenerationConfig(),
@@ -1810,12 +1851,14 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       moderation,
       userIdentifier,
       partialImages,
+      autoRetryCount,
       protectStreamPreview,
       autoRetryEnabled,
       profiles,
       activeProfileId,
       workspaces: [initialWorkspace],
       activeWorkspaceId: wsId,
+      selectedPresetId: initialWorkspace.selectedPresetId ?? null,
       editSourceMode: initialWorkspace.editSourceMode,
       batchProcess: normalizeBatchProcessConfig(initialWorkspace.batchProcess),
       loopGeneration: normalizeLoopGenerationConfig(initialWorkspace.loopGeneration),

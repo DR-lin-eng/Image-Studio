@@ -33,8 +33,35 @@ export function BatchResultGrid({
   livePreview?: boolean;
 }) {
   const gridSlots = slots ?? items.map((item) => ({ type: "result", item }) satisfies BatchGridSlot);
-  const singleLivePreview = livePreview && gridSlots.length === 1;
-  const columns = singleLivePreview ? 1 : gridSlots.length <= 4 ? 2 : 3;
+  const singlePendingPreview = livePreview && gridSlots.length === 1 && gridSlots[0]?.type === "pending";
+  const singleLivePreview = livePreview && gridSlots.length === 1 && gridSlots[0]?.type !== "pending";
+  const columns = singleLivePreview || singlePendingPreview ? 1 : gridSlots.length <= 4 ? 2 : 3;
+  const rows = Math.min(3, Math.ceil(Math.max(gridSlots.length, 1) / columns));
+  const scrollGrid = !singleLivePreview && !singlePendingPreview && gridSlots.length > 9;
+  const fillGrid = !singleLivePreview && !singlePendingPreview && !scrollGrid;
+
+  if (singlePendingPreview) {
+    return (
+      <div className="batch-grid-overlay live-preview-grid single-pending">
+        <div className="batch-grid-head">
+          <span className="batch-grid-title">{title ?? `本批结果 · ${items.length} 张`}</span>
+          {showClose ? (
+            <button type="button" className="batch-grid-close" onClick={onClose} title="返回当前图">
+              返回当前图
+            </button>
+          ) : null}
+        </div>
+        <div className="batch-grid-pending-stage" aria-label="等待第一张预览">
+          <div className="batch-grid-pending-stage-card">
+            <span className="batch-grid-pending-ring large" />
+            <strong className="batch-grid-pending-stage-title">等待第一张预览</strong>
+            <span className="batch-grid-pending-stage-note">收到首帧后，这里会自动切成实时预览画面。</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={`batch-grid-overlay ${livePreview ? "live-preview-grid" : ""} ${singleLivePreview ? "single-slot" : ""}`}>
       <div className={`batch-grid-head ${singleLivePreview ? "single-slot" : ""}`}>
@@ -46,8 +73,12 @@ export function BatchResultGrid({
         ) : null}
       </div>
       <div
-        className={`batch-grid ${singleLivePreview ? "single-slot" : ""}`}
-        style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
+        className={`batch-grid ${singleLivePreview ? "single-slot" : ""} ${fillGrid ? "fill-grid" : ""} ${scrollGrid ? "scroll-grid" : ""}`}
+        style={{
+          gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+          ...(fillGrid ? { gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))` } : {}),
+          ...(scrollGrid ? { gridAutoRows: "clamp(180px, 24vh, 260px)" } : {}),
+        }}
       >
         {gridSlots.map((slot, index) => {
           if (slot.type === "pending") {
@@ -142,8 +173,8 @@ function PendingGridTile({ index, singleLayout }: { index: number; singleLayout:
     <div className="batch-grid-tile pending" aria-label={`等待第 ${index + 1} 张预览`}>
       <span className="batch-grid-index">{index + 1}</span>
       <span className="batch-grid-pending-ring" />
-      <span className="batch-grid-pending-label">等待预览</span>
-      {singleLayout ? <span className="batch-grid-single-note pending-note">第一张流式预览出现后，会在这里实时刷新。</span> : null}
+      <span className="batch-grid-pending-label">{singleLayout ? "等待第一张预览" : "等待预览"}</span>
+      {singleLayout ? <span className="batch-grid-single-note pending-note">收到首帧后，这里会自动切成实时预览画面。</span> : null}
     </div>
   );
 }

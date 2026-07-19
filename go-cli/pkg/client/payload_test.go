@@ -44,8 +44,8 @@ func TestBuildPayloadUsesSizeAndQuality(t *testing.T) {
 	if tool["moderation"] != "low" {
 		t.Errorf("moderation = %v, want low", tool["moderation"])
 	}
-	if tool["model"] != "gpt-image-2" {
-		t.Errorf("model = %v, want gpt-image-2", tool["model"])
+	if _, ok := tool["model"]; ok {
+		t.Errorf("Responses image_generation tool unexpectedly contains a second model: %v", tool["model"])
 	}
 	if tool["action"] != "generate" {
 		t.Errorf("action = %v, want generate", tool["action"])

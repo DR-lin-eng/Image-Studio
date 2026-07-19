@@ -164,6 +164,7 @@ import {
   genId,
   imageDims,
   loadModeConfig,
+  loadImageDims,
   loadStoredActiveProfileId,
   loadStoredAIProfileId,
   loadStoredProfiles,
@@ -1263,6 +1264,26 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       jobsCompleted: 0,
       runningJobs: [],
     };
+    const importedMaskDataURL = s.maskDataURL && s.maskDataURL !== "__PENDING_MASK__" ? s.maskDataURL : null;
+    let maskTargetDims = s.currentImage?.imageB64 ? await loadImageDims(s.currentImage.imageB64) : null;
+    if (s.mode === "edit" && s.strokes.length > 0 && !maskTargetDims && editSourcePaths[0]) {
+      const sourceB64 = await ReadImageAsBase64(editSourcePaths[0]).catch(() => "");
+      maskTargetDims = await loadImageDims(sourceB64);
+    }
+    if (s.mode === "edit" && s.strokes.length > 0 && !maskTargetDims) {
+      set({
+        errorMessage: "无法读取源图真实尺寸，未提交蒙版任务。请重新导入源图后再试。",
+        errorCanRetry: false,
+        errorRawPath: null,
+      });
+      return;
+    }
+    const maskDataURL = s.mode === "edit"
+      ? (s.strokes.length > 0
+        ? buildMaskPNGDataURL(s.strokes, maskTargetDims)
+        : importedMaskDataURL)
+      : null;
+    const maskB64 = maskDataURL ? stripDataURLPrefix(maskDataURL) : "";
     set({
       ...runPatch,
       batchCount,
@@ -1280,14 +1301,6 @@ export const useStudioStore = create<StudioState>((set, get) => ({
         resultGridOpen: requestedJobCount > 1,
       }),
     });
-
-    const importedMaskDataURL = s.maskDataURL && s.maskDataURL !== "__PENDING_MASK__" ? s.maskDataURL : null;
-    const maskDataURL = s.mode === "edit"
-      ? (s.strokes.length > 0
-        ? buildMaskPNGDataURL(s.strokes, s.currentImage?.imageB64 ? imageDims(s.currentImage.imageB64) : null)
-        : importedMaskDataURL)
-      : null;
-    const maskB64 = maskDataURL ? stripDataURLPrefix(maskDataURL) : "";
     let augmentedPrompt = augmentPromptWithAnnotations(s.prompt, s.annotations, s.currentImage?.imageB64 ? imageDims(s.currentImage.imageB64) : null);
     // Append style chip suffix if the user picked one (other than "全部").
     const styleSuffix = STYLE_SUFFIXES[s.styleTag];
@@ -2544,7 +2557,9 @@ async function launchOneJob(
             mode: r.mode as Mode,
             size: snapshot.size,
             quality: snapshot.quality,
-            outputFormat: snapshot.outputFormat,
+            outputFormat: r.outputFormat === "png" || r.outputFormat === "jpeg" || r.outputFormat === "webp"
+              ? r.outputFormat
+              : snapshot.outputFormat,
             parentId,
             createdAt: Date.now(),
             seed: payload.seed || undefined,

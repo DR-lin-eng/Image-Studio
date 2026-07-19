@@ -65,7 +65,6 @@ func BuildPayload(opts Options) ([]byte, error) {
 	}
 	tool := map[string]any{
 		"type":           "image_generation",
-		"model":          imgModel,
 		"action":         action,
 		"size":           size,
 		"quality":        quality,

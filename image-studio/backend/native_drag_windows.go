@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"syscall"
+	"time"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -23,6 +24,8 @@ const (
 	dropEffectCopy              uintptr = 0x00000001
 	mouseKeyStateLeftButtonDown uintptr = 0x00000001
 	globalAllocMoveableZeroInit uintptr = 0x00000042
+	virtualKeyLeftButton        uintptr = 0x01
+	nativeDragMaxDuration               = 30 * time.Second
 	cfHDrop                     uint16  = 15
 	dvAspectContent             uint32  = 1
 	tymedHGlobal                uint32  = 1
@@ -32,6 +35,7 @@ var (
 	ole32                  = windows.NewLazySystemDLL("ole32.dll")
 	shell32                = windows.NewLazySystemDLL("shell32.dll")
 	kernel32               = windows.NewLazySystemDLL("kernel32.dll")
+	user32                 = windows.NewLazySystemDLL("user32.dll")
 	procOleInitialize      = ole32.NewProc("OleInitialize")
 	procOleUninitialize    = ole32.NewProc("OleUninitialize")
 	procDoDragDrop         = ole32.NewProc("DoDragDrop")
@@ -42,6 +46,7 @@ var (
 	procGlobalLock         = kernel32.NewProc("GlobalLock")
 	procGlobalUnlock       = kernel32.NewProc("GlobalUnlock")
 	procGlobalFree         = kernel32.NewProc("GlobalFree")
+	procGetAsyncKeyState   = user32.NewProc("GetAsyncKeyState")
 
 	iidIUnknown = windows.GUID{Data1: 0x00000000, Data2: 0x0000, Data3: 0x0000, Data4: [8]byte{0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46}}
 	iidIDataObj = windows.GUID{Data1: 0x0000010e, Data2: 0x0000, Data3: 0x0000, Data4: [8]byte{0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46}}
@@ -57,8 +62,9 @@ type dropSourceVtbl struct {
 }
 
 type dropSource struct {
-	lpVtbl *dropSourceVtbl
-	refs   uint32
+	lpVtbl      *dropSourceVtbl
+	refs        uint32
+	startedUnix int64
 }
 
 var nativeDropSourceVtbl = dropSourceVtbl{
@@ -114,7 +120,7 @@ func beginNativeFileDrag(path string) error {
 		return err
 	}
 
-	source := &dropSource{lpVtbl: &nativeDropSourceVtbl, refs: 1}
+	source := &dropSource{lpVtbl: &nativeDropSourceVtbl, refs: 1, startedUnix: time.Now().UnixNano()}
 	var effect uintptr
 	hr, _, _ = procDoDragDrop.Call(
 		dataObject,
@@ -234,13 +240,23 @@ func dropSourceRelease(this uintptr) uintptr {
 	return uintptr(next)
 }
 
-func dropSourceQueryContinueDrag(_ uintptr, escapePressed uintptr, keyState uintptr) uintptr {
+func dropSourceQueryContinueDrag(this uintptr, escapePressed uintptr, keyState uintptr) uintptr {
 	if escapePressed != 0 {
 		return dragDropSCancel
 	}
-	if keyState&mouseKeyStateLeftButtonDown == 0 {
+	if this != 0 {
+		source := (*dropSource)(unsafe.Pointer(this))
+		if source.startedUnix > 0 && time.Since(time.Unix(0, source.startedUnix)) >= nativeDragMaxDuration {
+			return dragDropSCancel
+		}
+	}
+	asyncState, _, _ := procGetAsyncKeyState.Call(virtualKeyLeftButton)
+	if keyState&mouseKeyStateLeftButtonDown == 0 || uint16(asyncState)&0x8000 == 0 {
 		return dragDropSDrop
 	}
+	// Some third-party file managers poll IDropSource extremely aggressively.
+	// Yield briefly so a stalled target cannot pin a CPU core while hovering.
+	time.Sleep(time.Millisecond)
 	return sOK
 }
 

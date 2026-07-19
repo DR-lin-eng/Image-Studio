@@ -192,6 +192,7 @@ type ResultPayload struct {
 	RawPath       string `json:"rawPath"` // raw SSE dump location
 	Mode          string `json:"mode"`
 	Prompt        string `json:"prompt"`
+	OutputFormat  string `json:"outputFormat,omitempty"`
 }
 
 // PreviewPayload is emitted as `preview:<jobId>` while Responses API streams

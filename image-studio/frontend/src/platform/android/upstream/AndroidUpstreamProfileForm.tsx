@@ -59,6 +59,9 @@ export function AndroidUpstreamProfileForm({
   const isActive = draft.id === activeProfileId;
   const busy = saving || isTestingKey;
   const preferredModels = modelCatalog ? preferredModelsForAPIMode(modelCatalog, draft.apiMode) : null;
+  const requestModels = modelCatalog
+    ? (draft.apiMode === "responses" ? modelCatalog.all : preferredModels?.image ?? [])
+    : [];
 
   return (
     <section className="android-upstream-form" aria-label="编辑上游配置">
@@ -187,7 +190,7 @@ export function AndroidUpstreamProfileForm({
             </div>
           </AndroidField>
 
-          <AndroidField label="文本模型 ID">
+          <AndroidField label="请求模型 ID">
             <input
               type="text"
               value={draft.textModelID}
@@ -196,9 +199,9 @@ export function AndroidUpstreamProfileForm({
               className="focus-ring android-upstream-input font-mono-token"
               spellCheck={false}
             />
-            {preferredModels && preferredModels.text.length > 0 ? (
+            {requestModels.length > 0 ? (
               <AndroidModelSuggestions
-                models={preferredModels.text}
+                models={requestModels}
                 selectedID={draft.textModelID}
                 onSelect={(id) => onPatchDraft({ textModelID: id })}
               />
@@ -223,23 +226,25 @@ export function AndroidUpstreamProfileForm({
         </>
       ) : null}
 
-      <AndroidField label="图像模型 ID">
-        <input
-          type="text"
-          value={draft.imageModelID}
-          onChange={(event) => onPatchDraft({ imageModelID: event.target.value })}
-          placeholder="留空 = 默认 gpt-image-2"
-          className="focus-ring android-upstream-input font-mono-token"
-          spellCheck={false}
-        />
-        {preferredModels && preferredModels.image.length > 0 ? (
-          <AndroidModelSuggestions
-            models={preferredModels.image}
-            selectedID={draft.imageModelID}
-            onSelect={(id) => onPatchDraft({ imageModelID: id })}
+      {draft.apiMode === "images" ? (
+        <AndroidField label="请求模型 ID">
+          <input
+            type="text"
+            value={draft.imageModelID}
+            onChange={(event) => onPatchDraft({ imageModelID: event.target.value })}
+            placeholder="留空 = 默认 gpt-image-2"
+            className="focus-ring android-upstream-input font-mono-token"
+            spellCheck={false}
           />
-        ) : null}
-      </AndroidField>
+          {requestModels.length > 0 ? (
+            <AndroidModelSuggestions
+              models={requestModels}
+              selectedID={draft.imageModelID}
+              onSelect={(id) => onPatchDraft({ imageModelID: id })}
+            />
+          ) : null}
+        </AndroidField>
+      ) : null}
 
       <AndroidField label="并发数量限制" hint="0 表示不限制；正整数会限制同一配置跨标签页的并发任务。">
         <div className="android-upstream-stepper">

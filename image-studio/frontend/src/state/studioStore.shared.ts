@@ -11,7 +11,7 @@ import { ACTIVE_PROFILE_LS_KEY, PROFILES_LS_KEY, tryParseProfile } from "../lib/
 export { loadStoredAIProfileId, persistAIProfileId } from "../lib/profiles";
 import type { UpstreamProfile } from "../types/domain";
 import { pruneHistoryStorage } from "../lib/storage";
-import { dataURLFromBase64, getImageDimensionsFromBase64 } from "../lib/images";
+import { dataURLFromBase64, detectImageMimeTypeFromBase64, getImageDimensionsFromBase64 } from "../lib/images";
 
 export const EMPTY_MODE_CFG: ModeConfig = {
   baseURL: "",
@@ -156,15 +156,25 @@ export function buildMaskPNGDataURL(strokes: Stroke[], dims: { w: number; h: num
   c.height = dims.h;
   const ctx = c.getContext("2d");
   if (!ctx) return null;
-  ctx.fillStyle = "#000";
+  // OpenAI masks use alpha: transparent pixels are editable, opaque pixels
+  // protect the source. Keep RGB black so only alpha carries mask semantics.
+  ctx.fillStyle = "rgba(0,0,0,1)";
   ctx.fillRect(0, 0, c.width, c.height);
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
-  let hasWhite = false;
+  let hasPaint = false;
   for (const s of strokes) {
-    ctx.strokeStyle = s.erase ? "#000" : "#fff";
+    ctx.globalCompositeOperation = s.erase ? "source-over" : "destination-out";
+    ctx.strokeStyle = "#000";
     ctx.lineWidth = s.size;
     ctx.beginPath();
+    if (s.points.length === 2) {
+      ctx.arc(s.points[0], s.points[1], s.size / 2, 0, Math.PI * 2);
+      ctx.fillStyle = "#000";
+      ctx.fill();
+      if (!s.erase) hasPaint = true;
+      continue;
+    }
     for (let i = 0; i < s.points.length; i += 2) {
       const x = s.points[i];
       const y = s.points[i + 1];
@@ -172,9 +182,10 @@ export function buildMaskPNGDataURL(strokes: Stroke[], dims: { w: number; h: num
       else ctx.lineTo(x, y);
     }
     ctx.stroke();
-    if (!s.erase) hasWhite = true;
+    if (!s.erase) hasPaint = true;
   }
-  return hasWhite ? c.toDataURL("image/png") : null;
+  ctx.globalCompositeOperation = "source-over";
+  return hasPaint ? c.toDataURL("image/png") : null;
 }
 
 export async function registerTrustedOutputRoots(roots: string[]): Promise<void> {
@@ -196,6 +207,21 @@ export function persistTrimmedHistory(items: HistoryItem[]): void {
 
 export function imageDims(b64: string): { w: number; h: number } | null {
   return getImageDimensionsFromBase64(b64);
+}
+
+export async function loadImageDims(b64: string): Promise<{ w: number; h: number } | null> {
+  if (!b64) return null;
+  const fast = detectImageMimeTypeFromBase64(b64) === "image/png" ? imageDims(b64) : null;
+  if (fast) return fast;
+  if (typeof Image === "undefined") return null;
+  return new Promise((resolve) => {
+    const image = new Image();
+    image.onload = () => resolve(image.naturalWidth > 0 && image.naturalHeight > 0
+      ? { w: image.naturalWidth, h: image.naturalHeight }
+      : null);
+    image.onerror = () => resolve(null);
+    image.src = tempDataURLFromB64(b64);
+  });
 }
 
 export function augmentPromptWithAnnotations(

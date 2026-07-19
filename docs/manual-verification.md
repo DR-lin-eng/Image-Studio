@@ -75,7 +75,7 @@ node scripts/init-manual-verification.mjs custom "my regression check"
 ### 前置条件
 
 - 至少一条真实可用上游，且能稳定返回图像
-- 已知正常的 `BASE_URL` / `API Key` / 文本模型 ID / 图像模型 ID
+- 已知正常的 `BASE_URL` / `API Key` / 请求模型 ID
 - 如果是 Android:
   - 已接入真机或模拟器
   - 可先执行：

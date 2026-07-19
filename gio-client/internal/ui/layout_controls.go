@@ -1043,10 +1043,10 @@ func (a *App) layoutSettingsHelpModal(gtx layout.Context) layout.Dimensions {
 					return a.helpInfoCard(gtx, "模型 ID 怎么填?", "", func(gtx layout.Context) layout.Dimensions {
 						return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(unit.Dp(8))}.Layout(gtx,
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return a.label(gtx, "Responses API 会同时用到文本模型 ID 与图像模型 ID；Images API 只读取图像模型 ID。", unit.Sp(11), fluent.textMuted, font.Normal)
+								return a.label(gtx, "Responses API 与 Images API 都只填写一个请求模型 ID；Responses API 可使用上游支持的文本或图像模型。", unit.Sp(11), fluent.textMuted, font.Normal)
 							}),
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return a.label(gtx, "留空时默认文本模型是 gpt-5.5，默认图像模型是 gpt-image-2。", unit.Sp(11), fluent.textMuted, font.Normal)
+								return a.label(gtx, "Responses API 留空默认 gpt-5.5；Images API 留空默认 gpt-image-2。", unit.Sp(11), fluent.textMuted, font.Normal)
 							}),
 						)
 					})
@@ -2866,7 +2866,7 @@ func (a *App) layoutSettingsEditorPane(gtx layout.Context, snap snapshot) layout
 				}, a.api, a.apiButtons, 2, func(value string) { a.api = value })
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				hint := "需要 key 绑定到拥有 gpt-5.5 模型的分组。SSE 保活可防 Cloudflare 524。"
+				hint := "需要 key 拥有所填请求模型的权限。SSE 保活可防 Cloudflare 524。"
 				if a.api == string(client.APIModeImages) {
 					hint = "使用标准 Images API，key 走 image-2 / image API 分组，兼容性最广。"
 				}
@@ -2976,11 +2976,11 @@ func (a *App) layoutSettingsEditorPane(gtx layout.Context, snap snapshot) layout
 		}))
 		if a.api == string(client.APIModeResponses) {
 			rows = append(rows, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return a.technicalField(gtx, "文本模型 ID", &a.textModelInput, client.TextModel, unit.Dp(40))
+				return a.technicalField(gtx, "请求模型 ID", &a.textModelInput, client.TextModel, unit.Dp(40))
 			}))
 			if len(probeTextModels) > 0 {
 				rows = append(rows, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return a.layoutProbeModelSuggestions(gtx, "推荐文本模型", "text", probeTextModels, strings.TrimSpace(a.textModelInput.Text()), func(id string) {
+					return a.layoutProbeModelSuggestions(gtx, "推荐请求模型", "text", probeTextModels, strings.TrimSpace(a.textModelInput.Text()), func(id string) {
 						a.textModelInput.SetText(strings.TrimSpace(id))
 					})
 				}))
@@ -2994,17 +2994,17 @@ func (a *App) layoutSettingsEditorPane(gtx layout.Context, snap snapshot) layout
 				return a.label(gtx, "仅 Responses API 生效，会写入 reasoning.effort。推理越高通常越稳，但延迟也会更长。", unit.Sp(10), fluent.textDim, font.Normal)
 			}))
 		}
-		rows = append(rows,
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return a.technicalField(gtx, "图像模型 ID", &a.imageModelInput, client.ImageModel, unit.Dp(40))
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return a.technicalField(gtx, "并发数量限制", &a.concurrencyLimitInput, "留空 = 不限制", unit.Dp(40))
-			}),
-		)
-		if len(probeImageModels) > 0 {
+		if a.api == string(client.APIModeImages) {
 			rows = append(rows, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return a.layoutProbeModelSuggestions(gtx, "推荐图像模型", "image", probeImageModels, strings.TrimSpace(a.imageModelInput.Text()), func(id string) {
+				return a.technicalField(gtx, "请求模型 ID", &a.imageModelInput, client.ImageModel, unit.Dp(40))
+			}))
+		}
+		rows = append(rows, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return a.technicalField(gtx, "并发数量限制", &a.concurrencyLimitInput, "留空 = 不限制", unit.Dp(40))
+		}))
+		if a.api == string(client.APIModeImages) && len(probeImageModels) > 0 {
+			rows = append(rows, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return a.layoutProbeModelSuggestions(gtx, "推荐请求模型", "image", probeImageModels, strings.TrimSpace(a.imageModelInput.Text()), func(id string) {
 					a.imageModelInput.SetText(strings.TrimSpace(id))
 				})
 			}))

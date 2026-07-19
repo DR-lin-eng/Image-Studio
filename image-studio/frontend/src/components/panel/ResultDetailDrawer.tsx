@@ -128,7 +128,7 @@ export function ResultDetailDrawer() {
           {detail.revisedPrompt && (
             <Section
               title={<span className="inline-flex items-center gap-1.5"><Sparkles className="w-3 h-3 text-[var(--accent)]" /> 优化后提示词</span>}
-              hint="Responses API 模式下文本模型可能会重写你的提示词。"
+              hint="Responses API 模式下请求模型可能会重写你的提示词。"
             >
               <PromptBlock highlight>{detail.revisedPrompt}</PromptBlock>
               <div className="flex flex-wrap gap-1.5">

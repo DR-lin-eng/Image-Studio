@@ -464,7 +464,7 @@ export function CanvasStage() {
     <>
       <div
         ref={hostRef}
-        className="stage-host"
+        className={`stage-host ${currentImage ? "has-image" : ""}`}
         style={{ cursor: !currentImage ? "default" : (effectiveTool === "pan" ? (spacePan ? "grabbing" : "grab") : "crosshair") }}
       >
         {!currentImage && !showingResultGrid && <EmptyState />}

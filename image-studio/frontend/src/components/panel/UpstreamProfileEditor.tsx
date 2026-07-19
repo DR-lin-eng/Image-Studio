@@ -75,6 +75,9 @@ export function UpstreamProfileEditor({
   const selectedRequestPolicy = requestPolicyOptions.find((option) => option.id === draft.requestPolicy) ?? requestPolicyOptions[0];
   const selectedReasoningEffort = REASONING_EFFORT_OPTIONS.find((option) => option.value === draft.reasoningEffort) ?? REASONING_EFFORT_OPTIONS[0];
   const preferredModels = modelCatalog ? preferredModelsForAPIMode(modelCatalog, draft.apiMode) : null;
+  const requestModels = modelCatalog
+    ? (draft.apiMode === "responses" ? modelCatalog.all : preferredModels?.image ?? [])
+    : [];
   const fallbackCandidates = profiles.filter((profile) => profile.id !== draft.id && profile.baseURL.trim());
 
   return (
@@ -124,7 +127,7 @@ export function UpstreamProfileEditor({
         </div>
         <Hint>
           {draft.apiMode === "responses"
-            ? "需要 key 绑定到「拥有 gpt-5.5 模型的分组」。SSE 保活可防 Cloudflare 524。"
+            ? "需要 key 拥有所填请求模型的权限。SSE 保活可防 Cloudflare 524。"
             : "使用标准 Images API,key 用 image-2 / image API 分组,兼容性最广。"}
         </Hint>
       </Field>
@@ -283,7 +286,7 @@ export function UpstreamProfileEditor({
             </Hint>
           </Field>
 
-          <Field label="文本模型 ID">
+          <Field label="请求模型 ID">
             <input
               type="text"
               value={draft.textModelID}
@@ -292,10 +295,10 @@ export function UpstreamProfileEditor({
               spellCheck={false}
               className={`focus-ring w-full min-w-0 border border-black/[0.08] bg-[var(--surface)] px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 dark:border-white/[0.08] dark:text-zinc-100 dark:placeholder:text-zinc-500 font-mono-token ${usesFluentUI ? "rounded-[10px]" : "rounded-[14px]"}`}
             />
-            {preferredModels && preferredModels.text.length > 0 ? (
+            {requestModels.length > 0 ? (
               <ModelSuggestions
-                title="推荐文本模型"
-                models={preferredModels.text}
+                title="推荐请求模型"
+                models={requestModels}
                 selectedID={draft.textModelID}
                 usesFluentUI={usesFluentUI}
                 onSelect={(id) => onPatchDraft({ textModelID: id })}
@@ -332,25 +335,27 @@ export function UpstreamProfileEditor({
         </>
       ) : null}
 
-      <Field label="图像模型 ID">
-        <input
-          type="text"
-          value={draft.imageModelID}
-          placeholder="留空=默认 gpt-image-2"
-          onChange={(e) => onPatchDraft({ imageModelID: e.target.value })}
-          spellCheck={false}
-          className={`focus-ring w-full min-w-0 border border-black/[0.08] bg-[var(--surface)] px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 dark:border-white/[0.08] dark:text-zinc-100 dark:placeholder:text-zinc-500 font-mono-token ${usesFluentUI ? "rounded-[10px]" : "rounded-[14px]"}`}
-        />
-        {preferredModels && preferredModels.image.length > 0 ? (
-          <ModelSuggestions
-            title="推荐图像模型"
-            models={preferredModels.image}
-            selectedID={draft.imageModelID}
-            usesFluentUI={usesFluentUI}
-            onSelect={(id) => onPatchDraft({ imageModelID: id })}
+      {draft.apiMode === "images" ? (
+        <Field label="请求模型 ID">
+          <input
+            type="text"
+            value={draft.imageModelID}
+            placeholder="留空=默认 gpt-image-2"
+            onChange={(e) => onPatchDraft({ imageModelID: e.target.value })}
+            spellCheck={false}
+            className={`focus-ring w-full min-w-0 border border-black/[0.08] bg-[var(--surface)] px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 dark:border-white/[0.08] dark:text-zinc-100 dark:placeholder:text-zinc-500 font-mono-token ${usesFluentUI ? "rounded-[10px]" : "rounded-[14px]"}`}
           />
-        ) : null}
-      </Field>
+          {requestModels.length > 0 ? (
+            <ModelSuggestions
+              title="推荐请求模型"
+              models={requestModels}
+              selectedID={draft.imageModelID}
+              usesFluentUI={usesFluentUI}
+              onSelect={(id) => onPatchDraft({ imageModelID: id })}
+            />
+          ) : null}
+        </Field>
+      ) : null}
 
       <Field label="并发数量限制">
         <input

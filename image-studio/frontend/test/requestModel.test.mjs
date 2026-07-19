@@ -40,9 +40,11 @@ test("Responses payload defaults partial_images to streaming preview count", () 
     quality: "low",
     outputFormat: "png",
     imageModelID: "gpt-image-2",
-    textModelID: "gpt-5.5",
+    textModelID: "gpt-image-1.5",
     requestPolicy: "openai",
   }, []);
+  assert.equal(payload.model, "gpt-image-1.5");
+  assert.equal("model" in payload.tools[0], false);
   assert.equal(payload.tools[0].partial_images, DEFAULT_PARTIAL_IMAGES);
   assert.equal(payload.reasoning.effort, DEFAULT_REASONING_EFFORT);
 });

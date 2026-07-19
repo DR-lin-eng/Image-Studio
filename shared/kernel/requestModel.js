@@ -372,7 +372,6 @@ export function buildResponsesImageTool(payload, sourceDataURLs, options = {}) {
   const partialImages = payload.disablePreview ? 0 : normalizePartialImages(payload.partialImages);
   const tool = {
     type: "image_generation",
-    model: normalizeImageModel(payload.imageModelID),
     action: sourceDataURLs.length > 0 ? "edit" : "generate",
     size,
     quality,

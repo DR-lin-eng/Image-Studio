@@ -641,6 +641,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   textModelID: "",
   imageModelID: "",
   reasoningEffort: "xhigh",
+  provider: "openai",
   proxyMode: "system",
   proxyURL: "",
   apiMode: "responses",
@@ -1185,6 +1186,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       }
     }
     const activeProfile = s.profiles.find((p) => p.id === s.activeProfileId);
+    const provider = activeProfile?.provider ?? s.provider;
     const responsesTransport = activeProfile?.responsesTransport ?? s.responsesTransport;
     if (activeProfile?.allowInsecureConnection && s.kernelRuntimeMode === "remote" && !runtimePlatform.isAndroid) {
       set({
@@ -1373,6 +1375,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       textModelID: s.textModelID,
       imageModelID: s.imageModelID,
       reasoningEffort: s.reasoningEffort,
+      provider,
       proxyMode: s.proxyMode,
       proxyURL: s.proxyURL,
       responsesTransport: s.responsesTransport,
@@ -1391,6 +1394,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
             textModelID: fallbackProfile.textModelID,
             imageModelID: fallbackProfile.imageModelID,
             reasoningEffort: fallbackProfile.reasoningEffort,
+            provider: fallbackProfile.provider ?? "openai",
             apiMode: fallbackProfile.apiMode,
             responsesTransport: fallbackProfile.responsesTransport ?? "sse",
             requestPolicy: fallbackProfile.requestPolicy,
@@ -1783,6 +1787,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
         synth.push({
           id,
           name: "Responses · 默认",
+          provider: "openai",
           apiMode: "responses",
           responsesTransport: "sse",
           requestPolicy: "openai",
@@ -1804,6 +1809,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
         synth.push({
           id,
           name: "Images · 默认",
+          provider: "openai",
           apiMode: "images",
           responsesTransport: "sse",
           requestPolicy: "openai",
@@ -1846,7 +1852,8 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       aiProfileId = aiProfile?.id ?? "";
       persistAIProfileId(aiProfileId);
     }
-    const apiMode: APIMode = activeProfile?.apiMode ?? "responses";
+    const provider = activeProfile?.provider ?? "openai";
+    const apiMode: APIMode = provider === "openai" ? activeProfile?.apiMode ?? "responses" : "images";
     const responsesTransport = activeProfile?.responsesTransport ?? "sse";
     const requestPolicy: RequestPolicy = activeProfile?.requestPolicy ?? "openai";
     const imagesNewAPICompat = activeProfile?.imagesNewAPICompat === true;
@@ -1925,7 +1932,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       historyHasMore,
       historyLoading: false,
       historyCursorBeforeDayStart: initialHistoryPage.nextCursor?.beforeDayStart ?? null,
-      apiMode, responsesTransport, requestPolicy, imagesNewAPICompat, baseURL, textModelID, imageModelID, reasoningEffort, kernelRuntimeMode, noPromptRevision,
+      provider, apiMode, responsesTransport, requestPolicy, imagesNewAPICompat, baseURL, textModelID, imageModelID, reasoningEffort, kernelRuntimeMode, noPromptRevision,
       proxyMode: proxyConfig.mode,
       proxyURL: proxyConfig.url,
       outputFormat,
@@ -2222,6 +2229,8 @@ export const useStudioStore = create<StudioState>((set, get) => ({
         s.apiMode,
         s.responsesTransport,
         activeProfile?.allowInsecureConnection === true,
+        undefined,
+        activeProfile?.provider ?? "openai",
       );
       set({ isTestingKey: false });
       if (result.responsesTransport === "websocket" && result.responsesTransportOK === false) {

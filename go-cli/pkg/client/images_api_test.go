@@ -599,3 +599,86 @@ func TestRequestImagesAPISendsDalle3Style(t *testing.T) {
 		t.Fatalf("request body missing style=natural: %s", requestBody)
 	}
 }
+
+func TestRequestImagesAPIExplicitGoogleProviderUsesInteractionsOnCustomBase(t *testing.T) {
+	finalB64 := base64.StdEncoding.EncodeToString(fakePNG)
+	var requestPath string
+	var googleKey string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestPath = r.URL.Path
+		googleKey = r.Header.Get("X-Goog-Api-Key")
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprintf(w, `{"status":"completed","output_image":{"type":"image","data":%q,"mime_type":"image/png"}}`, finalB64)
+	}))
+	defer srv.Close()
+
+	result, err := RequestImagesAPIWithPartial(context.Background(), Options{
+		APIKey: "google-key", Provider: ProviderGoogle, BaseURL: srv.URL,
+		Prompt: "cat", ImageModelID: "gemini-image-model", APIMode: APIModeResponses,
+	}, &bytes.Buffer{}, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if requestPath != "/v1beta/interactions" || googleKey != "google-key" {
+		t.Fatalf("path=%q google key=%q", requestPath, googleKey)
+	}
+	if result.ImageB64 != finalB64 || result.SourceEvent != "google_interactions" {
+		t.Fatalf("result=%+v", result)
+	}
+}
+
+func TestRequestImagesAPIGrokProviderUsesNativeJSONContracts(t *testing.T) {
+	finalB64 := base64.StdEncoding.EncodeToString([]byte("final"))
+	dir := t.TempDir()
+	source := filepath.Join(dir, "source.png")
+	if err := os.WriteFile(source, fakePNG, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	tests := []struct {
+		name     string
+		mode     Mode
+		paths    []string
+		wantPath string
+	}{
+		{name: "generation", mode: ModeGenerate, wantPath: "/v1/images/generations"},
+		{name: "edit", mode: ModeEdit, paths: []string{source}, wantPath: "/v1/images/edits"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var requestBody []byte
+			var requestPath, contentType, authorization string
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				requestPath = r.URL.Path
+				contentType = r.Header.Get("Content-Type")
+				authorization = r.Header.Get("Authorization")
+				requestBody, _ = io.ReadAll(r.Body)
+				w.Header().Set("Content-Type", "application/json")
+				fmt.Fprintf(w, `{"data":[{"b64_json":%q}]}`, finalB64)
+			}))
+			defer srv.Close()
+
+			_, err := RequestImagesAPIWithPartial(context.Background(), Options{
+				APIKey: "xai-key", Provider: ProviderGrok, BaseURL: srv.URL,
+				Prompt: "cat", ImageModelID: "grok-imagine-image", Mode: tt.mode,
+				ImagePaths: tt.paths, Size: "2048x1152", APIMode: APIModeResponses,
+			}, &bytes.Buffer{}, nil, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if requestPath != tt.wantPath || contentType != "application/json" || authorization != "Bearer xai-key" {
+				t.Fatalf("path=%q content-type=%q auth=%q", requestPath, contentType, authorization)
+			}
+			var payload map[string]any
+			if err := json.Unmarshal(requestBody, &payload); err != nil {
+				t.Fatal(err)
+			}
+			if payload["aspect_ratio"] != "16:9" || payload["resolution"] != "2k" || payload["response_format"] != "b64_json" {
+				t.Fatalf("payload=%s", requestBody)
+			}
+			_, hasImage := payload["image"]
+			if hasImage != (tt.mode == ModeEdit) {
+				t.Fatalf("image presence=%v payload=%s", hasImage, requestBody)
+			}
+		})
+	}
+}

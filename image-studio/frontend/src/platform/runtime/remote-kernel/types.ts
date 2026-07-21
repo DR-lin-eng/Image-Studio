@@ -1,4 +1,4 @@
-import type { RequestPolicy } from "../../../types/domain";
+import type { RequestPolicy, UpstreamProvider } from "../../../types/domain";
 
 export type KernelImageSource = {
   path?: string;
@@ -30,6 +30,7 @@ export type RemoteGeneratePayload = {
   textModelID: string;
   imageModelID: string;
   reasoningEffort?: string;
+  provider?: UpstreamProvider;
   proxyMode?: string;
   proxyURL?: string;
   apiMode: string;
@@ -47,6 +48,7 @@ export type RemoteGeneratePayload = {
     textModelID: string;
     imageModelID: string;
     reasoningEffort?: string;
+    provider?: UpstreamProvider;
     apiMode: string;
     responsesTransport?: string;
     requestPolicy: RequestPolicy;

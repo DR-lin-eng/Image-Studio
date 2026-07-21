@@ -319,6 +319,56 @@ test("runRemoteImageJob emits Responses API partial image previews", async () =>
   });
 });
 
+test("remote payload builder routes explicit Google provider to Interactions", async () => {
+  const payloads = await import(`../src/platform/runtime/remote-kernel/requestPayloads.ts?google-provider=${Date.now()}-${Math.random()}`);
+  const built = await payloads.buildImagesRequestBody({
+    payload: {
+      provider: "google",
+      apiKey: "google-key",
+      mode: "generate",
+      prompt: "cat",
+      size: "2048x1152",
+      quality: "auto",
+      outputFormat: "png",
+      baseURL: "https://google-relay.example",
+      imageModelID: "gemini-image-model",
+      requestPolicy: "openai",
+      negativePrompt: "",
+      maskB64: "",
+    },
+  }, []);
+  assert.equal(built.protocol, "google-interactions");
+  assert.equal(built.url, "https://google-relay.example/v1beta/interactions");
+  assert.equal(built.headers["x-goog-api-key"], "google-key");
+});
+
+test("remote payload builder uses Grok JSON edit contract", async () => {
+  const payloads = await import(`../src/platform/runtime/remote-kernel/requestPayloads.ts?grok-provider=${Date.now()}-${Math.random()}`);
+  const built = await payloads.buildImagesRequestBody({
+    payload: {
+      provider: "grok",
+      apiKey: "xai-key",
+      mode: "edit",
+      prompt: "restyle",
+      size: "2048x1152",
+      quality: "auto",
+      outputFormat: "png",
+      baseURL: "https://api.x.ai",
+      imageModelID: "grok-imagine-image",
+      requestPolicy: "openai",
+      negativePrompt: "",
+      maskB64: "",
+    },
+  }, ["data:image/png;base64,YWJj"]);
+  const body = JSON.parse(built.body);
+  assert.equal(built.protocol, "grok-images");
+  assert.equal(built.url, "https://api.x.ai/v1/images/edits");
+  assert.equal(built.headers["Content-Type"], "application/json");
+  assert.equal(body.aspect_ratio, "16:9");
+  assert.equal(body.resolution, "2k");
+  assert.deepEqual(body.image, { type: "image_url", url: "data:image/png;base64,YWJj" });
+});
+
 test("runRemoteImageJob retries when Responses API only returns partial previews", async () => {
   let calls = 0;
   const partials = [];

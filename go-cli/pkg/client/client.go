@@ -146,7 +146,7 @@ func RequestAndExtractWithRetriesAndPartial(
 	onProgress func(stage string, elapsed int, bytes int64),
 	onPartial func(PartialImage),
 ) (ImageResult, string, error) {
-	if opts.APIMode == APIModeImages {
+	if EffectiveAPIMode(opts.Provider, opts.APIMode) == APIModeImages {
 		return imagesAPIWithRetries(ctx, opts, outputDir, timestamp, onLog, onProgress, onPartial)
 	}
 	return responsesAPIWithRetries(ctx, transport, opts, outputDir, timestamp, onLog, onProgress, onPartial)
@@ -160,7 +160,7 @@ func RequestAndExtractWithRetriesAndPartialInMemory(
 	onProgress func(stage string, elapsed int, bytes int64),
 	onPartial func(PartialImage),
 ) (ImageResult, string, error) {
-	if opts.APIMode == APIModeImages {
+	if EffectiveAPIMode(opts.Provider, opts.APIMode) == APIModeImages {
 		return imagesAPIWithRetriesInMemory(ctx, opts, onLog, onProgress, onPartial)
 	}
 	return responsesAPIWithRetriesInMemory(ctx, transport, opts, onLog, onProgress, onPartial)

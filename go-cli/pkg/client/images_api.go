@@ -261,7 +261,10 @@ func RequestImagesAPIWithPartial(
 	}
 	includeExtended := shouldSendExtendedImageParameters(opts.RequestPolicy)
 	useNewAPICompat := shouldUseImagesNonStreamingCompat(model, opts.ImagesNewAPICompat)
-	useGoogleInteractions := shouldUseGoogleNativeInteractions(baseURL, model)
+	provider := NormalizeProvider(opts.Provider)
+	useGoogleInteractions := provider == ProviderGoogle ||
+		(provider == ProviderOpenAI && shouldUseGoogleNativeInteractions(baseURL, model))
+	useGrokImagine := provider == ProviderGrok
 
 	var (
 		url         string
@@ -285,6 +288,22 @@ func RequestImagesAPIWithPartial(
 		if err != nil {
 			return ImageResult{}, err
 		}
+		body = bytes.NewReader(payload)
+		contentType = "application/json"
+	} else if useGrokImagine {
+		paths := []string(nil)
+		if opts.Mode == ModeEdit {
+			paths = opts.imageSourcePathsForEdit()
+		}
+		payload, err := buildGrokImagePayload(opts, paths, model, size)
+		if err != nil {
+			return ImageResult{}, err
+		}
+		endpoint := "images/generations"
+		if opts.Mode == ModeEdit {
+			endpoint = "images/edits"
+		}
+		url = openAIAPIEndpoint(baseURL, endpoint)
 		body = bytes.NewReader(payload)
 		contentType = "application/json"
 	} else if opts.Mode == ModeEdit {
@@ -372,6 +391,8 @@ func RequestImagesAPIWithPartial(
 	progressStage := "等待 Images API 返回(无 SSE 保活)"
 	if useGoogleInteractions {
 		progressStage = "等待 Google Interactions 返回(无 SSE 保活)"
+	} else if useGrokImagine {
+		progressStage = "等待 Grok Imagine 返回(无 SSE 保活)"
 	}
 	// Progress ticker — Images API has no streaming so we just tick elapsed time.
 	stopProgress := make(chan struct{})

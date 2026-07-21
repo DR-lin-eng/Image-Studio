@@ -116,6 +116,16 @@ const (
 	APIModeImages    APIMode = "images"
 )
 
+// Provider selects the upstream vendor contract. Empty values retain the
+// historical OpenAI-compatible behavior.
+type Provider string
+
+const (
+	ProviderOpenAI Provider = "openai"
+	ProviderGoogle Provider = "google"
+	ProviderGrok   Provider = "grok"
+)
+
 type ResponsesTransport string
 
 const (
@@ -161,6 +171,10 @@ type Options struct {
 	// APIMode selects between Responses API (default) and Images API.
 	// Empty string is treated as APIModeResponses for back-compat.
 	APIMode APIMode
+
+	// Provider selects request paths, authentication, and payload semantics.
+	// Google and Grok use their native image APIs and therefore imply Images.
+	Provider Provider
 
 	// ResponsesTransport selects how Responses API requests are transported.
 	// Empty string is treated as ResponsesTransportSSE for back-compat.

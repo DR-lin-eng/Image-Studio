@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import type { UpstreamProfile } from "../../../types/domain";
 import {
   ANDROID_API_MODE_OPTIONS,
+  ANDROID_PROVIDER_OPTIONS,
   ANDROID_REASONING_EFFORT_OPTIONS,
   ANDROID_REQUEST_POLICY_OPTIONS,
 } from "./useAndroidUpstreamConfig";
@@ -80,7 +81,27 @@ export function AndroidUpstreamProfileForm({
         />
       </AndroidField>
 
-      <AndroidField label="API 形态">
+      <AndroidField label="服务商请求方式">
+        <div className="android-upstream-option-grid two">
+          {ANDROID_PROVIDER_OPTIONS.map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              className={draft.provider === option.id ? "active" : ""}
+              onClick={() => onPatchDraft({
+                provider: option.id,
+                apiMode: option.id === "openai" ? draft.apiMode : "images",
+                imageModelID: draft.imageModelID || (option.id === "google" ? "gemini-3.1-flash-image" : option.id === "grok" ? "grok-imagine-image" : ""),
+              })}
+            >
+              <strong>{option.title}</strong>
+              <small>{option.meta}</small>
+            </button>
+          ))}
+        </div>
+      </AndroidField>
+
+      {draft.provider === "openai" ? <AndroidField label="API 形态">
         <div className="android-upstream-option-grid two">
           {ANDROID_API_MODE_OPTIONS.map((option) => (
             <button
@@ -94,9 +115,9 @@ export function AndroidUpstreamProfileForm({
             </button>
           ))}
         </div>
-      </AndroidField>
+      </AndroidField> : null}
 
-      <AndroidField label="参数策略">
+      {draft.provider === "openai" ? <AndroidField label="参数策略">
         <div className="android-upstream-option-grid two">
           {ANDROID_REQUEST_POLICY_OPTIONS.map((option) => (
             <button
@@ -110,9 +131,9 @@ export function AndroidUpstreamProfileForm({
             </button>
           ))}
         </div>
-      </AndroidField>
+      </AndroidField> : null}
 
-      <AndroidField label="上游 BASE_URL" required hint="填写站点根地址，应用会按 API 形态自动拼接 /v1 路径。">
+      <AndroidField label="上游 BASE_URL" required hint={draft.provider === "google" ? "Google 官方填写 https://generativelanguage.googleapis.com。" : draft.provider === "grok" ? "xAI 官方填写 https://api.x.ai。" : "填写站点根地址，应用会按 API 形态自动拼接 /v1 路径。"}>
         <input
           type="text"
           value={draft.baseURL}
@@ -169,7 +190,7 @@ export function AndroidUpstreamProfileForm({
         {modelCatalogError ? <p className="android-upstream-error">{modelCatalogError}</p> : null}
       </AndroidField>
 
-      {draft.apiMode === "responses" ? (
+      {draft.provider === "openai" && draft.apiMode === "responses" ? (
         <>
           <AndroidField label="Responses 传输" hint="这是 Responses API 的传输方式，不是 Realtime API。">
             <div className="android-upstream-option-grid two">
@@ -232,7 +253,7 @@ export function AndroidUpstreamProfileForm({
             type="text"
             value={draft.imageModelID}
             onChange={(event) => onPatchDraft({ imageModelID: event.target.value })}
-            placeholder="留空 = 默认 gpt-image-2"
+            placeholder={draft.provider === "google" ? "例如 gemini-3.1-flash-image" : draft.provider === "grok" ? "例如 grok-imagine-image" : "留空 = 默认 gpt-image-2"}
             className="focus-ring android-upstream-input font-mono-token"
             spellCheck={false}
           />
@@ -274,7 +295,7 @@ export function AndroidUpstreamProfileForm({
         </div>
       </AndroidField>
 
-      {draft.apiMode === "images" ? (
+      {draft.provider === "openai" && draft.apiMode === "images" ? (
         <AndroidField
           label="Images API 中转兼容"
           hint="默认关闭，只有默认标准参数无法生图时，再尝试开启。"

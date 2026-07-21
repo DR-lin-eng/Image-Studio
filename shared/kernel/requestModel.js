@@ -10,6 +10,7 @@ export const DEFAULT_IMAGE_STYLE = "default";
 export const DEFAULT_MODERATION = "low";
 export const DEFAULT_REASONING_EFFORT = "xhigh";
 export const DEFAULT_REQUEST_POLICY = "openai";
+export const DEFAULT_UPSTREAM_PROVIDER = "openai";
 export const DEFAULT_PARTIAL_IMAGES = 1;
 export const DEFAULT_AUTO_RETRY_COUNT = 5;
 export const MAX_AUTO_RETRY_COUNT = 10;
@@ -48,6 +49,22 @@ export function openAIAPIEndpoint(baseURL, endpointPath) {
   return `${normalized}/v1/${path}`;
 }
 
+export function normalizeUpstreamProvider(provider) {
+  return provider === "google" || provider === "grok" ? provider : DEFAULT_UPSTREAM_PROVIDER;
+}
+
+export function effectiveAPIMode(provider, apiMode) {
+  return normalizeUpstreamProvider(provider) === "openai" ? normalizeAPIMode(apiMode) : "images";
+}
+
+export function googleAPIEndpoint(baseURL, endpointPath) {
+  let normalized = normalizeBaseURL(baseURL);
+  const path = String(endpointPath || "").trim().replace(/^\/+|\/+$/g, "");
+  if (/\/v1beta\/openai$/i.test(normalized)) normalized = normalized.replace(/\/openai$/i, "");
+  else if (!/\/v1beta$/i.test(normalized)) normalized += "/v1beta";
+  return path ? `${normalized}/${path}` : normalized;
+}
+
 export function isOfficialGoogleGeminiBaseURL(raw) {
   try {
     const parsed = new URL(normalizeBaseURL(raw));
@@ -61,17 +78,13 @@ export function isGoogleNativeNanoBanana2Model(imageModelID) {
   return normalizeImageModel(imageModelID).toLowerCase() === "gemini-3.1-flash-image";
 }
 
-export function shouldUseGoogleNativeInteractions(baseURL, imageModelID) {
-  return isOfficialGoogleGeminiBaseURL(baseURL) && isGoogleNativeNanoBanana2Model(imageModelID);
+export function shouldUseGoogleNativeInteractions(baseURL, imageModelID, provider = "openai") {
+  return normalizeUpstreamProvider(provider) === "google" ||
+    (isOfficialGoogleGeminiBaseURL(baseURL) && isGoogleNativeNanoBanana2Model(imageModelID));
 }
 
 export function googleInteractionsEndpoint(baseURL) {
-  if (!isOfficialGoogleGeminiBaseURL(baseURL)) return "";
-  const parsed = new URL(normalizeBaseURL(baseURL));
-  parsed.pathname = "/v1beta/interactions";
-  parsed.search = "";
-  parsed.hash = "";
-  return parsed.toString();
+  return googleAPIEndpoint(baseURL, "interactions");
 }
 
 export function normalizeAPIMode(apiMode) {

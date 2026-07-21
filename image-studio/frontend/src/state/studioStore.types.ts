@@ -34,6 +34,7 @@ import type {
   ThemeMode,
   Toast,
   UpstreamProfile,
+  UpstreamProvider,
   Workspace,
 } from "../types/domain";
 import type { RunningJobMeta } from "./workspaceRuntime";
@@ -104,6 +105,7 @@ export interface StudioState {
   proxyURL: string;
   imageModelID: string;
   reasoningEffort: import("../types/domain").ReasoningEffortValue;
+  provider: UpstreamProvider;
   apiMode: APIMode;
   responsesTransport: import("../types/domain").ResponsesTransport;
   requestPolicy: RequestPolicy;
@@ -175,6 +177,7 @@ export interface StudioState {
   clearError: () => void;
   createProfile: (input: {
     name?: string;
+    provider?: UpstreamProvider;
     apiMode: APIMode;
     responsesTransport?: import("../types/domain").ResponsesTransport;
     baseURL?: string;

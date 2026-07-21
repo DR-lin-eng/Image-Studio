@@ -786,6 +786,7 @@ export async function probeCurrentUpstream(
   responsesTransport = "sse",
   allowInsecureConnection = false,
   signal?: AbortSignal,
+  provider: ProbeUpstreamOptionsLike["provider"] = "openai",
 ): Promise<ProbeUpstreamResultLike> {
   if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
   const options: ProbeUpstreamOptionsLike = {
@@ -795,6 +796,7 @@ export async function probeCurrentUpstream(
     proxyURL,
     apiMode,
     responsesTransport,
+    ...(provider !== "openai" ? { provider } : {}),
     ...(allowInsecureConnection ? { allowInsecureConnection: true } : {}),
   };
   if (hasServiceMethod("ProbeUpstream")) {

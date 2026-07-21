@@ -30,6 +30,7 @@ type Config struct {
 	ImageModelID            string
 	Prompt                  string
 	Mode                    client.Mode
+	Provider                client.Provider
 	APIMode                 client.APIMode
 	RequestPolicy           client.RequestPolicy
 	ResponsesTransport      client.ResponsesTransport
@@ -72,6 +73,7 @@ type FallbackProfileConfig struct {
 	BaseURL                 string
 	TextModelID             string
 	ImageModelID            string
+	Provider                client.Provider
 	APIMode                 client.APIMode
 	ResponsesTransport      client.ResponsesTransport
 	RequestPolicy           client.RequestPolicy
@@ -107,6 +109,7 @@ func DefaultConfig() Config {
 		TextModelID:          client.TextModel,
 		ImageModelID:         client.ImageModel,
 		Mode:                 client.ModeGenerate,
+		Provider:             client.ProviderOpenAI,
 		APIMode:              client.APIModeResponses,
 		RequestPolicy:        client.RequestPolicyOpenAI,
 		ResponsesTransport:   client.ResponsesTransportSSE,
@@ -206,6 +209,7 @@ func (Runner) Run(ctx context.Context, cfg Config, cb Callbacks) (Result, error)
 		fallbackCfg.BaseURL = fallback.BaseURL
 		fallbackCfg.TextModelID = fallback.TextModelID
 		fallbackCfg.ImageModelID = fallback.ImageModelID
+		fallbackCfg.Provider = fallback.Provider
 		fallbackCfg.APIMode = fallback.APIMode
 		fallbackCfg.ResponsesTransport = fallback.ResponsesTransport
 		fallbackCfg.RequestPolicy = fallback.RequestPolicy
@@ -274,7 +278,10 @@ func normalizeConfig(cfg Config) Config {
 	if cfg.Mode != client.ModeEdit {
 		cfg.Mode = client.ModeGenerate
 	}
-	if cfg.APIMode != client.APIModeImages {
+	cfg.Provider = client.NormalizeProvider(cfg.Provider)
+	if cfg.Provider != client.ProviderOpenAI || cfg.APIMode == client.APIModeImages {
+		cfg.APIMode = client.APIModeImages
+	} else {
 		cfg.APIMode = client.APIModeResponses
 	}
 	if cfg.RequestPolicy != client.RequestPolicyCompat {
@@ -343,8 +350,11 @@ func normalizeFallbackProfileConfig(value *FallbackProfileConfig) *FallbackProfi
 	next.BaseURL = strings.TrimSpace(next.BaseURL)
 	next.TextModelID = strings.TrimSpace(next.TextModelID)
 	next.ImageModelID = strings.TrimSpace(next.ImageModelID)
+	next.Provider = client.NormalizeProvider(next.Provider)
 	next.RequestPolicy = normalizeRequestPolicy(next.RequestPolicy)
-	if next.APIMode != client.APIModeImages {
+	if next.Provider != client.ProviderOpenAI || next.APIMode == client.APIModeImages {
+		next.APIMode = client.APIModeImages
+	} else {
 		next.APIMode = client.APIModeResponses
 	}
 	if next.ResponsesTransport != client.ResponsesTransportWebSocket {
@@ -385,6 +395,7 @@ func runSingleConfig(ctx context.Context, cfg Config, cb Callbacks, imagesDir st
 		ImageModelID:            cfg.ImageModelID,
 		Prompt:                  cfg.Prompt,
 		Mode:                    cfg.Mode,
+		Provider:                cfg.Provider,
 		APIMode:                 cfg.APIMode,
 		ResponsesTransport:      cfg.ResponsesTransport,
 		RequestPolicy:           cfg.RequestPolicy,

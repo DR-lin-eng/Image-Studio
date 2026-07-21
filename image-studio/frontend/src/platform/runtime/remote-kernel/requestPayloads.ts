@@ -7,6 +7,7 @@ import {
   normalizeBackground,
   normalizeImageStyle,
   normalizeInputFidelity,
+  normalizeUpstreamProvider,
   normalizeOutputCompression,
   normalizePartialImages,
   normalizeModeration,
@@ -27,12 +28,32 @@ import {
 import { normalizeBaseURL, normalizeImageModel } from "./common.ts";
 import { RemoteKernelError, type RemoteGeneratePayload, type RemoteJobRequest } from "./types.ts";
 
-export type ImagesRequestProtocol = "openai-images" | "google-interactions";
+export type ImagesRequestProtocol = "openai-images" | "google-interactions" | "grok-images";
 
 const MAX_MASK_IMAGE_BYTES = 50 * 1024 * 1024;
 const GOOGLE_INTERACTION_ASPECT_RATIOS = [
   "1:8", "1:4", "2:3", "3:4", "4:5", "1:1", "5:4", "4:3", "3:2", "16:9", "21:9", "4:1", "8:1",
 ] as const;
+const GROK_ASPECT_RATIOS = [
+  "1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3", "2:1", "1:2", "19.5:9", "9:19.5", "20:9", "9:20",
+] as const;
+
+function grokImageDimensions(size: string): { aspect_ratio: string; resolution: string } | null {
+  const matched = /^(\d+)x(\d+)$/i.exec(size.trim());
+  if (!matched) return null;
+  const width = Number(matched[1]);
+  const height = Number(matched[2]);
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return null;
+  const targetRatio = width / height;
+  const aspectRatio = GROK_ASPECT_RATIOS.reduce((best, candidate) => {
+    const [left, right] = candidate.split(":").map(Number);
+    const [bestLeft, bestRight] = best.split(":").map(Number);
+    return Math.abs(Math.log((left / right) / targetRatio)) < Math.abs(Math.log((bestLeft / bestRight) / targetRatio))
+      ? candidate
+      : best;
+  }, "1:1" as (typeof GROK_ASPECT_RATIOS)[number]);
+  return { aspect_ratio: aspectRatio, resolution: Math.max(width, height) >= 1536 ? "2k" : "1k" };
+}
 
 function googleInteractionResponseFormat(size: string, outputFormat: string): Record<string, string> {
   const format: Record<string, string> = { type: "image", delivery: "inline" };
@@ -102,8 +123,9 @@ export async function buildImagesRequestBody(
   const includeExtended = shouldSendExtendedImageParameters(request.payload.requestPolicy);
   const partialImages = request.payload.disablePreview ? 0 : normalizePartialImages(request.payload.partialImages);
   const useNewAPICompat = shouldUseImagesNewAPICompat(request.payload);
+  const provider = normalizeUpstreamProvider(request.payload.provider || "openai");
 
-  if (shouldUseGoogleNativeInteractions(baseURL, imageModel)) {
+  if (shouldUseGoogleNativeInteractions(baseURL, imageModel, provider)) {
     if (mode === "edit" && sourceDataURLs.length === 0) {
       throw new RemoteKernelError("Google Interactions 图生图需要至少一张源图");
     }
@@ -123,6 +145,32 @@ export async function buildImagesRequestBody(
         response_format: googleInteractionResponseFormat(size, outputFormat),
         store: false,
       }),
+    };
+  }
+
+  if (provider === "grok") {
+    if (mode === "edit" && sourceDataURLs.length === 0) {
+      throw new RemoteKernelError("Grok Imagine 图生图需要至少一张源图");
+    }
+    if (request.payload.maskB64) {
+      throw new RemoteKernelError("Grok Imagine 不支持 OpenAI mask 参数；请清除蒙版后重试");
+    }
+    const dimensions = grokImageDimensions(size);
+    const payload: Record<string, unknown> = {
+      model: imageModel,
+      prompt: request.payload.prompt,
+      response_format: "b64_json",
+      ...(dimensions ?? {}),
+    };
+    if (mode === "edit") {
+      const images = sourceDataURLs.map((url) => ({ type: "image_url", url }));
+      payload.image = images.length === 1 ? images[0] : images;
+    }
+    return {
+      url: openAIAPIEndpoint(baseURL, mode === "edit" ? "images/edits" : "images/generations"),
+      protocol: "grok-images",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
     };
   }
 

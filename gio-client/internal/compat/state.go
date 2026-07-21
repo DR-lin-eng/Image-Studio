@@ -106,7 +106,11 @@ func ConfigFromState(cfg kernel.Config, state shared.State) kernel.Config {
 	cfg.BaseURL = profile.BaseURL
 	cfg.TextModelID = profile.TextModelID
 	cfg.ImageModelID = profile.ImageModelID
+	cfg.Provider = client.NormalizeProvider(client.Provider(profile.Provider))
 	cfg.APIMode = normaliseAPIMode(profile.APIMode)
+	if cfg.Provider != client.ProviderOpenAI {
+		cfg.APIMode = client.APIModeImages
+	}
 	cfg.ResponsesTransport = client.ResponsesTransport(normalizeProfileResponsesTransport(profile.ResponsesTransport))
 	cfg.FallbackProfileID = strings.TrimSpace(profile.FallbackProfileID)
 	cfg.RequestPolicy = normalisePolicy(profile.RequestPolicy)
@@ -234,6 +238,7 @@ func UpsertConfig(state shared.State, cfg kernel.Config) shared.State {
 	profile := shared.UpstreamProfile{
 		ID:                      profileID,
 		Name:                    nextDefaultProfileName(state.Profiles),
+		Provider:                string(client.NormalizeProvider(cfg.Provider)),
 		APIMode:                 string(normaliseAPIMode(string(cfg.APIMode))),
 		ResponsesTransport:      normalizeProfileResponsesTransport(string(cfg.ResponsesTransport)),
 		RequestPolicy:           string(normalisePolicy(string(cfg.RequestPolicy))),

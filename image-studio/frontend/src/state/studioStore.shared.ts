@@ -5,7 +5,7 @@ import {
   RegisterTrustedOutputDir,
 } from "../platform/runtime/host";
 import type { ThemeMode, HistoryItem, Annotation } from "../types/domain";
-import type { ModeConfig, Stroke } from "./studioStore.types";
+import type { ModeConfig } from "./studioStore.types";
 import { isWindows } from "../platform";
 import { ACTIVE_PROFILE_LS_KEY, PROFILES_LS_KEY, tryParseProfile } from "../lib/profiles";
 export { loadStoredAIProfileId, persistAIProfileId } from "../lib/profiles";
@@ -149,45 +149,6 @@ export function stripDataURLPrefix(dataURL: string): string {
   return idx >= 0 ? dataURL.slice(idx + 1) : dataURL;
 }
 
-export function buildMaskPNGDataURL(strokes: Stroke[], dims: { w: number; h: number } | null): string | null {
-  if (!dims || strokes.length === 0) return null;
-  const c = document.createElement("canvas");
-  c.width = dims.w;
-  c.height = dims.h;
-  const ctx = c.getContext("2d");
-  if (!ctx) return null;
-  // OpenAI masks use alpha: transparent pixels are editable, opaque pixels
-  // protect the source. Keep RGB black so only alpha carries mask semantics.
-  ctx.fillStyle = "rgba(0,0,0,1)";
-  ctx.fillRect(0, 0, c.width, c.height);
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-  let hasPaint = false;
-  for (const s of strokes) {
-    ctx.globalCompositeOperation = s.erase ? "source-over" : "destination-out";
-    ctx.strokeStyle = "#000";
-    ctx.lineWidth = s.size;
-    ctx.beginPath();
-    if (s.points.length === 2) {
-      ctx.arc(s.points[0], s.points[1], s.size / 2, 0, Math.PI * 2);
-      ctx.fillStyle = "#000";
-      ctx.fill();
-      if (!s.erase) hasPaint = true;
-      continue;
-    }
-    for (let i = 0; i < s.points.length; i += 2) {
-      const x = s.points[i];
-      const y = s.points[i + 1];
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
-    ctx.stroke();
-    if (!s.erase) hasPaint = true;
-  }
-  ctx.globalCompositeOperation = "source-over";
-  return hasPaint ? c.toDataURL("image/png") : null;
-}
-
 export async function registerTrustedOutputRoots(roots: string[]): Promise<void> {
   for (const root of roots) {
     if (!root.trim()) continue;
@@ -241,5 +202,5 @@ export function augmentPromptWithAnnotations(
     return `${vPart}${hPart}部`;
   };
   const positions = rects.map(describe).join("、");
-  return `${prompt}\n(请重点关注${positions}标注区域)`;
+  return `${prompt}\n(请重点关注第 1 张参考图的${positions}标注区域)`;
 }

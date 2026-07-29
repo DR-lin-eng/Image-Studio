@@ -194,7 +194,9 @@ type Options struct {
 	// certificate verification for this upstream. It must remain opt-in.
 	AllowInsecureConnection bool
 
-	MaskB64 string // optional, reserved for Phase 3 GUI; omitted from payload when empty
+	// MaskB64 is a raw base64 image for edit requests. Images API uploads are
+	// normalized with the first source into a same-size PNG pair.
+	MaskB64 string
 
 	// Seed pins the random source so users can reproduce a result. 0 means
 	// "let the model pick", and the field is then omitted from the payload.

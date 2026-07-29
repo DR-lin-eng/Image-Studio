@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Crop, FlipHorizontal, FlipVertical, RotateCcw, RotateCw } from "lucide-react";
 import { useStudioStore } from "../../state/studioStore";
 import { usePlatform } from "../../platform/context";
@@ -15,12 +15,14 @@ import { Sep, ToolBtn, ToolbarGroup } from "./toolbarPrimitives";
 export function Toolbar() {
   const {
     currentImage, tool, brushSize, brushMode,
+    maskDataURL, maskVisible, maskOpacity, strokes,
     annotationKind, annotationColor,
     annotations, selectedAnnotationId,
     fullscreen,
     batchResults, resultGridOpen, openResultGrid, closeResultGrid,
     setField, toggleFullscreen, saveCurrentImageAs,
-    importMaskImage, resetMask, clearAnnotations,
+    activateMaskTool, importMaskImage, fillMask, invertMask, resetMask, clearAnnotations,
+    provider, batchProcess,
     undoStack, redoStack, undo, redo,
     rotateCurrent, flipCurrent, cropToRect,
     openResultDetail,
@@ -29,6 +31,21 @@ export function Toolbar() {
   const { isAndroidPhone, isMac, usesFluentUI, usesAppleUI } = usePlatform();
   const [mobileAdjustOpen, setMobileAdjustOpen] = useState(false);
   const hasImage = !!currentImage;
+  const hasMask = !!maskDataURL || strokes.some((stroke) => !stroke.erase);
+  const maskDisabledTitle = provider === "google"
+    ? "Google Interactions 不支持 OpenAI 蒙版参数"
+    : provider === "grok"
+      ? "Grok Imagine 不支持 OpenAI 蒙版参数"
+      : batchProcess.enabled
+        ? "批量目录处理不支持单图蒙版"
+        : undefined;
+  useEffect(() => {
+    if (tool === "mask" && maskDisabledTitle) setField("tool", "pan");
+  }, [maskDisabledTitle, setField, tool]);
+  const setCanvasTool = (nextTool: "pan" | "mask" | "annotate") => {
+    if (nextTool === "mask") void activateMaskTool();
+    else setField("tool", nextTool);
+  };
   const showBatchGridToggle = batchResults.length > 1;
   if (isMac && !hasImage && !showBatchGridToggle) return null;
   const showToolSection = hasImage;
@@ -55,10 +72,17 @@ export function Toolbar() {
         showViewReset
         brushMode={brushMode}
         brushSize={brushSize}
+        maskVisible={maskVisible}
+        maskOpacity={maskOpacity}
+        hasMask={hasMask}
         annotationKind={annotationKind}
         annotationColor={annotationColor}
         onSetBrushMode={(mode) => setField("brushMode", mode)}
         onSetBrushSize={(size) => setField("brushSize", size)}
+        onToggleMaskVisible={() => setField("maskVisible", !maskVisible)}
+        onSetMaskOpacity={(opacity) => setField("maskOpacity", opacity)}
+        onFillMask={fillMask}
+        onInvertMask={invertMask}
         onImportMask={importMaskImage}
         onResetMask={resetMask}
         onSetAnnotationKind={(kind) => setField("annotationKind", kind)}
@@ -104,9 +128,11 @@ export function Toolbar() {
               <BaseToolSection
                 hasImage={hasImage}
                 tool={tool}
+                maskDisabled={!!maskDisabledTitle}
+                maskDisabledTitle={maskDisabledTitle}
                 undoDisabled={undoStack.length === 0}
                 redoDisabled={redoStack.length === 0}
-                onSetTool={(nextTool) => setField("tool", nextTool)}
+                onSetTool={setCanvasTool}
                 onUndo={undo}
                 onRedo={redo}
               />
@@ -120,10 +146,17 @@ export function Toolbar() {
                 showViewReset={showViewReset}
                 brushMode={brushMode}
                 brushSize={brushSize}
+                maskVisible={maskVisible}
+                maskOpacity={maskOpacity}
+                hasMask={hasMask}
                 annotationKind={annotationKind}
                 annotationColor={annotationColor}
                 onSetBrushMode={(mode) => setField("brushMode", mode)}
                 onSetBrushSize={(size) => setField("brushSize", size)}
+                onToggleMaskVisible={() => setField("maskVisible", !maskVisible)}
+                onSetMaskOpacity={(opacity) => setField("maskOpacity", opacity)}
+                onFillMask={fillMask}
+                onInvertMask={invertMask}
                 onImportMask={importMaskImage}
                 onResetMask={resetMask}
                 onSetAnnotationKind={(kind) => setField("annotationKind", kind)}
@@ -171,9 +204,11 @@ export function Toolbar() {
             <BaseToolSection
               hasImage={hasImage}
               tool={tool}
+              maskDisabled={!!maskDisabledTitle}
+              maskDisabledTitle={maskDisabledTitle}
               undoDisabled={undoStack.length === 0}
               redoDisabled={redoStack.length === 0}
-              onSetTool={(nextTool) => setField("tool", nextTool)}
+              onSetTool={setCanvasTool}
               onUndo={undo}
               onRedo={redo}
             />
@@ -187,10 +222,17 @@ export function Toolbar() {
             showViewReset={showViewReset}
             brushMode={brushMode}
             brushSize={brushSize}
+            maskVisible={maskVisible}
+            maskOpacity={maskOpacity}
+            hasMask={hasMask}
             annotationKind={annotationKind}
             annotationColor={annotationColor}
             onSetBrushMode={(mode) => setField("brushMode", mode)}
             onSetBrushSize={(size) => setField("brushSize", size)}
+            onToggleMaskVisible={() => setField("maskVisible", !maskVisible)}
+            onSetMaskOpacity={(opacity) => setField("maskOpacity", opacity)}
+            onFillMask={fillMask}
+            onInvertMask={invertMask}
             onImportMask={importMaskImage}
             onResetMask={resetMask}
             onSetAnnotationKind={(kind) => setField("annotationKind", kind)}

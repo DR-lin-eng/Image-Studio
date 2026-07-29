@@ -377,12 +377,16 @@ func (a *App) startRunWithConfig(cfg kernel.Config, total int, workflowWorkspace
 				})
 				previewOnlyRemote := normalizeKernelRuntimeMode(kernelRuntimeMode) == "remote"
 				if previewOnlyRemote && strings.TrimSpace(res.SavedPath) == "" && strings.TrimSpace(res.ImageB64) != "" {
+					resultFormat := strings.TrimSpace(res.OutputFormat)
+					if resultFormat == "" {
+						resultFormat = jobCfg.OutputFormat
+					}
 					res.SavedPath = registerVirtualImage(res.ImageB64, suggestedSaveNameForHistoryItem(sharedCompat.HistoryItem{
 						Prompt:       jobCfg.Prompt,
 						Mode:         string(jobCfg.Mode),
-						OutputFormat: jobCfg.OutputFormat,
+						OutputFormat: resultFormat,
 						CreatedAt:    time.Now().UnixMilli(),
-					}), jobCfg.OutputFormat)
+					}), resultFormat)
 				}
 				if previewOnlyRemote && strings.TrimSpace(res.RawText) != "" {
 					res.RawPath = registerVirtualText(res.RawText, fmt.Sprintf("raw-response-%d-%d.txt", i+1, time.Now().UnixNano()))

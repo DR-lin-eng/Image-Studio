@@ -1,4 +1,5 @@
 import type { RequestPolicy, UpstreamProvider } from "../../../types/domain";
+import type { PreparedMaskComposite } from "../../../lib/maskComposite.ts";
 
 export type KernelImageSource = {
   path?: string;
@@ -70,6 +71,7 @@ export type PartialImageCallback = (partial: {
 export type RemoteJobRequest = {
   payload: RemoteGeneratePayload;
   sourceImages?: KernelImageSource[];
+  preparedMask?: PreparedMaskComposite | null;
 };
 
 export type RemoteJobCallbacks = {

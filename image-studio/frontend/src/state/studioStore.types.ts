@@ -147,6 +147,9 @@ export interface StudioState {
   annotationColor: string;
   selectedAnnotationId: string | null;
   maskDataURL: string | null;
+  maskTargetPath: string | null;
+  maskVisible: boolean;
+  maskOpacity: number;
   strokes: Stroke[];
   annotations: Annotation[];
   compareB: HistoryItem | null;
@@ -214,9 +217,12 @@ export interface StudioState {
   clearHistory: () => Promise<number>;
   saveCurrentImageAs: () => Promise<void>;
   bootstrap: () => Promise<void>;
+  activateMaskTool: () => Promise<boolean>;
   importMaskImage: () => Promise<void>;
   setMaskDataURL: (v: string | null) => void;
   pushStroke: (s: Stroke) => void;
+  fillMask: () => Promise<void>;
+  invertMask: () => Promise<void>;
   resetMask: () => void;
   addAnnotation: (a: Annotation) => void;
   removeAnnotation: (id: string) => void;

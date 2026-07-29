@@ -178,6 +178,20 @@ func TestHistoryItemFromRunPreviewOnlyRemoteKeepsRawAndDefersSavedPaths(t *testi
 	}
 }
 
+func TestHistoryItemFromRunPrefersEffectiveResultFormat(t *testing.T) {
+	item := HistoryItemFromRun(kernel.Config{
+		Prompt:       "masked edit",
+		Mode:         client.ModeEdit,
+		OutputFormat: "jpeg",
+	}, kernel.Result{
+		SavedPath:    "/tmp/images/masked.png",
+		OutputFormat: "png",
+	}, 1, false)
+	if item.OutputFormat != "png" {
+		t.Fatalf("history output format=%q want effective PNG result", item.OutputFormat)
+	}
+}
+
 func TestSaveConfigAndHistoryWithPreviewModeStoresHistoryFullAndHydratesImageB64(t *testing.T) {
 	root := t.TempDir()
 	origStable := StableDataRootForTest()

@@ -401,12 +401,30 @@ export function buildResponsesImageTool(payload, sourceDataURLs, options = {}) {
   if (compatExtensions && negativePrompt) tool.negative_prompt = negativePrompt;
 
   const maskMimeType = String(options.maskMimeType || "image/png").trim() || "image/png";
-  if (payload.maskB64) {
+  const maskB64 = validateMaskRequest(payload, sourceDataURLs);
+  if (maskB64) {
     tool.input_image_mask = {
-      image_url: dataURLFromBase64Image(payload.maskB64, maskMimeType),
+      image_url: dataURLFromBase64Image(maskB64, maskMimeType),
     };
   }
   return tool;
+}
+
+function validateMaskRequest(payload, sourceDataURLs) {
+  const maskB64 = String(payload?.maskB64 || "").replace(/\s+/g, "");
+  if (!maskB64) return "";
+  if (payload?.mode !== "edit") throw new Error("蒙版仅支持图生图模式");
+  if (!Array.isArray(sourceDataURLs) || sourceDataURLs.length === 0) {
+    throw new Error("蒙版任务需要至少一张源图");
+  }
+  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(maskB64) || maskB64.length % 4 === 1) {
+    throw new Error("蒙版图片 base64 无效");
+  }
+  const padding = maskB64.endsWith("==") ? 2 : maskB64.endsWith("=") ? 1 : 0;
+  const decodedBytes = Math.floor((maskB64.length * 3) / 4) - padding;
+  if (decodedBytes <= 0) throw new Error("蒙版图片为空");
+  if (decodedBytes > 50 * 1024 * 1024) throw new Error("蒙版图片超过 50MB 上限");
+  return maskB64;
 }
 
 export function buildResponsesPayload(payload, sourceDataURLs, options = {}) {

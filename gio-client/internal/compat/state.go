@@ -297,6 +297,10 @@ func UpsertConfig(state shared.State, cfg kernel.Config) shared.State {
 }
 
 func HistoryItemFromRun(cfg kernel.Config, result kernel.Result, elapsedSec float64, previewOnlyResult bool) shared.HistoryItem {
+	outputFormat := strings.TrimSpace(result.OutputFormat)
+	if outputFormat == "" {
+		outputFormat = cfg.OutputFormat
+	}
 	item := shared.HistoryItem{
 		ID:               randomID(),
 		Prompt:           cfg.Prompt,
@@ -304,7 +308,7 @@ func HistoryItemFromRun(cfg kernel.Config, result kernel.Result, elapsedSec floa
 		Mode:             string(cfg.Mode),
 		Size:             cfg.Size,
 		Quality:          cfg.Quality,
-		OutputFormat:     cfg.OutputFormat,
+		OutputFormat:     outputFormat,
 		CreatedAt:        time.Now().UnixMilli(),
 		Seed:             cfg.Seed,
 		NegativePrompt:   cfg.NegativePrompt,

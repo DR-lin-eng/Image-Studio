@@ -95,6 +95,7 @@ type Result struct {
 	RawPath       string
 	RawText       string
 	ImageB64      string
+	OutputFormat  string
 	RevisedPrompt string
 	SourceEvent   string
 }
@@ -183,6 +184,10 @@ func (Runner) Run(ctx context.Context, cfg Config, cb Callbacks) (Result, error)
 	if cfg.Mode == client.ModeEdit && len(cfg.SourcePaths) == 0 && len(cfg.SourceImageDataURLs) == 0 {
 		return Result{}, fmt.Errorf("图生图模式需要至少一张源图")
 	}
+	preparedMask, err := prepareEditMask(&cfg)
+	if err != nil {
+		return Result{}, err
+	}
 	logDir := filepath.Join(cfg.OutputDir, "log")
 	if !cfg.PreviewOnlyResult {
 		if err := os.MkdirAll(cfg.OutputDir, 0o700); err != nil {
@@ -225,7 +230,7 @@ func (Runner) Run(ctx context.Context, cfg Config, cb Callbacks) (Result, error)
 		if idx > 0 {
 			nonNilLog(cb.Log)("主上游自动重试失败，切换到备用上游再试一次...")
 		}
-		result, err := runSingleConfig(ctx, variant, cb, imagesDir, logDir, idx)
+		result, err := runSingleConfig(ctx, variant, cb, imagesDir, logDir, idx, preparedMask)
 		if err == nil {
 			return result, nil
 		}
@@ -378,7 +383,7 @@ func normalizeRequestPolicy(policy client.RequestPolicy) client.RequestPolicy {
 	return client.RequestPolicyOpenAI
 }
 
-func runSingleConfig(ctx context.Context, cfg Config, cb Callbacks, imagesDir string, logDir string, variantIndex int) (Result, error) {
+func runSingleConfig(ctx context.Context, cfg Config, cb Callbacks, imagesDir string, logDir string, variantIndex int, preparedMask *preparedEditMask) (Result, error) {
 	proxy, err := client.NormalizeProxyConfig(cfg.ProxyMode, cfg.ProxyURL)
 	if err != nil {
 		return Result{}, err
@@ -462,20 +467,31 @@ func runSingleConfig(ctx context.Context, cfg Config, cb Callbacks, imagesDir st
 	if reqErr != nil {
 		return Result{RawPath: rawPath, RawText: rawText}, reqErr
 	}
+	finalOutputFormat := cfg.OutputFormat
+	if preparedMask != nil {
+		composited, compositeErr := compositeMaskedEditB64(preparedMask, result.ImageB64)
+		if compositeErr != nil {
+			return Result{RawPath: rawPath, RawText: rawText}, fmt.Errorf("保护蒙版外原图失败: %w", compositeErr)
+		}
+		result.ImageB64 = composited
+		finalOutputFormat = "png"
+		nonNilLog(cb.Log)("已在本地合成蒙版结果，蒙版外区域使用原图像素。")
+	}
 	if cfg.PreviewOnlyResult {
 		return Result{
 			RawPath:       rawPath,
 			RawText:       rawText,
 			ImageB64:      result.ImageB64,
+			OutputFormat:  finalOutputFormat,
 			RevisedPrompt: result.RevisedPrompt,
 			SourceEvent:   result.SourceEvent,
 		}, nil
 	}
 
-	imageName := buildImageName(cfg.Mode, cfg.Prompt, timestamp, cfg.OutputFormat)
+	imageName := buildImageName(cfg.Mode, cfg.Prompt, timestamp, finalOutputFormat)
 	savedPath, err := saveImage(result.ImageB64, filepath.Join(imagesDir, imageName))
 	if err != nil {
-		return Result{RawPath: rawPath, ImageB64: result.ImageB64}, err
+		return Result{RawPath: rawPath, ImageB64: result.ImageB64, OutputFormat: finalOutputFormat}, err
 	}
 	previewPath := ""
 	thumbPath := ""
@@ -498,6 +514,7 @@ func runSingleConfig(ctx context.Context, cfg Config, cb Callbacks, imagesDir st
 		RawPath:       rawPath,
 		RawText:       rawText,
 		ImageB64:      result.ImageB64,
+		OutputFormat:  finalOutputFormat,
 		RevisedPrompt: result.RevisedPrompt,
 		SourceEvent:   result.SourceEvent,
 	}, nil

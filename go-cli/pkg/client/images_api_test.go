@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"image"
+	"image/png"
 	"io"
 	"mime"
 	"mime/multipart"
@@ -179,6 +181,45 @@ func TestRequestImagesAPIDownloadsURLOnlyResponse(t *testing.T) {
 	}
 }
 
+func TestRequestImagesAPIDownloadsURLOnlySSEResponse(t *testing.T) {
+	imageBytes := []byte{0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x01}
+	var imageURL string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v1/images/generations":
+			w.Header().Set("Content-Type", "text/event-stream")
+			fmt.Fprintf(w, "data: {\"data\":[{\"url\":%q,\"revised_prompt\":\"cat revised from stream\"}]}\n\n", imageURL)
+		case "/image.png":
+			w.Header().Set("Content-Type", "image/png")
+			_, _ = w.Write(imageBytes)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+	imageURL = srv.URL + "/image.png"
+
+	res, err := RequestImagesAPIWithPartial(context.Background(), Options{
+		APIKey:       "sk-test",
+		Prompt:       "cat",
+		BaseURL:      srv.URL,
+		APIMode:      APIModeImages,
+		ImageModelID: "relay-image-model",
+	}, &bytes.Buffer{}, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.ImageB64 != base64.StdEncoding.EncodeToString(imageBytes) {
+		t.Fatalf("ImageB64 = %q", res.ImageB64)
+	}
+	if res.RevisedPrompt != "cat revised from stream" {
+		t.Fatalf("RevisedPrompt = %q", res.RevisedPrompt)
+	}
+	if res.SourceEvent != "images_api_url" {
+		t.Fatalf("SourceEvent = %q", res.SourceEvent)
+	}
+}
+
 func TestRequestImagesAPIGeminiModelUsesNonStreamingCompatEndpoint(t *testing.T) {
 	finalB64 := base64.StdEncoding.EncodeToString([]byte("final"))
 	var requestBody []byte
@@ -333,13 +374,13 @@ func TestRequestImagesAPIWithRetriesRetriesWhenOnlyPartialPreviewArrives(t *test
 func TestBuildEditsMultipartSetsMaskMimeType(t *testing.T) {
 	dir := t.TempDir()
 	src := filepath.Join(dir, "source.png")
-	if err := os.WriteFile(src, fakePNG, 0o644); err != nil {
+	if err := os.WriteFile(src, testPNGBytes(t, 2, 1), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
 	buf, contentType, err := buildEditsMultipart(
 		[]string{src},
-		base64.StdEncoding.EncodeToString(fakePNG),
+		base64.StdEncoding.EncodeToString(testAlphaMaskPNGBytes(t, 2, 1)),
 		"edit this",
 		"gpt-image-2",
 		"1024x1024",
@@ -415,13 +456,71 @@ func TestBuildEditsMultipartSetsMaskMimeType(t *testing.T) {
 	}
 }
 
-func TestBuildEditsMultipartDetectsJPEGMaskMimeType(t *testing.T) {
+func TestBuildEditsMultipartUsesArrayFieldForEveryMultiImageSource(t *testing.T) {
 	dir := t.TempDir()
-	src := filepath.Join(dir, "source.png")
-	if err := os.WriteFile(src, fakePNG, 0o644); err != nil {
+	paths := []string{
+		filepath.Join(dir, "first.png"),
+		filepath.Join(dir, "second.png"),
+	}
+	for _, path := range paths {
+		if err := os.WriteFile(path, fakePNG, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	buf, contentType, err := buildEditsMultipart(
+		paths,
+		"",
+		"edit this",
+		"gpt-image-2",
+		"1024x1024",
+		"auto",
+		"png",
+		"auto",
+		100,
+		"auto",
+		"low",
+		"",
+		"",
+		0,
+		RequestPolicyOpenAI,
+		DefaultPartialImages,
+		false,
+	)
+	if err != nil {
 		t.Fatal(err)
 	}
-	jpegMask := base64.StdEncoding.EncodeToString([]byte{0xff, 0xd8, 0xff, 0xdb, 0x00, 0x43})
+	_, params, err := mime.ParseMediaType(contentType)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reader := multipart.NewReader(buf, params["boundary"])
+	var imageFields []string
+	for {
+		part, err := reader.NextPart()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		if part.FileName() != "" {
+			imageFields = append(imageFields, part.FormName())
+		}
+		_, _ = io.Copy(io.Discard, part)
+	}
+	if got, want := strings.Join(imageFields, ","), "image[],image[]"; got != want {
+		t.Fatalf("image multipart fields = %q, want %q", got, want)
+	}
+}
+
+func TestBuildEditsMultipartCanonicalizesJPEGSourceAndMaskToSameSizePNG(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "source.jpg")
+	if err := os.WriteFile(src, testJPEGBytes(t, 3, 2), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	jpegMask := base64.StdEncoding.EncodeToString(testJPEGBytes(t, 1, 1))
 
 	buf, contentType, err := buildEditsMultipart(
 		[]string{src},
@@ -451,6 +550,8 @@ func TestBuildEditsMultipartDetectsJPEGMaskMimeType(t *testing.T) {
 		t.Fatal(err)
 	}
 	reader := multipart.NewReader(buf, params["boundary"])
+	foundSource := false
+	foundMask := false
 	for {
 		part, err := reader.NextPart()
 		if err == io.EOF {
@@ -459,18 +560,57 @@ func TestBuildEditsMultipartDetectsJPEGMaskMimeType(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if part.FormName() == "mask" {
-			if got := part.Header.Get("Content-Type"); got != "image/jpeg" {
-				t.Fatalf("mask content-type = %q, want image/jpeg", got)
+		if part.FormName() == "image" || part.FormName() == "mask" {
+			if got := part.Header.Get("Content-Type"); got != "image/png" {
+				t.Fatalf("%s content-type = %q, want image/png", part.FormName(), got)
 			}
-			if got := part.FileName(); got != "mask.jpg" {
-				t.Fatalf("mask filename = %q, want mask.jpg", got)
+			wantName := "source.png"
+			if part.FormName() == "mask" {
+				wantName = "mask.png"
+				foundMask = true
+			} else {
+				foundSource = true
 			}
-			return
+			if got := part.FileName(); got != wantName {
+				t.Fatalf("%s filename = %q, want %q", part.FormName(), got, wantName)
+			}
+			img, err := png.Decode(part)
+			if err != nil {
+				t.Fatalf("decode %s PNG: %v", part.FormName(), err)
+			}
+			if got := img.Bounds().Size(); got != image.Pt(3, 2) {
+				t.Fatalf("%s size = %v, want 3x2", part.FormName(), got)
+			}
+			continue
 		}
 		_, _ = io.Copy(io.Discard, part)
 	}
-	t.Fatal("expected mask part in multipart body")
+	if !foundSource || !foundMask {
+		t.Fatalf("canonical pair missing: source=%v mask=%v", foundSource, foundMask)
+	}
+}
+
+func TestRequestImagesAPIRejectsMaskOutsideEditBeforeNetwork(t *testing.T) {
+	hits := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		http.Error(w, "unexpected request", http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+
+	_, err := RequestImagesAPIWithPartial(context.Background(), Options{
+		APIKey:  "sk-test",
+		BaseURL: srv.URL,
+		Prompt:  "cat",
+		Mode:    ModeGenerate,
+		MaskB64: base64.StdEncoding.EncodeToString(testAlphaMaskPNGBytes(t, 1, 1)),
+	}, &bytes.Buffer{}, nil, nil)
+	if err == nil || !strings.Contains(err.Error(), "图生图") {
+		t.Fatalf("err = %v, want edit-mode validation", err)
+	}
+	if hits != 0 {
+		t.Fatalf("server received %d requests, want 0", hits)
+	}
 }
 
 func TestBuildEditsMultipartOmitsMaskWhenEmpty(t *testing.T) {

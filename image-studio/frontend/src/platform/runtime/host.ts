@@ -163,12 +163,16 @@ async function startRemoteJob(options: GenerateOptionsLike): Promise<JobStartedL
         preparedMask = await normalizeMaskForSource(sourceDataURL, options.maskB64);
         remoteOptions = { ...options, maskB64: preparedMask.maskB64 };
       }
-      const result = await runRemoteImageJob({ payload: {
-        ...remoteOptions,
-        requestPolicy: normalizeRequestPolicy(remoteOptions.requestPolicy),
-        imagesNewAPICompat: remoteOptions.imagesNewAPICompat === true,
-        allowInsecureConnection: remoteOptions.allowInsecureConnection === true,
-      }, sourceImages: remoteOptions.sourceImages }, {
+      const result = await runRemoteImageJob({
+        payload: {
+          ...remoteOptions,
+          requestPolicy: normalizeRequestPolicy(remoteOptions.requestPolicy),
+          imagesNewAPICompat: remoteOptions.imagesNewAPICompat === true,
+          allowInsecureConnection: remoteOptions.allowInsecureConnection === true,
+        },
+        sourceImages: remoteOptions.sourceImages,
+        preparedMask,
+      }, {
         signal: controller.signal,
         onLog: (line) => emitLocalEvent(`log:${jobId}`, line),
         onProgress: (stage, elapsed, bytes) => emitLocalEvent(`progress:${jobId}`, { stage, elapsed, bytes }),

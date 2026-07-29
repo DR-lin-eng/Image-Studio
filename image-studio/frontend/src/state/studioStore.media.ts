@@ -93,7 +93,11 @@ export function createMediaActions(store: StateAdapter) {
         resultGridOpen: false,
         compareB: null,
         maskDataURL: null,
+        maskTargetPath: null,
+        strokes: [],
         annotations: [],
+        undoStack: [],
+        redoStack: [],
         tool: "pan",
         workspaces: patchWorkspaceRuntime(state.workspaces, state.activeWorkspaceId, {
           currentImageId: full.id,

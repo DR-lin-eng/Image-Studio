@@ -369,6 +369,34 @@ test("remote payload builder uses Grok JSON edit contract", async () => {
   assert.deepEqual(body.image, { type: "image_url", url: "data:image/png;base64,YWJj" });
 });
 
+test("remote Images edit uses image array fields for every multi-image source", async () => {
+  const payloads = await import(`../src/platform/runtime/remote-kernel/requestPayloads.ts?multi-image-fields=${Date.now()}-${Math.random()}`);
+  const built = await payloads.buildImagesRequestBody({
+    payload: {
+      provider: "openai",
+      apiKey: "key",
+      mode: "edit",
+      prompt: "combine",
+      size: "1024x1024",
+      quality: "auto",
+      outputFormat: "png",
+      baseURL: "https://upstream.example",
+      imageModelID: "gpt-image-2",
+      requestPolicy: "openai",
+      negativePrompt: "",
+      maskB64: "",
+    },
+  }, [
+    "data:image/png;base64,YWJj",
+    "data:image/png;base64,ZGVm",
+  ]);
+  assert.equal(built.protocol, "openai-images");
+  const imageFields = [...built.body.entries()]
+    .filter(([, value]) => value instanceof Blob)
+    .map(([key]) => key);
+  assert.deepEqual(imageFields, ["image[]", "image[]"]);
+});
+
 test("runRemoteImageJob retries when Responses API only returns partial previews", async () => {
   let calls = 0;
   const partials = [];
@@ -973,7 +1001,7 @@ test("runRemoteImageJob sends Responses API mask as input_image_mask data URL", 
   });
 });
 
-test("runRemoteImageJob sends Images API edit mask with image MIME type", async () => {
+test("runRemoteImageJob uploads a canonical PNG source and mask pair for Images edits", async () => {
   let captured = null;
   await withPatchedGlobals(async () => {
     globalThis.fetch = async (url, init) => {
@@ -999,7 +1027,7 @@ test("runRemoteImageJob sends Images API edit mask with image MIME type", async 
           outputFormat: "png",
           imagePaths: [],
           imagePath: "",
-          maskB64: "iVBORw0KGgpmYWtl",
+          maskB64: "iVBORw0KGgptYXNr",
           seed: 0,
           negativePrompt: "",
           userIdentifier: "user-hash-123",
@@ -1011,17 +1039,104 @@ test("runRemoteImageJob sends Images API edit mask with image MIME type", async 
           noPromptRevision: false,
         },
         sourceImages: [
-          { imageB64: "iVBORw0KGgpzb3VyY2U=", name: "source.png", mimeType: "image/png" },
+          { imageB64: "/9j/c291cmNl", name: "source.jpg", mimeType: "image/jpeg" },
         ],
+        preparedMask: {
+          sourceDataURL: "data:image/jpeg;base64,/9j/c291cmNl",
+          sourceUploadDataURL: "data:image/png;base64,iVBORw0KGgpzb3VyY2U=",
+          maskB64: "iVBORw0KGgptYXNr",
+        },
       },
       { signal: new AbortController().signal },
     );
     assert.equal(captured.url, "https://upstream.example/v1/images/edits");
     assert.ok(captured.body instanceof FormData);
     assert.equal(captured.body.get("user"), "user-hash-123");
+    const source = captured.body.get("image");
+    assert.ok(source instanceof Blob);
+    assert.equal(source.type, "image/png");
+    assert.equal(source.name, "source-1.png");
     const mask = captured.body.get("mask");
     assert.ok(mask instanceof Blob);
     assert.equal(mask.type, "image/png");
+    assert.equal(mask.name, "mask.png");
+  });
+});
+
+test("remote Images mask validation rejects invalid combinations before fetch", async () => {
+  let hits = 0;
+  await withPatchedGlobals(async () => {
+    globalThis.fetch = async () => {
+      hits++;
+      throw new Error("unexpected fetch");
+    };
+  }, async () => {
+    const payloads = await import(`../src/platform/runtime/remote-kernel/requestPayloads.ts?mask-validation=${Date.now()}-${Math.random()}`);
+    const basePayload = {
+      apiKey: "key",
+      prompt: "bird",
+      size: "1024x1024",
+      quality: "medium",
+      outputFormat: "png",
+      imagePaths: [],
+      imagePath: "",
+      seed: 0,
+      negativePrompt: "",
+      baseURL: "https://upstream.example",
+      textModelID: "",
+      imageModelID: "gpt-image-2",
+      apiMode: "images",
+      requestPolicy: "openai",
+      noPromptRevision: false,
+    };
+
+    await assert.rejects(
+      payloads.buildImagesRequestBody({ payload: { ...basePayload, mode: "generate", maskB64: "iVBORw0KGgptYXNr" } }, []),
+      /图生图模式/,
+    );
+    await assert.rejects(
+      payloads.buildImagesRequestBody({ payload: { ...basePayload, mode: "edit", maskB64: "iVBORw0KGgptYXNr" } }, []),
+      /至少一张源图/,
+    );
+    await assert.rejects(
+      payloads.buildImagesRequestBody(
+        { payload: { ...basePayload, mode: "edit", maskB64: "%%%" } },
+        ["data:image/png;base64,iVBORw0KGgpzb3VyY2U="],
+      ),
+      /base64 无效/,
+    );
+    assert.equal(hits, 0);
+  });
+});
+
+test("remote Images unmasked JPEG edits preserve the original source MIME", async () => {
+  await withPatchedGlobals(async () => {}, async () => {
+    const payloads = await import(`../src/platform/runtime/remote-kernel/requestPayloads.ts?unmasked-jpeg=${Date.now()}-${Math.random()}`);
+    const built = await payloads.buildImagesRequestBody({
+      payload: {
+        apiKey: "key",
+        mode: "edit",
+        prompt: "bird",
+        size: "1024x1024",
+        quality: "medium",
+        outputFormat: "png",
+        imagePaths: [],
+        imagePath: "",
+        maskB64: "",
+        seed: 0,
+        negativePrompt: "",
+        baseURL: "https://upstream.example",
+        textModelID: "",
+        imageModelID: "gpt-image-2",
+        apiMode: "images",
+        requestPolicy: "openai",
+        noPromptRevision: false,
+      },
+    }, ["data:image/jpeg;base64,/9j/c291cmNl"]);
+    const source = built.body.get("image");
+    assert.ok(source instanceof Blob);
+    assert.equal(source.type, "image/jpeg");
+    assert.equal(source.name, "source-1.jpg");
   });
 });
 

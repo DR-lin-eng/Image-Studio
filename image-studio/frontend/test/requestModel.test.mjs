@@ -145,3 +145,22 @@ test("repairSizeForOpenAI snaps invalid sizes to nearest legal 16-aligned value"
     prompt: "cat",
   });
 });
+
+test("Responses mask requires edit mode and a first source image", () => {
+  const base = {
+    prompt: "edit",
+    mode: "generate",
+    maskB64: "iVBORw0KGgptYXNr",
+    imageModelID: "gpt-image-2",
+    textModelID: "gpt-5.5",
+  };
+  assert.throws(() => buildResponsesPayload(base, []), /图生图模式/);
+  assert.throws(() => buildResponsesPayload({ ...base, mode: "edit" }, []), /至少一张源图/);
+  assert.throws(
+    () => buildResponsesPayload(
+      { ...base, mode: "edit", maskB64: "%%%" },
+      ["data:image/png;base64,iVBORw0KGgpzb3VyY2U="],
+    ),
+    /base64 无效/,
+  );
+});

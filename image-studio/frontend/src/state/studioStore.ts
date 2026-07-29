@@ -76,7 +76,14 @@ import {
 import { normalizeAppUpdateInfo } from "../lib/appUpdate.ts";
 import { appVersion } from "../lib/version.ts";
 import { normalizeSavePromptRequest, type SavePromptRequest } from "../lib/savePromptState";
-import { detectImageMimeTypeFromBase64 } from "../lib/images";
+import { detectImageMimeTypeFromBase64, prioritizeImageSource } from "../lib/images";
+import {
+  createFullEditableMaskDataURL,
+  loadImageDimensionsFromSource,
+  normalizeImportedMaskDataURL,
+  renderMaskPNGDataURL,
+  type MaskDimensions,
+} from "../lib/maskEditor";
 import {
   readSavePromptSuppressed,
   writeSavePromptSuppressed,
@@ -159,7 +166,6 @@ import { buildMacWorkspacePreview, buildWindowsRightRailPreview, readPreviewScen
 import {
   applyTheme,
   augmentPromptWithAnnotations,
-  buildMaskPNGDataURL,
   clearLegacyModeLocalStorage,
   genId,
   imageDims,
@@ -685,6 +691,9 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   annotationColor: "#ff4d4d",
   selectedAnnotationId: null,
   maskDataURL: null,
+  maskTargetPath: null,
+  maskVisible: true,
+  maskOpacity: 0.45,
   strokes: [],
   annotations: [],
   undoStack: [],
@@ -978,13 +987,24 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       : key === "loopGeneration"
         ? normalizeLoopGenerationConfig(value)
         : value;
+    const previousCurrentImageId = key === "currentImage" ? get().currentImage?.id ?? null : null;
     set({ [key]: normalizedValue } as any);
     if (key === "currentImage") {
       const item = normalizedValue as HistoryItem | null;
+      const currentImageChanged = previousCurrentImageId !== (item?.id ?? null);
       const workspace = get().workspaces.find((w) => w.id === get().activeWorkspaceId);
       set({
         compareB: null,
         resultGridOpen: false,
+        ...(currentImageChanged ? {
+          maskDataURL: null,
+          maskTargetPath: null,
+          strokes: [],
+          annotations: [],
+          selectedAnnotationId: null,
+          undoStack: [],
+          redoStack: [],
+        } : {}),
         workspaces: patchWorkspaceRuntime(get().workspaces, get().activeWorkspaceId, {
           currentImageId: currentImageIdForWorkspaceSnapshot(item, get().streamPreview, get().streamPreviews, workspace?.currentImageId ?? null),
           resultGridOpen: false,
@@ -1085,7 +1105,6 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       get().pushToast(message, "error", 6000);
     } finally {
       dispatchFullscreenResize();
-      set((state) => ({ canvasViewResetTick: state.canvasViewResetTick + 1 }));
     }
   },
   toggleFullscreen: async () => {
@@ -1229,9 +1248,43 @@ export const useStudioStore = create<StudioState>((set, get) => ({
         return;
       }
     }
+    let effectiveSources = s.sources;
+    let annotationDimensions: { w: number; h: number } | null = null;
+    if (s.mode === "edit" && !batchProcessEnabled && s.annotations.length > 0 && s.currentImage) {
+      let annotationTarget = await materializeHistoryItem(s.currentImage).catch(() => null);
+      annotationTarget = await ensureFullHistoryItem(annotationTarget).catch(() => annotationTarget);
+      const targetPath = annotationTarget?.savedPath?.trim() ?? "";
+      if (!annotationTarget || !targetPath) {
+        set({
+          errorMessage: "无法读取标注所在的画布图。请重新导入图片后再添加参考图。",
+          errorCanRetry: false,
+          errorRawPath: null,
+        });
+        return;
+      }
+      const existingTarget = s.sources.find((source) => source.path === targetPath);
+      const targetSource: SourceImage = existingTarget ?? {
+        path: targetPath,
+        name: targetPath.split(/[\\/]/).pop() ?? "annotation-source.png",
+        size: 0,
+        imageBlob: annotationTarget.previewUrl ? null : (annotationTarget.previewBlob ?? annotationTarget.imageBlob ?? null),
+        imageB64: annotationTarget.previewUrl ? undefined : annotationTarget.imageB64,
+        previewUrl: annotationTarget.previewUrl,
+        previewWidth: annotationTarget.previewWidth,
+        previewHeight: annotationTarget.previewHeight,
+      };
+      effectiveSources = prioritizeImageSource(s.sources, targetSource);
+
+      const targetB64 = annotationTarget.imageB64 || await ReadImageAsBase64(targetPath).catch(() => "");
+      annotationDimensions = await loadImageDims(targetB64);
+      if (!annotationDimensions) {
+        annotationDimensions = await loadImageDimensionsFromSource(annotationTarget.fullUrl || annotationTarget.previewUrl || "");
+      }
+    }
+
     let editSourcePaths: string[] = [];
     if (s.mode === "edit" && !batchProcessEnabled) {
-      editSourcePaths = s.sources.map((src) => src.path).filter(Boolean);
+      editSourcePaths = effectiveSources.map((src) => src.path).filter(Boolean);
       if (editSourcePaths.length === 0 && s.currentImage) {
         const materialized = await materializeHistoryItem(s.currentImage).catch(() => null);
         if (materialized?.savedPath) {
@@ -1266,25 +1319,67 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       jobsCompleted: 0,
       runningJobs: [],
     };
-    const importedMaskDataURL = s.maskDataURL && s.maskDataURL !== "__PENDING_MASK__" ? s.maskDataURL : null;
-    let maskTargetDims = s.currentImage?.imageB64 ? await loadImageDims(s.currentImage.imageB64) : null;
-    if (s.mode === "edit" && s.strokes.length > 0 && !maskTargetDims && editSourcePaths[0]) {
-      const sourceB64 = await ReadImageAsBase64(editSourcePaths[0]).catch(() => "");
-      maskTargetDims = await loadImageDims(sourceB64);
-    }
-    if (s.mode === "edit" && s.strokes.length > 0 && !maskTargetDims) {
+    const hasMaskDraft = !!s.maskDataURL || s.strokes.some((stroke) => !stroke.erase);
+    if (hasMaskDraft && (s.provider === "google" || s.provider === "grok")) {
       set({
-        errorMessage: "无法读取源图真实尺寸，未提交蒙版任务。请重新导入源图后再试。",
+        errorMessage: `${s.provider === "google" ? "Google Interactions" : "Grok Imagine"} 不支持 OpenAI 蒙版参数，请清空蒙版或切换上游`,
         errorCanRetry: false,
         errorRawPath: null,
       });
       return;
     }
-    const maskDataURL = s.mode === "edit"
-      ? (s.strokes.length > 0
-        ? buildMaskPNGDataURL(s.strokes, maskTargetDims)
-        : importedMaskDataURL)
-      : null;
+    if (hasMaskDraft && s.mode !== "edit") {
+      set({
+        errorMessage: "蒙版只能用于图生图。请重新进入蒙版工具，让当前画布图成为主参考图。",
+        errorCanRetry: false,
+        errorRawPath: null,
+      });
+      return;
+    }
+    if (hasMaskDraft && batchProcessEnabled) {
+      set({
+        errorMessage: "批量目录处理不支持复用同一张蒙版。请关闭批量处理后再提交。",
+        errorCanRetry: false,
+        errorRawPath: null,
+      });
+      return;
+    }
+
+    let maskDataURL: string | null = null;
+    if (hasMaskDraft) {
+      const maskTargetPath = s.maskTargetPath || editSourcePaths[0] || "";
+      if (!maskTargetPath || maskTargetPath !== editSourcePaths[0]) {
+        set({
+          errorMessage: "蒙版目标已不是第一张参考图。请重新进入蒙版工具确认目标后再提交。",
+          errorCanRetry: false,
+          errorRawPath: null,
+        });
+        return;
+      }
+      const sourceB64 = await ReadImageAsBase64(maskTargetPath).catch(() => "");
+      const maskTargetDims = await loadImageDims(sourceB64);
+      if (!maskTargetDims) {
+        set({
+          errorMessage: "无法读取蒙版目标图的真实尺寸。请重新导入源图后再试。",
+          errorCanRetry: false,
+          errorRawPath: null,
+        });
+        return;
+      }
+      maskDataURL = await renderMaskPNGDataURL({
+        dimensions: maskTargetDims,
+        baseMaskDataURL: s.maskDataURL,
+        strokes: s.strokes,
+      }).catch(() => null);
+      if (!maskDataURL) {
+        set({
+          errorMessage: "当前蒙版没有可编辑区域，请先涂抹需要修改的范围。",
+          errorCanRetry: false,
+          errorRawPath: null,
+        });
+        return;
+      }
+    }
     const maskB64 = maskDataURL ? stripDataURLPrefix(maskDataURL) : "";
     set({
       ...runPatch,
@@ -1293,9 +1388,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       resultGridOpen: requestedJobCount > 1,
       compareB: null,
       currentImage: clearCurrentForNewRun ? null : s.currentImage,
-      maskDataURL: null,
       annotations: [],
-      strokes: [],
       workspaces: patchWorkspaceRuntime(s.workspaces, workspaceId, {
         ...runPatch,
         currentImageId: clearCurrentForNewRun ? null : s.currentImage?.id ?? null,
@@ -1303,7 +1396,11 @@ export const useStudioStore = create<StudioState>((set, get) => ({
         resultGridOpen: requestedJobCount > 1,
       }),
     });
-    let augmentedPrompt = augmentPromptWithAnnotations(s.prompt, s.annotations, s.currentImage?.imageB64 ? imageDims(s.currentImage.imageB64) : null);
+    let augmentedPrompt = augmentPromptWithAnnotations(
+      s.prompt,
+      s.annotations,
+      annotationDimensions ?? (s.currentImage?.imageB64 ? imageDims(s.currentImage.imageB64) : null),
+    );
     // Append style chip suffix if the user picked one (other than "全部").
     const styleSuffix = STYLE_SUFFIXES[s.styleTag];
     if (styleSuffix) {
@@ -1326,8 +1423,8 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     const effectiveEditAutoAspectResolution = normalizedEditAutoAspectResolution === "auto"
       ? "1k"
       : normalizedEditAutoAspectResolution;
-    const editReferenceDimensions = s.sources[0]?.previewWidth && s.sources[0]?.previewHeight
-      ? { width: s.sources[0].previewWidth, height: s.sources[0].previewHeight }
+    const editReferenceDimensions = effectiveSources[0]?.previewWidth && effectiveSources[0]?.previewHeight
+      ? { width: effectiveSources[0].previewWidth, height: effectiveSources[0].previewHeight }
       : s.currentImage?.previewWidth && s.currentImage?.previewHeight
         ? { width: s.currentImage.previewWidth, height: s.currentImage.previewHeight }
         : null;
@@ -1403,11 +1500,13 @@ export const useStudioStore = create<StudioState>((set, get) => ({
           }
         : undefined,
       autoRetryEnabled: batchProcessEnabled ? batchProcess.retryOnFailure : s.autoRetryEnabled,
-      disablePreview: s.partialImages === 0 || (loopEnabled && !loopGeneration.livePreview) || forceDisableStreamPreview,
+      // Partial frames are not locally composited with the mask and would show
+      // temporary drift in protected areas. Keep masked edits on final-only.
+      disablePreview: !!maskB64 || s.partialImages === 0 || (loopEnabled && !loopGeneration.livePreview) || forceDisableStreamPreview,
     };
     const remotePayload: RuntimeGenerateOptions = {
       ...basePayload,
-      sourceImages: s.mode === "edit" && !batchProcessEnabled ? s.sources : undefined,
+      sourceImages: s.mode === "edit" && !batchProcessEnabled ? effectiveSources : undefined,
     };
     const persistedPayload = basePayload;
 
@@ -1438,7 +1537,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       size: resolvedSize,
       quality: resolvedQuality,
       outputFormat: s.outputFormat,
-      sources: s.sources,
+      sources: effectiveSources,
       currentImage: s.currentImage,
       styleTag: s.styleTag,
       loopGeneration,
@@ -1990,15 +2089,75 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     void backfillHistoryPreviewRefs(items);
   },
 
+  activateMaskTool: async () => {
+    const state = get();
+    if (!state.currentImage) return false;
+    if (state.provider === "google" || state.provider === "grok") {
+      state.pushToast(`${state.provider === "google" ? "Google Interactions" : "Grok Imagine"} 不支持 OpenAI 蒙版参数`, "warn");
+      return false;
+    }
+    if (state.batchProcess.enabled) {
+      state.pushToast("请先关闭批量目录处理，再编辑单张图片蒙版", "warn");
+      return false;
+    }
+
+    let targetItem = await materializeHistoryItem(state.currentImage).catch(() => null);
+    targetItem = await ensureFullHistoryItem(targetItem).catch(() => null);
+    if (!targetItem?.savedPath) {
+      state.pushToast("当前画布图无法作为蒙版目标，请先将图片保存或重新导入", "error");
+      return false;
+    }
+    if (!targetItem.previewUrl && !targetItem.previewBlob && !targetItem.imageB64) {
+      const ref = await RegisterImportedImageAsset(targetItem.savedPath).catch(() => null);
+      if (ref) targetItem = withMediaAssetRef(targetItem, ref);
+    }
+
+    const targetPath = targetItem.savedPath;
+    if (!targetPath) return false;
+    const existingSources = get().sources;
+    const existingTarget = existingSources.find((source) => source.path === targetPath);
+    const targetSource: SourceImage = existingTarget ?? {
+      path: targetPath,
+      name: targetPath.split(/[\\/]/).pop() ?? "mask-source.png",
+      size: 0,
+      imageBlob: targetItem.previewUrl ? null : (targetItem.previewBlob ?? targetItem.imageBlob ?? null),
+      imageB64: targetItem.previewUrl ? undefined : targetItem.imageB64,
+      previewUrl: targetItem.previewUrl,
+      previewWidth: targetItem.previewWidth,
+      previewHeight: targetItem.previewHeight,
+    };
+    const targetChanged = !!get().maskTargetPath && get().maskTargetPath !== targetPath;
+    set({
+      mode: "edit",
+      editSourceMode: "manual",
+      currentImage: targetItem,
+      resultGridOpen: false,
+      tool: "mask",
+      sources: [targetSource, ...existingSources.filter((source) => source.path !== targetPath)],
+      maskTargetPath: targetPath,
+      maskVisible: true,
+      ...(targetChanged ? {
+        maskDataURL: null,
+        strokes: [],
+        undoStack: [],
+        redoStack: [],
+      } : {}),
+    });
+    if (targetChanged) get().pushToast("已切换蒙版目标并清空旧蒙版", "info");
+    return true;
+  },
+
   importMaskImage: async () => {
     try {
+      if (!await get().activateMaskTool()) return;
       const res = await OpenMaskImageDialog();
       if (!res?.path) return;
       const b64 = res.imageB64;
       if (!b64) throw new Error("未读取到图片内容");
       const beforeStrokes = get().strokes;
       const beforeMaskDataURL = get().maskDataURL;
-      const nextMaskDataURL = tempDataURLFromB64(b64);
+      const nextMaskDataURL = await normalizeImportedMaskDataURL(tempDataURLFromB64(b64));
+      if (!nextMaskDataURL) throw new Error("蒙版未包含可编辑区域");
       const entry: UndoEntry = {
         label: "import-mask",
         undo: () => ({ strokes: beforeStrokes, maskDataURL: beforeMaskDataURL }),
@@ -2008,6 +2167,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
         tool: "mask",
         strokes: [],
         maskDataURL: nextMaskDataURL,
+        maskVisible: true,
         undoStack: [...get().undoStack, entry],
         redoStack: [],
         errorMessage: null,
@@ -2032,23 +2192,87 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     };
     set({
       strokes: after,
+      maskTargetPath: get().maskTargetPath || get().currentImage?.savedPath || get().sources[0]?.path || null,
+      maskVisible: true,
       undoStack: [...get().undoStack, entry],
       redoStack: [],
     });
   },
 
+  fillMask: async () => {
+    if (!await get().activateMaskTool()) return;
+    const dimensions = await resolveMaskTargetDimensions(get());
+    if (!dimensions) {
+      get().pushToast("无法读取蒙版目标图尺寸", "error");
+      return;
+    }
+    const beforeStrokes = get().strokes;
+    const beforeMaskDataURL = get().maskDataURL;
+    const nextMaskDataURL = await createFullEditableMaskDataURL(dimensions);
+    const entry: UndoEntry = {
+      label: "fill-mask",
+      undo: () => ({ strokes: beforeStrokes, maskDataURL: beforeMaskDataURL }),
+      redo: () => ({ strokes: [], maskDataURL: nextMaskDataURL }),
+    };
+    set({
+      strokes: [],
+      maskDataURL: nextMaskDataURL,
+      maskVisible: true,
+      undoStack: [...get().undoStack, entry],
+      redoStack: [],
+    });
+    get().pushToast("已全选可编辑区域", "success");
+  },
+
+  invertMask: async () => {
+    if (!await get().activateMaskTool()) return;
+    const dimensions = await resolveMaskTargetDimensions(get());
+    if (!dimensions) {
+      get().pushToast("无法读取蒙版目标图尺寸", "error");
+      return;
+    }
+    const beforeStrokes = get().strokes;
+    const beforeMaskDataURL = get().maskDataURL;
+    const nextMaskDataURL = await renderMaskPNGDataURL({
+      dimensions,
+      baseMaskDataURL: beforeMaskDataURL,
+      strokes: beforeStrokes,
+      invert: true,
+      allowEmpty: true,
+    });
+    if (!nextMaskDataURL) {
+      get().pushToast("无法反选当前蒙版", "error");
+      return;
+    }
+    const entry: UndoEntry = {
+      label: "invert-mask",
+      undo: () => ({ strokes: beforeStrokes, maskDataURL: beforeMaskDataURL }),
+      redo: () => ({ strokes: [], maskDataURL: nextMaskDataURL }),
+    };
+    set({
+      strokes: [],
+      maskDataURL: nextMaskDataURL,
+      maskVisible: true,
+      undoStack: [...get().undoStack, entry],
+      redoStack: [],
+    });
+    get().pushToast("已反选蒙版", "success");
+  },
+
   resetMask: () => {
     const before = get().strokes;
     const beforeMaskDataURL = get().maskDataURL;
+    const beforeMaskTargetPath = get().maskTargetPath;
     if (before.length === 0 && !beforeMaskDataURL) return;
     const entry: UndoEntry = {
       label: "clear-mask",
-      undo: () => ({ strokes: before, maskDataURL: beforeMaskDataURL }),
-      redo: () => ({ strokes: [], maskDataURL: null }),
+      undo: () => ({ strokes: before, maskDataURL: beforeMaskDataURL, maskTargetPath: beforeMaskTargetPath }),
+      redo: () => ({ strokes: [], maskDataURL: null, maskTargetPath: null }),
     };
     set({
       strokes: [],
       maskDataURL: null,
+      maskTargetPath: null,
       undoStack: [...get().undoStack, entry],
       redoStack: [],
     });
@@ -2831,6 +3055,37 @@ useStudioStore.subscribe((state) => {
   compatibilityFingerprint = next;
   scheduleCompatibilityExport(state);
 });
+
+async function resolveMaskTargetDimensions(state: StudioState): Promise<MaskDimensions | null> {
+  const targetPath = state.maskTargetPath || state.sources[0]?.path || state.currentImage?.savedPath || "";
+  if (targetPath) {
+    const sourceB64 = await ReadImageAsBase64(targetPath).catch(() => "");
+    const dimensions = await loadImageDims(sourceB64);
+    if (dimensions) return dimensions;
+  }
+
+  const current = state.currentImage;
+  if (!current) return null;
+  if (current.imageB64) {
+    const dimensions = await loadImageDims(current.imageB64);
+    if (dimensions) return dimensions;
+  }
+  if (current.imageBlob) {
+    const objectURL = URL.createObjectURL(current.imageBlob);
+    try {
+      const dimensions = await loadImageDimensionsFromSource(objectURL);
+      if (dimensions) return dimensions;
+    } finally {
+      URL.revokeObjectURL(objectURL);
+    }
+  }
+  const dimensions = await loadImageDimensionsFromSource(current.fullUrl || current.previewUrl || "");
+  if (dimensions) return dimensions;
+  if ((current.previewWidth ?? 0) > 0 && (current.previewHeight ?? 0) > 0) {
+    return { w: current.previewWidth!, h: current.previewHeight! };
+  }
+  return null;
+}
 
 async function materializeHistoryItem(item: HistoryItem): Promise<HistoryItem> {
   return materializeHistoryItemRuntime(item, {

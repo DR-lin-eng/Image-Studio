@@ -110,7 +110,7 @@ export function HistoryTimelineModal() {
     if (query.trim() || modeFilter !== "all" || dateFilter !== "all") {
       void loadMoreHistory();
     }
-  }, [dateFilter, historyTimelineOpen, loadMoreHistory, modeFilter, query]);
+  }, [dateFilter, historyTimelineOpen, historyHasMore, historyLoading, loadMoreHistory, modeFilter, query]);
 
   function handleScroll() {
     const node = listRef.current;

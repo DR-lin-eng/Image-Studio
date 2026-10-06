@@ -28,10 +28,11 @@ import {
 } from "./customAspectRatios.ts";
 import {
   loadTrustedOutputRoots,
+  loadAllHistory,
   persistHistoryFullImages,
   persistHistoryItems,
-  pruneHistoryStorage,
 } from "./storage.ts";
+import { mergeHistoryItems } from "./history.ts";
 import {
   normalizeCompletionSoundConfig,
   persistCompletionSoundConfig,
@@ -151,7 +152,10 @@ export function scheduleCompatibilityExport(input: CompatibilityExportInput): vo
 }
 
 export async function exportCompatibilityStateNow(input: CompatibilityExportInput): Promise<void> {
-  const state = buildCompatibilityState(input);
+  const state = buildCompatibilityState({
+    ...input,
+    history: mergeHistoryItems([...input.history, ...await loadAllHistory()]),
+  });
   await SaveCompatibilityState(state as unknown as Record<string, unknown>);
   writeLocalMarker(state.updatedAt);
 }
@@ -294,15 +298,16 @@ function applyCompatibilityLocalStorage(state: CompatibilityState): void {
 
 async function persistCompatibilityHistory(state: CompatibilityState): Promise<void> {
   const items = state.history.map(toSerializableHistoryItem).filter((item): item is HistoryItem => item !== null);
-  await persistHistoryItems(items).catch(() => undefined);
+  await persistHistoryItems(items);
   const fullImages = [
     ...items
       .filter((item) => typeof item.imageB64 === "string" && item.imageB64.trim())
       .map((item) => ({ id: item.id, imageB64: item.imageB64 as string })),
     ...(state.historyFull ?? []).filter((item) => item?.id && item.imageB64?.trim()),
   ];
-  await persistHistoryFullImages(fullImages).catch(() => undefined);
-  await pruneHistoryStorage(items.map((item) => item.id)).catch(() => undefined);
+  await persistHistoryFullImages(fullImages);
+  // Older clients may export only their visible page. Merge that snapshot;
+  // absence from a configuration import is not an explicit history deletion.
 }
 
 function normalizeCompatibilityState(raw: unknown): CompatibilityState | null {

@@ -1,8 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import "fake-indexeddb/auto";
+import { clearHistoryStorage, loadAllHistory, persistHistoryItems } from "../src/lib/storage.ts";
 
 const realWindow = globalThis.window;
 const realLocalStorage = globalThis.localStorage;
+
+test.beforeEach(() => clearHistoryStorage());
 
 function installStorage() {
   const store = new Map();
@@ -37,6 +41,9 @@ test.afterEach(() => {
 
 test("compat export preserves previewPath sourcePaths and parentId in history", async () => {
   installStorage();
+  await persistHistoryItems(Array.from({ length: 250 }, (_, i) => ({
+    id: `unloaded-${i}`, prompt: `older prompt ${i}`, mode: "generate", size: "1024x1024", quality: "high", createdAt: 100,
+  })));
   let savedState = null;
   installService({
     SaveCompatibilityState(state) {
@@ -91,9 +98,28 @@ test("compat export preserves previewPath sourcePaths and parentId in history", 
   });
 
   assert.ok(savedState, "compat state should be exported");
+  assert.equal(savedState.history.length, 251, "compatibility export must include unloaded history");
   assert.equal(savedState.history[0].previewPath, "/tmp/previews/result.png");
   assert.equal(savedState.history[0].parentId, "/tmp/source-a.png");
   assert.deepEqual(savedState.history[0].sourcePaths, ["/tmp/source-a.png", "/tmp/source-b.png"]);
+});
+
+test("importing a partial snapshot from an older client cannot delete the local archive", async () => {
+  installStorage();
+  await persistHistoryItems(Array.from({ length: 250 }, (_, i) => ({
+    id: `old-${i}`, prompt: `older prompt ${i}`, mode: "generate", size: "1024x1024", quality: "high", createdAt: 100,
+  })));
+  installService({ LoadCompatibilityState() {
+    return {
+      updatedAt: Date.now(), settings: {}, profiles: [], activeProfileId: "",
+      history: [{ id: "new", prompt: "new prompt", mode: "generate", size: "1024x1024", quality: "high", createdAt: 200 }],
+    };
+  } });
+  const compat = await import(`../src/lib/compatState.ts?partial-import=${Date.now()}`);
+  assert.equal(await compat.importCompatibilityStateIfNewer(), true);
+  const all = await loadAllHistory();
+  assert.equal(all.length, 251);
+  assert.ok(all.some((item) => item.id === "old-0"));
 });
 
 test("compat fingerprint changes when previewPath or sourcePaths change", async () => {

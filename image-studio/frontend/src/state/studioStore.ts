@@ -69,7 +69,7 @@ import {
   loadHistoryPage,
 } from "../lib/storage";
 import {
-  compatibilityExportFingerprint,
+  createCompatibilityExportChangeDetector,
   importCompatibilityStateIfNewer,
   readIgnoredReleaseTag,
   scheduleCompatibilityExport,
@@ -3065,20 +3065,18 @@ async function launchOneJob(
 export { tempDataURLFromB64, writeBase64ToTempFile };
 
 let compatibilityExportEnabled = false;
-let compatibilityFingerprint = "";
+const compatibilityExportChanged = createCompatibilityExportChangeDetector();
 
 function enableCompatibilityExport() {
   const state = useStudioStore.getState();
   compatibilityExportEnabled = true;
-  compatibilityFingerprint = compatibilityExportFingerprint(state);
+  compatibilityExportChanged(state);
   scheduleCompatibilityExport(state);
 }
 
 useStudioStore.subscribe((state) => {
   if (!compatibilityExportEnabled) return;
-  const next = compatibilityExportFingerprint(state);
-  if (next === compatibilityFingerprint) return;
-  compatibilityFingerprint = next;
+  if (!compatibilityExportChanged(state)) return;
   scheduleCompatibilityExport(state);
 });
 

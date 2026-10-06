@@ -24,6 +24,7 @@ export type HistoryPageResult = {
 };
 
 let dbPromise: Promise<IDBDatabase> | null = null;
+let legacyMigrationPromise: Promise<void> | null = null;
 
 function openDB(): Promise<IDBDatabase> {
   if (!dbPromise) {
@@ -43,8 +44,16 @@ function openDB(): Promise<IDBDatabase> {
           db.createObjectStore(HISTORY_FULL_STORE, { keyPath: "id" });
         }
       };
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
+      req.onsuccess = () => {
+        const db = req.result;
+        db.onversionchange = () => {
+          db.close();
+          dbPromise = null;
+          legacyMigrationPromise = null;
+        };
+        resolve(db);
+      };
+      req.onerror = () => { dbPromise = null; reject(req.error); };
     });
   }
   return dbPromise;
@@ -344,17 +353,31 @@ export async function clearHistoryStorage(): Promise<string[]> {
 }
 
 async function migrateLegacyHistoryIfNeeded(): Promise<void> {
+  if (!legacyMigrationPromise) {
+    legacyMigrationPromise = migrateLegacyHistory().catch(() => {
+      // Keep startup usable after a transient failure, but retry on the next
+      // read instead of marking a failed migration permanently complete.
+      legacyMigrationPromise = null;
+    });
+  }
+  await legacyMigrationPromise;
+}
+
+async function migrateLegacyHistory(): Promise<void> {
   const [historyCount, fullCount] = await Promise.all([withHistoryCount(), withFullCount()]);
   if (historyCount > 0 && fullCount > 0) return;
 
+  const legacy = await openLegacyDB();
   try {
-    const legacy = await openLegacyDB();
+    if (!legacy.objectStoreNames.contains(LEGACY_STORE_NAME)) return;
     const tx = legacy.transaction(LEGACY_STORE_NAME, "readonly");
+    const done = txDone(tx);
     const store = tx.objectStore(LEGACY_STORE_NAME);
     if (!store.getAll || !store.getAllKeys) return;
     const [keys, values] = await Promise.all([
       reqAsPromise<IDBValidKey[]>(store.getAllKeys()),
       reqAsPromise<HistoryRecord[]>(store.getAll()),
+      done,
     ]);
     const records = keys.map((k, i) => ({ key: k, value: values[i] }));
     const historyItems = records.filter(({ key }) => typeof key === "string" && key.startsWith("history:"));
@@ -379,8 +402,8 @@ async function migrateLegacyHistoryIfNeeded(): Promise<void> {
       }
       await txDone(fullTx);
     }
-  } catch {
-    // ignore migration failures; app can still run with empty new db
+  } finally {
+    legacy.close();
   }
 }
 
@@ -436,11 +459,18 @@ export async function loadHistoryPage(opts?: {
         return;
       }
       const value = cursor.value as HistoryRecord;
-      // createdAt is not unique: concurrent results often share a millisecond.
-      if (boundary && value.createdAt === boundary.createdAt
-          && indexedDB.cmp(cursor.primaryKey, boundary.id) >= 0) {
-        cursor.continue();
-        return;
+      if (boundary && value.createdAt === boundary.createdAt) {
+        const order = indexedDB.cmp(cursor.primaryKey, boundary.id);
+        if (order >= 0) {
+          // Seek over timestamp ties instead of materializing each earlier
+          // result. Keep a correct fallback for older embedded webviews.
+          if (order > 0 && typeof cursor.continuePrimaryKey === "function") {
+            cursor.continuePrimaryKey(boundary.createdAt, boundary.id);
+          } else {
+            cursor.continue();
+          }
+          return;
+        }
       }
       if (out.length >= limit) {
         resolve({

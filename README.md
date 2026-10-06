@@ -59,6 +59,7 @@ Image Studio 面向 OpenAI 兼容图像上游，重点解决长时间图像推�
 | 图生图批处理的入口、流程、输入输出规则 | [docs/batch-img2img/README.md](./docs/batch-img2img/README.md) |
 | 当前 issue 处理进展与待验证项 | [docs/issue-progress.md](./docs/issue-progress.md) |
 | 本轮修复根因、维护约束和防回归检查 | [docs/issue-fixes-20261006.md](./docs/issue-fixes-20261006.md) |
+| 客户端性能优化、前后基准与复验方法 | [docs/performance-20261006.md](./docs/performance-20261006.md) |
 | 可直接复用的 issue 关单评论模板 | [docs/issue-close-comments.md](./docs/issue-close-comments.md) |
 | 源码构建、验证脚本、CI 产物链路 | [docs/build.md](./docs/build.md) |
 | 真机 / 真实上游手工验证矩阵 | [docs/manual-verification.md](./docs/manual-verification.md) |

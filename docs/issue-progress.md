@@ -19,4 +19,6 @@
 
 根因、维护约束和复现命令见 [issue-fixes-20261006.md](./issue-fixes-20261006.md)。本机验证结果见 [verification/issue-audit-20261006.json](./verification/issue-audit-20261006.json)。
 
+同日后续的客户端性能优化见 [performance-20261006.md](./performance-20261006.md)：保留全部历史，优化定位读取、配置同步和界面订阅，并新增相应回归验证。
+
 `scripts/issue-close-data.json` 和 [issue-close-comments.md](./issue-close-comments.md) 同步本次清单：本地验证覆盖的 8 项、待 Windows 实机的 3 项、产品问答 1 项。这些文件是维护记录与待使用的评论草稿；本次没有向上游发评论或关闭 issue。

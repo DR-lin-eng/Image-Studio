@@ -128,6 +128,44 @@ export type CompatibilityExportInput = {
 };
 
 let exportTimer: ReturnType<typeof setTimeout> | null = null;
+let pendingExportInput: CompatibilityExportInput | null = null;
+let exportInFlight = false;
+
+const exportFields: Record<keyof CompatibilityExportInput, true> = {
+  history: true, profiles: true, activeProfileId: true, aiProfileId: true,
+  proxyMode: true, proxyURL: true, theme: true, fontScale: true, outputFormat: true,
+  background: true, outputCompression: true, inputFidelity: true, imageStyle: true,
+  moderation: true, userIdentifier: true, partialImages: true, protectStreamPreview: true,
+  autoRetryEnabled: true, autoRetryCount: true, promptTemplates: true, promptHistory: true,
+  presets: true, customAspectRatios: true, kernelRuntimeMode: true, keepLogs: true,
+  cleanupPreviewCacheOnExit: true, ignoredReleaseTag: true, completionSound: true,
+  completionNotification: true,
+};
+const exportKeys = Object.keys(exportFields) as Array<keyof CompatibilityExportInput>;
+
+export function createCompatibilityExportChangeDetector(): (input: CompatibilityExportInput) => boolean {
+  let previousValues: unknown[] | null = null;
+  let previousPreferences = "";
+  let previousFingerprint = "";
+  return (input) => {
+    const values = exportKeys.map((key) => input[key]);
+    const preferences = JSON.stringify([
+      readLocalStorageString(advancedFloatingPanelStorageKey()),
+      readLocalStorageString("gptcodex.outputDir"),
+      readLocalStorageString("gptcodex.trustedOutputRoots"),
+      readLocalStorageString("gptcodex.savePromptSuppressed"),
+    ]);
+    if (previousValues && preferences === previousPreferences
+        && values.every((value, index) => Object.is(value, previousValues![index]))) return false;
+
+    const fingerprint = compatibilityExportFingerprint(input);
+    previousValues = values;
+    previousPreferences = preferences;
+    if (fingerprint === previousFingerprint) return false;
+    previousFingerprint = fingerprint;
+    return true;
+  };
+}
 
 export async function importCompatibilityStateIfNewer(): Promise<boolean> {
   const state = normalizeCompatibilityState(await LoadCompatibilityState());
@@ -142,13 +180,28 @@ export async function importCompatibilityStateIfNewer(): Promise<boolean> {
 
 export function scheduleCompatibilityExport(input: CompatibilityExportInput): void {
   if (exportTimer) clearTimeout(exportTimer);
-  const snapshot = cloneExportInput(input);
+  // Store actions replace arrays/objects. Keep only their immutable references
+  // until the debounce fires; superseded events must not clone the full archive.
+  pendingExportInput = Object.fromEntries(exportKeys.map((key) => [key, input[key]])) as CompatibilityExportInput;
   exportTimer = setTimeout(() => {
     exportTimer = null;
-    void exportCompatibilityStateNow(snapshot).catch((error) => {
-      if (typeof console !== "undefined") console.warn("compat export failed", error);
-    });
+    void flushCompatibilityExport();
   }, 250);
+}
+
+async function flushCompatibilityExport(): Promise<void> {
+  if (exportInFlight || !pendingExportInput) return;
+  const snapshot = pendingExportInput;
+  pendingExportInput = null;
+  exportInFlight = true;
+  try {
+    await exportCompatibilityStateNow(cloneExportInput(snapshot));
+  } catch (error) {
+    if (typeof console !== "undefined") console.warn("compat export failed", error);
+  } finally {
+    exportInFlight = false;
+    if (pendingExportInput && !exportTimer) void flushCompatibilityExport();
+  }
 }
 
 export async function exportCompatibilityStateNow(input: CompatibilityExportInput): Promise<void> {
